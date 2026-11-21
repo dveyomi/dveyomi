@@ -11,7 +11,8 @@ const { saveExpense, deleteTransaction, redirect, getUserId } = vi.hoisted(() =>
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}), getUserId }));
 vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/lib/today", () => ({ getToday: async () => "2026-11-21" }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+const { revalidatePath } = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("@/lib/data/transactions", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/data/transactions")>()),
   saveExpense,
@@ -20,7 +21,7 @@ vi.mock("@/lib/data/transactions", async (importOriginal) => ({
 
 import { NameTakenError } from "@/lib/data/budgetEdit";
 import { MissingReferenceError, TransactionNotFoundError } from "@/lib/data/transactions";
-import { deleteExpenseAction, saveExpenseAction } from "./actions";
+import { deleteExpenseAction, removeExpenseAction, saveExpenseAction } from "./actions";
 
 const GROCERIES = "11111111-1111-4111-8111-111111111111";
 const TXN = "22222222-2222-4222-8222-222222222222";
@@ -121,5 +122,44 @@ describe("deleteExpenseAction", () => {
   it("an expense already gone asks for a reload", async () => {
     deleteTransaction.mockRejectedValue(new TransactionNotFoundError());
     expect(await deleteExpenseAction({ id: TXN })).toEqual({ error: new TransactionNotFoundError().message });
+  });
+});
+
+describe("removeExpenseAction (delete in place, from the day sheet)", () => {
+  beforeEach(() => {
+    deleteTransaction.mockReset().mockResolvedValue(undefined);
+    getUserId.mockReset().mockResolvedValue("user-1");
+    revalidatePath.mockReset();
+  });
+
+  it("deletes the expense and refreshes the pages, without redirecting", async () => {
+    expect(await removeExpenseAction(TXN)).toEqual({});
+    expect(deleteTransaction).toHaveBeenCalledWith({}, TXN);
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
+  });
+
+  it.each(["x", undefined, 42])("refuses a malformed id (%s)", async (id) => {
+    expect(await removeExpenseAction(id)).toEqual({ error: expect.any(String) });
+    expect(deleteTransaction).not.toHaveBeenCalled();
+  });
+
+  it("an expense already gone asks for a reload", async () => {
+    deleteTransaction.mockRejectedValue(new TransactionNotFoundError());
+    expect(await removeExpenseAction(TXN)).toEqual({ error: new TransactionNotFoundError().message });
+  });
+
+  it("explains an unexpected failure", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    deleteTransaction.mockRejectedValue(new Error("boom"));
+    expect(await removeExpenseAction(TXN)).toEqual({
+      error: "We couldn't delete this expense. Check your connection and try again.",
+    });
+    spy.mockRestore();
+  });
+
+  it("sends signed-out callers to /login", async () => {
+    getUserId.mockResolvedValue(null);
+    await expect(removeExpenseAction(TXN)).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(deleteTransaction).not.toHaveBeenCalled();
   });
 });

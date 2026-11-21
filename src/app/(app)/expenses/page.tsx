@@ -1,16 +1,35 @@
 import type { Metadata } from "next";
-import { Card, EmptyState } from "@/components/ui";
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui";
+import { ExpensesContent } from "./ExpensesContent";
 
 export const metadata: Metadata = { title: "Expenses · Personal Finance OS" };
 
-/** Placeholder until this screen is built. */
-export default function Page() {
+export default function Page({ searchParams }: PageProps<"/expenses">) {
   return (
     <div className="mx-auto flex w-full max-w-phone flex-col gap-4 px-4 py-6 md:mx-0 md:max-w-none md:p-8">
       <h1 className="text-title font-semibold text-text">Expenses</h1>
-      <Card>
-        <EmptyState icon="wallet" title="No expenses yet" body="Expenses you add will show here, by day and by category." />
-      </Card>
+      <Suspense fallback={<ExpensesSkeleton />}>
+        <ExpensesContent searchParams={searchParams} />
+      </Suspense>
+    </div>
+  );
+}
+
+function ExpensesSkeleton() {
+  return (
+    <div className="flex flex-col gap-4">
+      <Skeleton shape="segments" />
+      <div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
+        <div className="flex flex-col gap-4 lg:col-span-2">
+          <Skeleton shape="card" />
+          <Skeleton shape="card" />
+        </div>
+        <div className="flex flex-col gap-4">
+          <Skeleton shape="card" />
+          <Skeleton shape="card" />
+        </div>
+      </div>
     </div>
   );
 }

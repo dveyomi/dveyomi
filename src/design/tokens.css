@@ -69,6 +69,15 @@
   --border-strong: #7A7D83; /* form control boundaries: >= 3:1 on card and card-raised */
   --scrim: rgb(17 17 19 / 0.4); /* behind sheets and dialogs */
 
+  /* Chart series (categorical, fixed order; validated for colour-vision deficiency).
+     Fills for marks only: labels and values stay in text tokens. */
+  --chart-1: #2A78D6;
+  --chart-2: #EB6834;
+  --chart-3: #1BAF7A;
+  --chart-4: #EDA100;
+  --chart-5: #E87BA4;
+  --chart-other: #C9CBCF; /* everything folded into "Other": a deliberate neutral, set apart from slot 5 */
+
   /* Elevation */
   --shadow-sheet: 0 -8px 32px rgb(17 17 19 / 0.12);
   --shadow-float: 0 8px 24px rgb(17 17 19 / 0.12); /* floating phone nav */
@@ -96,6 +105,14 @@
   --border: #2A2B2E;
   --border-strong: #6B6E74;
   --scrim: rgb(0 0 0 / 0.64);
+
+  /* Chart series: the same hues stepped for the dark surface. */
+  --chart-1: #3987E5;
+  --chart-2: #D95926;
+  --chart-3: #199E70;
+  --chart-4: #C98500;
+  --chart-5: #D55181;
+  --chart-other: #45484D;
 
   /* Elevation */
   --shadow-sheet: 0 -8px 32px rgb(0 0 0 / 0.5);
@@ -128,6 +145,14 @@
     --border: #2A2B2E;
     --border-strong: #6B6E74;
     --scrim: rgb(0 0 0 / 0.64);
+
+  /* Chart series: the same hues stepped for the dark surface. */
+  --chart-1: #3987E5;
+  --chart-2: #D95926;
+  --chart-3: #199E70;
+  --chart-4: #C98500;
+  --chart-5: #D55181;
+  --chart-other: #45484D;
 
     /* Elevation */
     --shadow-sheet: 0 -8px 32px rgb(0 0 0 / 0.5);

@@ -7,6 +7,8 @@ export { ButtonLink } from "./ButtonLink";
 export { Card } from "./Card";
 export { Chip } from "./Chip";
 export { ConfirmDialog } from "./ConfirmDialog";
+export { Donut, SeriesSwatch } from "./Donut";
+export type { DonutSlice, Series } from "./Donut";
 export { EmptyState } from "./EmptyState";
 export { Gauge } from "./Gauge";
 export { Icon, iconNames } from "./Icon";

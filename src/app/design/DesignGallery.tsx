@@ -10,6 +10,7 @@ import {
   Card,
   Chip,
   ConfirmDialog,
+  Donut,
   EmptyState,
   Gauge,
   Icon,
@@ -22,6 +23,7 @@ import {
   RadioSegments,
   SegmentedTabs,
   Select,
+  SeriesSwatch,
   Skeleton,
   StatusBadge,
   TextField,
@@ -45,7 +47,22 @@ const colours = [
   ["--positive", "bg-positive"],
   ["--positive-fg", "bg-positive-fg"],
   ["--border-strong", "bg-border-strong"],
+  ["--chart-1", "bg-chart-1"],
+  ["--chart-2", "bg-chart-2"],
+  ["--chart-3", "bg-chart-3"],
+  ["--chart-4", "bg-chart-4"],
+  ["--chart-5", "bg-chart-5"],
+  ["--chart-other", "bg-chart-other"],
 ] as const;
+
+const donutSlices = [
+  { key: "rent", label: "Rent", pence: 95000, percent: 52, series: 1 as const },
+  { key: "groceries", label: "Groceries", pence: 32000, percent: 18, series: 2 as const },
+  { key: "travel", label: "Travel", pence: 21000, percent: 12, series: 3 as const },
+  { key: "eating", label: "Eating out", pence: 15000, percent: 8, series: 4 as const },
+  { key: "music", label: "Music", pence: 9000, percent: 5, series: 5 as const },
+  { key: "other", label: "Other", pence: 9000, percent: 5, series: "other" as const },
+];
 
 const typeScale = [
   ["--text-display", "text-display font-semibold", "£4,301.78"],
@@ -296,6 +313,35 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
               </div>
             ))}
           </Card>
+        </Widths>
+      </Section>
+
+      <Section title="Donut and SeriesSwatch">
+        <Widths>
+          <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-2">
+            <Card className="flex flex-col gap-4">
+              <Donut label="Spending by category" slices={donutSlices}>
+                <Money pence={181000} size="title" />
+                <Label>Spent in November</Label>
+              </Donut>
+              <ul className="flex flex-col gap-2">
+                {donutSlices.map((s) => (
+                  <li key={s.key} className="flex items-center gap-3 text-body">
+                    <SeriesSwatch series={s.series} />
+                    <span className="flex-1">{s.label}</span>
+                    <span className="text-caption text-muted">{s.percent}%</span>
+                    <Money pence={s.pence} />
+                  </li>
+                ))}
+              </ul>
+            </Card>
+            <Card>
+              <Donut label="Nothing spent" slices={[]}>
+                <Money pence={0} size="title" />
+                <Label>No expenses yet</Label>
+              </Donut>
+            </Card>
+          </div>
         </Widths>
       </Section>
 

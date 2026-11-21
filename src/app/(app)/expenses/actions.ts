@@ -69,3 +69,24 @@ export async function deleteExpenseAction(rawTarget: Target): Promise<ExpenseAct
   revalidatePath("/", "layout");
   redirect(safeNext(target.returnTo, DEFAULT_RETURN));
 }
+
+/**
+ * Deletes an expense where it is listed (the calendar's day sheet) and
+ * refreshes the pages; the caller stays where it is. `id` is untrusted; RLS
+ * keeps the delete to the signed-in user's own expenses.
+ */
+export async function removeExpenseAction(id: unknown): Promise<{ error?: string }> {
+  if (!(await getUserId())) redirect("/login");
+  if (!isId(id)) return { error: "This expense wasn't recognised." };
+
+  try {
+    await deleteTransaction(await createClient(), id);
+  } catch (e) {
+    const known = knownError(e);
+    if (known) return { error: known };
+    console.error("deleteTransaction failed", e);
+    return { error: "We couldn't delete this expense. Check your connection and try again." };
+  }
+  revalidatePath("/", "layout");
+  return {};
+}

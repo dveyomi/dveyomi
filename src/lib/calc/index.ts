@@ -1,4 +1,4 @@
-export { parsePence, parseOptionalPence, penceToInputText, formatGBP, divRound } from "./money";
+export { parsePence, parseOptionalPence, penceToInputText, formatGBP, formatGBPShort, divRound } from "./money";
 export {
   addDays,
   daysBetween,
@@ -12,7 +12,7 @@ export {
   todayIn,
 } from "./dates";
 export type { IsoDate } from "./dates";
-export { periodContaining, daysLeft, previousPeriod } from "./periods";
+export { periodContaining, periodStartingInMonth, daysLeft, previousPeriod } from "./periods";
 export type { Period } from "./periods";
 export { summarise } from "./budget";
 export { percentLeft, leftToSpendPercent, overBudgetPence } from "./figures";
@@ -35,3 +35,13 @@ export { leftoverBreakdown, categoriesOverTwiceInThree, suggestedBudget } from "
 export type { LeftoverSource } from "./leftover";
 export { allocationTotals, splitRemainder } from "./setup";
 export type { AllocationTotals, PlannedAllocation } from "./setup";
+export {
+  calendarWeeks,
+  expenseWindow,
+  foldCategories,
+  formatMonthYear,
+  isYearMonth,
+  shiftYearMonth,
+  summariseExpenses,
+} from "./expenses";
+export type { CategoryShare, CategorySlice, ExpenseRange, ExpensesSummary, ExpenseWindow, YearMonth } from "./expenses";

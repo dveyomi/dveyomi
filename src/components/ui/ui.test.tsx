@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { StrictMode, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -8,6 +8,8 @@ import {
   ButtonLink,
   Chip,
   ConfirmDialog,
+  Donut,
+  SeriesSwatch,
   Gauge,
   IconButton,
   Money,
@@ -489,5 +491,52 @@ describe("IconButton variant", () => {
   it("defaults to the neutral raised style", () => {
     render(<IconButton icon="close" label="Close" />);
     expect(screen.getByRole("button", { name: "Close" })).toHaveClass("bg-card-raised", "text-text");
+  });
+});
+
+describe("Donut", () => {
+  const slices = [
+    { key: "travel", label: "Travel", pence: 3500, percent: 74, series: 1 as const },
+    { key: "food", label: "Groceries", pence: 1250, percent: 26, series: 2 as const },
+  ];
+
+  it("draws one token-coloured arc per slice, hidden from assistive tech", () => {
+    const { container } = render(<Donut label="Spending by category" slices={slices} />);
+    const svg = container.querySelector("svg")!;
+    expect(svg).toHaveAttribute("aria-hidden", "true");
+    const arcs = svg.querySelectorAll("[data-slice]");
+    expect(arcs).toHaveLength(2);
+    expect(arcs[0].getAttribute("class")).toContain("stroke-chart-1");
+    expect(arcs[1].getAttribute("class")).toContain("stroke-chart-2");
+  });
+
+  it("gives a table alternative with each slice's name, amount and share", () => {
+    render(<Donut label="Spending by category" slices={slices} />);
+    const table = screen.getByRole("table", { name: "Spending by category" });
+    const rows = within(table).getAllByRole("row").map((r) => r.textContent);
+    expect(rows).toEqual(["CategoryAmountShare", "Travel£35.0074%", "Groceries£12.5026%"]);
+  });
+
+  it("shows only the track with nothing to draw, and the centre content", () => {
+    const { container } = render(
+      <Donut label="Spending by category" slices={[]}>
+        <span>£0.00</span>
+      </Donut>,
+    );
+    expect(container.querySelectorAll("[data-slice]")).toHaveLength(0);
+    expect(screen.getByText("£0.00")).toBeInTheDocument();
+  });
+
+  it("an Other slice uses the neutral series colour", () => {
+    const { container } = render(
+      <Donut label="x" slices={[{ key: "other", label: "Other", pence: 100, percent: 100, series: "other" }]} />,
+    );
+    expect(container.querySelector("[data-slice]")!.getAttribute("class")).toContain("stroke-chart-other");
+  });
+
+  it("SeriesSwatch marks a legend row with the slice's colour, hidden from assistive tech", () => {
+    const { container } = render(<SeriesSwatch series={3} />);
+    expect(container.firstChild).toHaveClass("bg-chart-3");
+    expect(container.firstChild).toHaveAttribute("aria-hidden", "true");
   });
 });

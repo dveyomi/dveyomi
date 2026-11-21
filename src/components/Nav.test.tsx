@@ -76,7 +76,7 @@ describe("Nav", () => {
     },
   );
 
-  it.each(["/expenses", "/budget", "/budget/abc", "/settings"])("shows the phone pill on %s", (path) => {
+  it.each(["/expenses", "/expenses/trips", "/expenses/2026-11", "/expenses/11111111-1111-4111-8111-111111111111/more", "/budget", "/budget/abc", "/settings"])("shows the phone pill on %s", (path) => {
     pathname = path;
     render(<Nav />);
     expect(nav()).not.toHaveClass("hidden");

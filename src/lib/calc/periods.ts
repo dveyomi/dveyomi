@@ -24,6 +24,12 @@ function periodStartingIn(year: number, month: number, startDay: number): Period
   return { start, end: addDays(nextStart, -1), nextStart };
 }
 
+/** The period that starts in month `yearMonth` ("2026-11"). With start day 1 it is that calendar month. */
+export function periodStartingInMonth(yearMonth: string, startDay: number): Period {
+  const [y, m] = yearMonth.split("-").map(Number);
+  return periodStartingIn(y, m, startDay);
+}
+
 export function periodContaining(date: IsoDate, startDay: number): Period {
   const [y, m] = date.split("-").map(Number);
   if (date >= startInMonth(y, m, startDay)) return periodStartingIn(y, m, startDay);

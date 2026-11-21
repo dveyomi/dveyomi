@@ -13,8 +13,8 @@ const tabs: { href: string; label: string; icon: IconName }[] = [
   { href: "/settings", label: "Settings", icon: "settings" },
 ];
 
-/** The add/edit expense form: a focused sheet with its own close and save. */
-const EXPENSE_FORM = /^\/expenses\/[^/]+$/;
+/** The add/edit expense form (/expenses/new, /expenses/<uuid>): a focused sheet with its own close and save. Other /expenses/* pages keep the nav. */
+const EXPENSE_FORM = /^\/expenses\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 function isCurrent(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);

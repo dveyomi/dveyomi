@@ -30,6 +30,10 @@ Rule: a fill token never colours text, icons, strokes, outlines or borders. `tok
 
 Contrast is tested in both themes: text and muted are at least 4.5:1 on bg, card and card-raised; every `-fg` is at least 4.5:1 on bg and card; `--accent-ink` is at least 4.5:1 on `--accent`; `--border-strong` is at least 3:1 on card and card-raised.
 
+## Chart colours
+
+`--chart-1` … `--chart-5` are categorical series fills in a fixed order (blue, orange, aqua, yellow, magenta), stepped separately for each theme and checked with the dataviz palette validator (colour-vision separation of neighbours, normal-vision floor). `--chart-other` is a deliberate neutral for the slice that folds the rest together. They colour marks only (`stroke-chart-1`, `bg-chart-1` for a legend swatch); names, values and percentages stay in text tokens. Some light-theme fills are under 3:1 on white, so a chart always ships with visible labels: the Donut has a table alternative and screens pair it with a legend list (`SeriesSwatch`).
+
 ## Adding a colour token
 
 1. Add it to the light `:root` block **and** to `:root[data-theme="dark"]`. Copy the dark line into the `[data-theme="system"]` block inside the media query too.
@@ -73,7 +77,7 @@ Tailwind also writes self-referencing copies such as `--text-display: var(--text
 
 All components are exported from `@/components/ui`:
 
-`Button`, `ButtonLink` (a link that looks like a Button), `IconButton`, `Card`, `ProgressBar`, `Gauge`, `Badge`, `StatusBadge`, `Money`, `Notice` (tinted callout: danger, warning, neutral), `AmountInput`, `TextField`, `Select`, `Toggle`, `SegmentedTabs` (switch views; tablist), `RadioSegments` (pick one setting; radiogroup; arrows, Home and End), `Skeleton` (placeholder while request-time content streams in), `BottomSheet`, `ConfirmDialog`, `ListRow`, `EmptyState`, `Chip`, `Icon` (a single inline SVG set, where `IconName` is a string union).
+`Button`, `ButtonLink` (a link that looks like a Button), `IconButton`, `Card`, `ProgressBar`, `Gauge`, `Badge`, `StatusBadge`, `Money`, `Notice` (tinted callout: danger, warning, neutral), `AmountInput`, `TextField`, `Select`, `Toggle`, `SegmentedTabs` (switch views; tablist), `RadioSegments` (pick one setting; radiogroup; arrows, Home and End), `Skeleton` (placeholder while request-time content streams in), `Donut` (part-to-whole ring with a table alternative) and `SeriesSwatch` (its legend key), `BottomSheet`, `ConfirmDialog`, `ListRow`, `EmptyState`, `Chip`, `Icon` (a single inline SVG set, where `IconName` is a string union).
 
 `/design` is a living gallery that shows every token and every component in each of its variants and states, at phone width (390) and at desktop width. A theme switch at the top shows it in light, dark or the device's setting. It is available only in development: in production it returns `notFound()`.
 
