@@ -3,3 +3,12 @@ export { addDays, daysBetween, lastDayOfMonth, todayIn } from "./dates";
 export type { IsoDate } from "./dates";
 export { periodContaining, daysLeft, previousPeriod } from "./periods";
 export type { Period } from "./periods";
+export { summarise } from "./budget";
+export type {
+  Txn,
+  Allocation,
+  PeriodBudget,
+  CategoryFigure,
+  BudgetStatus,
+  BudgetSummary,
+} from "./budget";
