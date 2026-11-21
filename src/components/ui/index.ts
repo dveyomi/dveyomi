@@ -20,6 +20,8 @@ export { Notice } from "./Notice";
 export { ProgressBar } from "./ProgressBar";
 export { Select } from "./Select";
 export type { SelectGroup, SelectOption } from "./Select";
+export { RadioCards } from "./RadioCards";
+export type { RadioCardOption } from "./RadioCards";
 export { RadioSegments } from "./RadioSegments";
 export { SegmentedTabs } from "./SegmentedTabs";
 export { Skeleton } from "./Skeleton";

@@ -39,6 +39,7 @@ export {
   currentAmount,
   recurringStatus,
   freedByPause,
+  freedInPeriod,
   nameKey,
   detectRecurring,
   DETECTION_WINDOW_DAYS,

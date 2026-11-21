@@ -122,6 +122,19 @@ export function freedByPause(rule: Rule, prices: Price[], until: IsoDate, period
   return dueOccurrences(rule, from, to).reduce((sum, d) => sum + amountOn(prices, d), 0);
 }
 
+/**
+ * What a rule's pauses and skips kept out of `period` (an ended period's
+ * review): the payments due in it that were paused or skipped, each at its
+ * own date's price (the first price before any applies). `paidDates` are
+ * dates the rule's payment was recorded anyway (before a later pause), so
+ * nothing was freed on them.
+ */
+export function freedInPeriod(rule: Rule, prices: Price[], period: Period, paidDates: IsoDate[] = []): number {
+  return scheduleBetween(rule, period.start, period.end)
+    .filter((o) => o.skipped && !paidDates.includes(o.date))
+    .reduce((sum, o) => sum + currentAmount(prices, o.date), 0);
+}
+
 /** A payment name compared loosely: trimmed, lower case, single spaces. */
 export function nameKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");

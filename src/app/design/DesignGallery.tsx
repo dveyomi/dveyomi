@@ -20,6 +20,7 @@ import {
   Money,
   Notice,
   ProgressBar,
+  RadioCards,
   RadioSegments,
   SegmentedTabs,
   Select,
@@ -139,6 +140,7 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
   const [toggle, setToggle] = useState(true);
   const [chip, setChip] = useState("groceries");
   const [repeat, setRepeat] = useState<"weekly" | "monthly" | "yearly">("monthly");
+  const [leftover, setLeftover] = useState<string | null>("next_period");
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 md:px-8">
@@ -444,6 +446,19 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
                 { value: "weekly", label: "Weekly" },
                 { value: "monthly", label: "Monthly" },
                 { value: "yearly", label: "Yearly" },
+              ]}
+            />
+          </Card>
+          <Label>RadioCards: pick one choice that needs explaining (native radios), inside a Card</Label>
+          <Card>
+            <RadioCards
+              label="Where your leftover goes"
+              value={leftover}
+              onChange={setLeftover}
+              options={[
+                { value: "fund", title: "Move to a fund", description: "Add it to one of your savings funds." },
+                { value: "next_period", title: "Add to next budget", description: "Spend it in this budget." },
+                { value: "unassigned", title: "Keep unassigned" },
               ]}
             />
           </Card>

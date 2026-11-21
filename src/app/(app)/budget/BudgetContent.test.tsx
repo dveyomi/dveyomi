@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { loadBudgetView, loadSavingView, redirect, getUserId } = vi.hoisted(() => ({
+const { loadBudgetView, loadSavingView, loadReviewStatus, redirect, getUserId } = vi.hoisted(() => ({
   loadBudgetView: vi.fn(),
   loadSavingView: vi.fn(),
+  loadReviewStatus: vi.fn(),
   getUserId: vi.fn(async (): Promise<string | null> => "user-1"),
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`);
@@ -12,6 +13,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}), getUse
 vi.mock("@/lib/today", () => ({ getToday: async () => "2026-11-21" }));
 vi.mock("@/lib/data/budget", () => ({ loadBudgetView }));
 vi.mock("@/lib/data/funds", () => ({ loadSavingView }));
+vi.mock("@/lib/data/review", () => ({ loadReviewStatus }));
 vi.mock("next/navigation", () => ({ redirect }));
 
 import { BudgetContent } from "./BudgetContent";
@@ -23,6 +25,7 @@ describe("BudgetContent", () => {
   beforeEach(() => {
     loadBudgetView.mockReset();
     loadSavingView.mockReset().mockResolvedValue({ funds: [], waiting: [] });
+    loadReviewStatus.mockReset().mockResolvedValue({ pending: null, carried: [], nudgePence: null });
     redirect.mockClear();
     getUserId.mockClear();
   });
@@ -49,5 +52,14 @@ describe("BudgetContent", () => {
     const other = await BudgetContent({ searchParams: params("nonsense") });
     expect(other.props.tab).toBe("spending");
     expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("passes the review status, and confirms a finished review", async () => {
+    const review = { pending: { periodId: "p", monthLabel: "October" }, carried: [], nudgePence: 25000 };
+    loadReviewStatus.mockResolvedValue(review);
+    loadBudgetView.mockResolvedValue({ period, summary: { categories: [] }, categories: [] });
+    const page = await BudgetContent({ searchParams: Promise.resolve({ reviewed: "1" }) });
+    expect(page.props).toMatchObject({ review, notice: "reviewed" });
+    expect(loadReviewStatus).toHaveBeenCalledWith({}, "2026-11-21");
   });
 });

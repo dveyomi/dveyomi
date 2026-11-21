@@ -9,7 +9,7 @@ import {
   type Txn,
 } from "@/lib/calc";
 import { ensureCurrentPeriod } from "./ensurePeriod";
-import type { CategoryRow, Db } from "./types";
+import type { CategoryRow, Db, PeriodRow } from "./types";
 
 export type BudgetView = { period: Period; summary: BudgetSummary | null; categories: CategoryRow[] };
 
@@ -33,6 +33,17 @@ export async function loadBudgetView(supabase: Db, today: IsoDate): Promise<Budg
     return { period: periodContaining(today, profile.data.budget_start_day), summary: null, categories };
   }
 
+  const { period, summary } = await summariseRow(supabase, row, categories, today);
+  return { period, summary, categories };
+}
+
+/** A stored period's figures, from its row, allocations and in-period transactions (`summarise`). `categories` gives each allocation its kind. */
+export async function summariseRow(
+  supabase: Db,
+  row: PeriodRow,
+  categories: Pick<CategoryRow, "id" | "kind">[],
+  today: IsoDate,
+): Promise<{ period: Period; summary: BudgetSummary }> {
   const period: Period = { start: row.start_date, end: row.end_date, nextStart: addDays(row.end_date, 1) };
 
   const [allocationsRes, txnsRes] = await Promise.all([
@@ -70,6 +81,24 @@ export async function loadBudgetView(supabase: Db, today: IsoDate): Promise<Budg
     txns,
     period,
     today,
-  );
-  return { period, summary, categories };
+  )!;
+  return { period, summary };
+}
+
+export type PeriodSummary = { row: PeriodRow; period: Period; summary: BudgetSummary };
+
+/**
+ * Any stored period's figures, built the way loadBudgetView builds the
+ * current one. `today` sets days left and pace: for an ended period pass its
+ * end date. Throws when the period isn't the user's.
+ */
+export async function loadPeriodSummary(supabase: Db, periodId: string, today: IsoDate): Promise<PeriodSummary> {
+  const [rowRes, categoriesRes] = await Promise.all([
+    supabase.from("budget_periods").select("*").eq("id", periodId).single(),
+    supabase.from("categories").select("id, kind"),
+  ]);
+  if (rowRes.error) throw rowRes.error;
+  if (categoriesRes.error) throw categoriesRes.error;
+  const categories = categoriesRes.data.map((c) => ({ id: c.id, kind: c.kind as CategoryRow["kind"] }));
+  return { row: rowRes.data, ...(await summariseRow(supabase, rowRes.data, categories, today)) };
 }

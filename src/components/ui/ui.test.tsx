@@ -15,6 +15,7 @@ import {
   Money,
   Notice,
   ProgressBar,
+  RadioCards,
   RadioSegments,
   Select,
   Skeleton,
@@ -413,6 +414,53 @@ describe("RadioSegments", () => {
   it("every option is at least 44px tall", () => {
     render(<Controlled />);
     for (const radio of screen.getAllByRole("radio")) expect(radio.className).toMatch(TAP_44);
+  });
+});
+
+describe("RadioCards", () => {
+  const options = [
+    { value: "fund", title: "Move to a fund", description: "Add it to your savings." },
+    { value: "next", title: "Add to next budget", description: "Spend it this month." },
+  ];
+
+  function Controlled({ onChange = () => {} }: { onChange?: (v: string) => void }) {
+    const [value, setValue] = useState<string | null>(null);
+    return (
+      <RadioCards
+        label="Where it goes"
+        options={options}
+        value={value}
+        onChange={(v) => {
+          setValue(v);
+          onChange(v);
+        }}
+      />
+    );
+  }
+
+  it("is a labelled group of native radios, named by title and described by the description, none checked at first", () => {
+    render(<Controlled />);
+    expect(screen.getByRole("radiogroup", { name: "Where it goes" })).toBeInTheDocument();
+    const fund = screen.getByRole("radio", { name: "Move to a fund" });
+    expect(fund).toHaveAccessibleDescription("Add it to your savings.");
+    expect(fund).not.toBeChecked();
+  });
+
+  it("selects on click and reports the value", () => {
+    const onChange = vi.fn();
+    render(<Controlled onChange={onChange} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Add to next budget" }));
+    expect(onChange).toHaveBeenCalledWith("next");
+    expect(screen.getByRole("radio", { name: "Add to next budget" })).toBeChecked();
+  });
+
+  it("marks the checked card with an accent-fg edge, and every card is at least 44px tall", () => {
+    render(<Controlled />);
+    fireEvent.click(screen.getByRole("radio", { name: "Move to a fund" }));
+    const cards = screen.getAllByRole("radio").map((r) => r.closest("label")!);
+    expect(cards[0]).toHaveClass("border-accent-fg");
+    expect(cards[1]).not.toHaveClass("border-accent-fg");
+    for (const card of cards) expect(card.className).toMatch(TAP_44);
   });
 });
 

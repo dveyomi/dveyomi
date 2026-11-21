@@ -6,6 +6,7 @@ import {
   detectRecurring,
   dueOccurrences,
   freedByPause,
+  freedInPeriod,
   nameKey,
   nextDue,
   recurringStatus,
@@ -161,6 +162,29 @@ describe("freedByPause", () => {
   it("uses each date's price", () => {
     const changing = [...prices, { effectiveFrom: "2026-11-30", amountPence: 1500 }];
     expect(freedByPause(rule({}), changing, "2027-03-01", period, "2026-11-21")).toBe(2500);
+  });
+});
+
+describe("freedInPeriod", () => {
+  const october = { start: "2026-10-01", end: "2026-10-31", nextStart: "2026-11-01" };
+  const prices = [{ effectiveFrom: "2026-09-01", amountPence: 1000 }];
+  it("adds up the period's payments that were paused or skipped, each at its date's price", () => {
+    // Weekly from 5 Oct: 5, 12, 19, 26 Oct. Paused until 19 Oct (5 and 12 freed), 26 Oct skipped.
+    const r = rule({ anchorDate: "2026-10-05", pausedUntil: "2026-10-19", skippedDates: ["2026-10-26"] });
+    const changing = [...prices, { effectiveFrom: "2026-10-26", amountPence: 1500 }];
+    expect(freedInPeriod(r, changing, october)).toBe(3500);
+  });
+  it("is 0 when nothing in the period was paused or skipped", () => {
+    expect(freedInPeriod(rule({ anchorDate: "2026-10-05" }), prices, october)).toBe(0);
+    expect(freedInPeriod(rule({ anchorDate: "2026-10-05", pausedUntil: "2026-10-01" }), prices, october)).toBe(0);
+  });
+  it("prices a skipped payment before the first price at the first price", () => {
+    const later = [{ effectiveFrom: "2026-11-01", amountPence: 700 }];
+    expect(freedInPeriod(rule({ anchorDate: "2026-10-05", skippedDates: ["2026-10-12"] }), later, october)).toBe(700);
+  });
+  it("leaves out a paused date that was paid anyway (recorded before the pause)", () => {
+    const r = rule({ anchorDate: "2026-10-05", pausedUntil: "2026-10-19" });
+    expect(freedInPeriod(r, prices, october, ["2026-10-05"])).toBe(1000);
   });
 });
 

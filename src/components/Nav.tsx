@@ -13,8 +13,12 @@ const tabs: { href: string; label: string; icon: IconName }[] = [
   { href: "/settings", label: "Settings", icon: "settings" },
 ];
 
-/** The add/edit expense form (/expenses/new, /expenses/<uuid>): a focused sheet with its own close and save. Other /expenses/* pages keep the nav. */
-const EXPENSE_FORM = /^\/expenses\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+/**
+ * Focused screens with their own close: the add/edit expense form
+ * (/expenses/new, /expenses/<uuid>) and the period-end review (/review).
+ * Other /expenses/* pages keep the nav.
+ */
+const FOCUSED = /^\/(?:expenses\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})|review)$/i;
 
 function isCurrent(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -24,8 +28,8 @@ function isCurrent(pathname: string, href: string): boolean {
  * Main navigation, in one DOM order for every width: Expenses, Budget,
  * Settings, then +. Under 768px it floats above the bottom edge as a pill of
  * three tabs with a round + beside it. From 768px it is a left rail with
- * "Add expense" under the tabs. On the expense form (/expenses/new and
- * /expenses/[id]) the phone pill and + are hidden: the form has its own close
+ * "Add expense" under the tabs. On a focused screen (the expense form at
+ * /expenses/new and /expenses/[id], and /review) the phone pill and + are hidden: it has its own close
  * and save. The desktop rail stays.
  */
 export function Nav() {
@@ -38,7 +42,7 @@ export function Nav() {
  */
 export function NavBar({ pathname }: { pathname: string | null }) {
   const adding = pathname === ADD_HREF;
-  const onForm = pathname !== null && EXPENSE_FORM.test(pathname);
+  const onForm = pathname !== null && FOCUSED.test(pathname);
 
   return (
     <nav

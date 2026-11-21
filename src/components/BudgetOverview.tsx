@@ -4,6 +4,7 @@ import { categoryIcon } from "@/components/categoryIcon";
 import { SafeToSpendInfo } from "@/components/SafeToSpendInfo";
 import { SavedNotice, type SavedNoticeKind } from "@/components/SavedNotice";
 import { SavingTab } from "@/components/SavingTab";
+import { UnassignedNudge } from "@/components/UnassignedNudge";
 import { ButtonLink, Card, EmptyState, Gauge, Money, Notice, StatusBadge } from "@/components/ui";
 import {
   formatDaysLeft,
@@ -17,6 +18,7 @@ import {
   type Period,
 } from "@/lib/calc";
 import type { SavingView } from "@/lib/data/funds";
+import type { ReviewStatus } from "@/lib/data/review";
 import type { CategoryRow } from "@/lib/data/types";
 
 type BudgetOverviewProps = {
@@ -28,8 +30,10 @@ type BudgetOverviewProps = {
   saving: SavingView;
   /** The user's today, for dating money added to a fund. */
   today: IsoDate;
-  /** A confirmation after returning from the editor or the ⋯ menu. */
+  /** A confirmation after returning from the editor, the ⋯ menu or the review. */
   notice?: SavedNoticeKind;
+  /** An ended period waiting for review, leftovers carried in, and the unassigned nudge. */
+  review?: ReviewStatus;
 };
 
 const groups = [
@@ -39,7 +43,7 @@ const groups = [
 ] as const;
 
 /** The Budget tab (§5.4). Every figure is read from `summary`; nothing is worked out here. */
-export function BudgetOverview({ period, summary, categories, tab, saving, today, notice }: BudgetOverviewProps) {
+export function BudgetOverview({ period, summary, categories, tab, saving, today, notice, review }: BudgetOverviewProps) {
   if (!summary) {
     return (
       <Card>
@@ -62,6 +66,17 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
     <div className="grid items-start gap-6 lg:grid-cols-5">
       <section aria-label="This period" className="flex flex-col gap-4 lg:sticky lg:top-8 lg:col-span-2">
         <SavedNotice notice={notice} />
+        {review?.pending ? (
+          <Notice tone="neutral">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p>Your {review.pending.monthLabel} budget has ended.</p>
+              <ButtonLink href="/review" variant="primary">
+                Review it
+              </ButtonLink>
+            </div>
+          </Notice>
+        ) : null}
+        {review?.nudgePence ? <UnassignedNudge amountPence={review.nudgePence} /> : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <StatusBadge status={summary.status} />
@@ -119,6 +134,11 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
               <dd className="text-body font-semibold text-text">{formatShortDate(period.nextStart)}</dd>
             </Card>
           </dl>
+          {review?.carried.map((c, i) => (
+            <p key={i} className="text-caption text-muted">
+              Includes <Money pence={c.amountPence} tone="neutral" /> carried from {c.fromLabel}
+            </p>
+          ))}
         </Card>
 
         {summary.overAllocatedPence > 0 ? (

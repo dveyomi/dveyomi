@@ -68,6 +68,7 @@ export type Database = {
           end_date: string;
           id: string;
           income_pence: number;
+          reviewed_at: string | null;
           savings_pence: number;
           start_date: string;
           unassigned_carry_pence: number;
@@ -78,6 +79,7 @@ export type Database = {
           end_date: string;
           id?: string;
           income_pence: number;
+          reviewed_at?: string | null;
           savings_pence: number;
           start_date: string;
           unassigned_carry_pence?: number;
@@ -87,6 +89,7 @@ export type Database = {
           end_date?: string;
           id?: string;
           income_pence?: number;
+          reviewed_at?: string | null;
           savings_pence?: number;
           start_date?: string;
           unassigned_carry_pence?: number;
@@ -214,30 +217,43 @@ export type Database = {
       leftover_movements: {
         Row: {
           amount_pence: number;
+          carried_to_period_id: string | null;
           destination: string;
           fund_id: string | null;
           id: string;
+          nudge_dismissed_at: string | null;
           period_id: string;
           user_id: string;
         };
         ComputedFields: never;
         Insert: {
           amount_pence: number;
+          carried_to_period_id?: string | null;
           destination: string;
           fund_id?: string | null;
           id?: string;
+          nudge_dismissed_at?: string | null;
           period_id: string;
           user_id?: string;
         };
         Update: {
           amount_pence?: number;
+          carried_to_period_id?: string | null;
           destination?: string;
           fund_id?: string | null;
           id?: string;
+          nudge_dismissed_at?: string | null;
           period_id?: string;
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "leftover_movements_carried_to_fkey";
+            columns: ["carried_to_period_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "budget_periods";
+            referencedColumns: ["id", "user_id"];
+          },
           {
             foreignKeyName: "leftover_movements_fund_id_user_id_fkey";
             columns: ["fund_id", "user_id"];
@@ -573,6 +589,17 @@ export type Database = {
         Returns: string;
       };
       delete_category: { Args: { p_category_id: string; p_period_id: string }; Returns: undefined };
+      record_leftover: {
+        Args: {
+          p_amount_pence: number;
+          p_destination?: string;
+          p_fund_id?: string;
+          p_new_fund_name?: string;
+          p_period_id: string;
+          p_today: string;
+        };
+        Returns: undefined;
+      };
       remove_from_budget: {
         Args: { p_category_id: string; p_next_end: string; p_period_id: string; p_scope: string };
         Returns: undefined;
@@ -583,6 +610,7 @@ export type Database = {
           end_date: string;
           id: string;
           income_pence: number;
+          reviewed_at: string | null;
           savings_pence: number;
           start_date: string;
           unassigned_carry_pence: number;

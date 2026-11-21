@@ -141,6 +141,7 @@ const isUniqueViolation = (e: { code?: string } | null) => e?.code === "23505";
  * scope covers. New categories are created (or one with the same name
  * outside the budget is brought back); renamed and re-kinded ones are
  * updated. Throws NameTakenError when a name belongs to another category.
+ * Afterwards the unassigned-leftover nudge is dismissed.
  */
 export async function saveBudget(supabase: Db, today: IsoDate, input: BudgetEditInput): Promise<void> {
   const { periodId, nextEnd } = await editTarget(supabase, today);
@@ -160,6 +161,18 @@ export async function saveBudget(supabase: Db, today: IsoDate, input: BudgetEdit
   });
   if (isUniqueViolation(error)) throw new NameTakenError();
   if (error?.code === "P0002") throw new BudgetChangedError();
+  if (error) throw error;
+  // Editing the budget answers "Give every pound a job".
+  await dismissUnassignedNudge(supabase);
+}
+
+/** Hides the "Give every pound a job" nudge that keeping a leftover unassigned shows on the Budget tab. */
+export async function dismissUnassignedNudge(supabase: Db): Promise<void> {
+  const { error } = await supabase
+    .from("leftover_movements")
+    .update({ nudge_dismissed_at: new Date().toISOString() })
+    .eq("destination", "unassigned")
+    .is("nudge_dismissed_at", null);
   if (error) throw error;
 }
 

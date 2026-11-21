@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createSignedInUser, deleteUser, type TestUser } from "@/db/testClients";
-import { addDays, summarise, type IsoDate, type Period } from "@/lib/calc";
-import { loadBudgetView } from "./budget";
+import type { IsoDate } from "@/lib/calc";
+import { loadBudgetView, loadPeriodSummary } from "./budget";
 import { NameTakenError } from "./budgetEdit";
+import type { Db } from "./types";
 import { createCategory } from "./category";
 import {
   createTransaction,
@@ -41,28 +42,11 @@ async function insertPeriod(u: TestUser, start: IsoDate, end: IsoDate, allocatio
   if (ins.error) throw ins.error;
 }
 
-/** `summarise` for any stored period, built from its rows the way loadBudgetView builds the current one. */
+/** `summarise` for any stored period, the way loadBudgetView builds the current one. */
 async function summariseStored(u: TestUser, start: IsoDate) {
-  const { data: row, error } = await u.client.from("budget_periods").select("*").eq("start_date", start).single();
+  const { data: row, error } = await u.client.from("budget_periods").select("id").eq("start_date", start).single();
   if (error) throw error;
-  const period: Period = { start: row.start_date, end: row.end_date, nextStart: addDays(row.end_date, 1) };
-  const [allocs, txns, cats] = await Promise.all([
-    u.client.from("allocations").select("category_id, amount_pence").eq("period_id", row.id),
-    u.client.from("transactions").select("id, amount_pence, date, category_id, fund_id").gte("date", period.start).lte("date", period.end),
-    u.client.from("categories").select("id, kind"),
-  ]);
-  const kindOf = new Map(cats.data!.map((c) => [c.id, c.kind as "need" | "want"]));
-  return summarise(
-    {
-      incomePence: row.income_pence,
-      savingsPence: row.savings_pence,
-      unassignedCarryPence: row.unassigned_carry_pence,
-      allocations: allocs.data!.map((a) => ({ categoryId: a.category_id, kind: kindOf.get(a.category_id)!, amountPence: a.amount_pence })),
-    },
-    txns.data!.map((t) => ({ id: t.id, amountPence: t.amount_pence, date: t.date, categoryId: t.category_id, fundId: t.fund_id })),
-    period,
-    TODAY,
-  )!;
+  return (await loadPeriodSummary(u.client as unknown as Db, row.id, TODAY)).summary;
 }
 
 /** A user with October (past) and November (current) budgets, a past expense of £50 and a current one of £25. */
