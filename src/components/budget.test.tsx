@@ -258,7 +258,7 @@ describe("CategoryDetail", () => {
 
   it("logs an expense with the category chosen", () => {
     render(<CategoryDetail inUse={null} period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
-    expect(screen.getByRole("link", { name: /log expense/i })).toHaveAttribute("href", "/expenses/new?category=travel");
+    expect(screen.getByRole("link", { name: /log expense/i })).toHaveAttribute("href", "/expenses/new?category=travel&returnTo=/budget/travel");
   });
 
   it("offers Edit budget in the ⋯ menu", () => {

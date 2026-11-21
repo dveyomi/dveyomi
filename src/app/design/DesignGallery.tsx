@@ -209,6 +209,7 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
             <IconButton icon="plus" label="Add" />
             <IconButton icon="edit" label="Edit" />
             <IconButton icon="close" label="Close" disabled />
+            <IconButton icon="check" label="Save" variant="primary" />
           </div>
           <Button variant="primary" size="lg" fullWidth>
             Full width
@@ -347,9 +348,19 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
           </div>
           <AmountInput label="Amount (with error)" error="Enter an amount greater than £0.00" />
           <AmountInput label="Amount (optional, 0 allowed)" allowZero hint="Leave empty or enter 0 to skip" />
+          <AmountInput label="Amount (large, for Add expense)" size="lg" />
           <TextField label="Note" placeholder="What was it for?" />
           <TextField label="Note (with error)" defaultValue="" error="Add a note" />
           <Select label="Category" options={categories} placeholder="Choose a category" defaultValue="" />
+          <Select
+            label="Category (grouped)"
+            defaultValue="rent"
+            groups={[
+              { label: "Needs", options: [{ value: "rent", label: "Rent" }] },
+              { label: "Wants", options: [{ value: "gifts", label: "Gifts" }] },
+            ]}
+            options={[{ value: "new", label: "New category…" }]}
+          />
           <Toggle
             label="Paid from a fund"
             description="Counts in expenses, not in monthly spent"

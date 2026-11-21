@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, daysBetween, formatDaysLeft, formatDayMonth, formatPeriodRange, formatShortDate, formatWeekdayDate, lastDayOfMonth, todayIn } from "./dates";
+import { addDays, daysBetween, formatDaysLeft, formatDayMonth, formatPeriodRange, formatRelativeDay, formatShortDate, formatWeekdayDate, lastDayOfMonth, todayIn } from "./dates";
 
 describe("dates", () => {
   it("addDays crosses year end", () => {
@@ -47,5 +47,21 @@ describe("formatDaysLeft", () => {
 describe("formatPeriodRange", () => {
   it("formats start and end as day and short month", () => {
     expect(formatPeriodRange("2026-11-01", "2026-11-30")).toBe("1 Nov – 30 Nov");
+  });
+});
+
+describe("formatRelativeDay", () => {
+  it('says "Today" and "Tomorrow" where they apply', () => {
+    expect(formatRelativeDay("2026-11-21", "2026-11-21")).toBe("Today");
+    expect(formatRelativeDay("2026-11-22", "2026-11-21")).toBe("Tomorrow");
+    expect(formatRelativeDay("2026-12-01", "2026-11-30")).toBe("Tomorrow");
+  });
+
+  it("otherwise gives the weekday and date, with the year when it isn't this year", () => {
+    expect(formatRelativeDay("2026-11-20", "2026-11-21")).toBe("Friday 20 November");
+    expect(formatRelativeDay("2026-11-25", "2026-11-21")).toBe("Wednesday 25 November");
+    expect(formatRelativeDay("2025-11-21", "2026-11-21")).toBe("Friday 21 November 2025");
+    expect(formatRelativeDay("2027-01-01", "2026-12-31")).toBe("Tomorrow");
+    expect(formatRelativeDay("2027-01-02", "2026-12-31")).toBe("Saturday 2 January 2027");
   });
 });

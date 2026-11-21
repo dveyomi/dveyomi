@@ -1,6 +1,7 @@
 import type { BudgetSummary, CategoryFigure, IsoDate, Period } from "@/lib/calc";
 import { loadBudgetView } from "./budget";
-import { categoryUse, type CategoryUse } from "./budgetEdit";
+import { categoryUse, NameTakenError, type CategoryUse } from "./budgetEdit";
+import type { Kind } from "@/lib/validation/budgetEdit";
 import type { CategoryRow, Db } from "./types";
 
 /** An expense as the category detail lists it. `fundName` is set when it was paid from a fund. */
@@ -58,4 +59,17 @@ export async function loadCategoryView(supabase: Db, today: IsoDate, categoryId:
     })),
     inUse,
   };
+}
+
+/**
+ * Creates a category with no allocation (it shows as "no budget yet" until it
+ * is given one) and returns its id. `name` must already be checked (trimmed,
+ * 1–50 characters). Throws NameTakenError when the user has a category with
+ * that name, ignoring case.
+ */
+export async function createCategory(supabase: Db, category: { name: string; kind: Kind }): Promise<string> {
+  const { data, error } = await supabase.from("categories").insert(category).select("id").single();
+  if (error?.code === "23505") throw new NameTakenError(category.name);
+  if (error) throw error;
+  return data.id;
 }

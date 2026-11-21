@@ -27,7 +27,14 @@ type AmountInputProps = {
   allowZero?: boolean;
   /** Focus the field when it mounts, e.g. on a screen opened for this one amount. */
   autoFocus?: boolean;
+  /** "lg": the figure at display size, for a screen built around this one amount (e.g. Add expense). */
+  size?: "md" | "lg";
 };
+
+const sizes = {
+  md: { box: "h-16", text: "text-title" },
+  lg: { box: "h-20", text: "text-display" },
+} as const;
 
 function initialText(pence?: number) {
   return pence === undefined ? "" : (pence / 100).toFixed(2);
@@ -45,6 +52,7 @@ export function AmountInput({
   required,
   allowZero = false,
   autoFocus,
+  size = "md",
 }: AmountInputProps) {
   const parse = allowZero ? parseOptionalPence : parsePence;
   const id = useId();
@@ -59,9 +67,9 @@ export function AmountInput({
   return (
     <FieldShell id={id} label={label} hint={hint} error={shown}>
       <div
-        className={`flex h-16 items-center gap-1 rounded-sm border bg-card-raised px-4 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent-fg ${borderFor(shown)}`}
+        className={`flex ${sizes[size].box} items-center gap-1 rounded-sm border bg-card-raised px-4 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent-fg ${borderFor(shown)}`}
       >
-        <span aria-hidden="true" className="text-title font-semibold text-muted">
+        <span aria-hidden="true" className={`${sizes[size].text} font-semibold text-muted`}>
           £
         </span>
         <input
@@ -80,7 +88,7 @@ export function AmountInput({
             onValueChange?.(parse(e.target.value));
           }}
           onBlur={() => setTouched(true)}
-          className="w-full min-w-0 bg-transparent text-title font-semibold tabular-nums text-text placeholder:text-muted outline-none"
+          className={`w-full min-w-0 bg-transparent ${sizes[size].text} font-semibold tabular-nums text-text placeholder:text-muted outline-none`}
         />
       </div>
       {name ? <input type="hidden" name={name} value={pence ?? ""} /> : null}

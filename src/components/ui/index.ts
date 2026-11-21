@@ -17,7 +17,7 @@ export { Money } from "./Money";
 export { Notice } from "./Notice";
 export { ProgressBar } from "./ProgressBar";
 export { Select } from "./Select";
-export type { SelectOption } from "./Select";
+export type { SelectGroup, SelectOption } from "./Select";
 export { RadioSegments } from "./RadioSegments";
 export { SegmentedTabs } from "./SegmentedTabs";
 export { Skeleton } from "./Skeleton";

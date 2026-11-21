@@ -5,6 +5,7 @@ export {
   formatDaysLeft,
   formatDayMonth,
   formatPeriodRange,
+  formatRelativeDay,
   formatShortDate,
   formatWeekdayDate,
   lastDayOfMonth,

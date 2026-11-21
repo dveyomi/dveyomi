@@ -9,15 +9,22 @@ type IconButtonProps = Omit<
   icon: IconName;
   /** Accessible name; icon-only buttons must say what they do. */
   label: string;
+  /** "primary": the screen's main action (e.g. save); "neutral" by default. */
+  variant?: "neutral" | "primary";
 };
 
-export function IconButton({ icon, label, type = "button", ...rest }: IconButtonProps) {
+const variants = {
+  neutral: "bg-card-raised text-text hover:bg-border",
+  primary: "bg-accent text-accent-ink hover:bg-accent/90",
+} as const;
+
+export function IconButton({ icon, label, variant = "neutral", type = "button", ...rest }: IconButtonProps) {
   return (
     <button
       type={type}
       aria-label={label}
       title={label}
-      className={`inline-flex size-11 shrink-0 items-center justify-center rounded-pill bg-card-raised text-text transition-colors hover:bg-border disabled:opacity-40 ${focusRing}`}
+      className={`inline-flex size-11 shrink-0 items-center justify-center rounded-pill transition-colors disabled:opacity-40 ${variants[variant]} ${focusRing}`}
       {...rest}
     >
       <Icon name={icon} />

@@ -9,10 +9,12 @@ import {
   Chip,
   ConfirmDialog,
   Gauge,
+  IconButton,
   Money,
   Notice,
   ProgressBar,
   RadioSegments,
+  Select,
   Skeleton,
   SegmentedTabs,
   StatusBadge,
@@ -432,5 +434,60 @@ describe("Skeleton", () => {
     const [segments, card] = Array.from(container.children);
     for (const el of [segments, card]) expect(el).toHaveAttribute("aria-hidden", "true");
     expect(segments.className).not.toBe(card.className);
+  });
+});
+
+describe("Select groups", () => {
+  it("renders options under labelled groups, after any ungrouped ones", () => {
+    render(
+      <Select
+        label="Category"
+        value="rent"
+        onChange={() => {}}
+        groups={[
+          { label: "Needs", options: [{ value: "rent", label: "Rent" }] },
+          { label: "Wants", options: [{ value: "gifts", label: "Gifts" }] },
+        ]}
+        options={[{ value: "new", label: "New category" }]}
+      />,
+    );
+    const select = screen.getByLabelText("Category");
+    const groups = select.querySelectorAll("optgroup");
+    expect([...groups].map((g) => g.label)).toEqual(["Needs", "Wants"]);
+    expect(groups[0]).toHaveTextContent("Rent");
+    expect(groups[1]).toHaveTextContent("Gifts");
+    expect(select).toHaveValue("rent");
+    expect(select.lastElementChild).toHaveTextContent("New category");
+  });
+
+  it("leaves out an empty group", () => {
+    render(<Select label="Category" options={[]} groups={[{ label: "Needs", options: [] }]} />);
+    expect(screen.getByLabelText("Category").querySelector("optgroup")).toBeNull();
+  });
+});
+
+describe("AmountInput size", () => {
+  it("lg shows the figure at display size for a screen built around one amount", () => {
+    render(<AmountInput label="Amount" size="lg" value="" onChange={() => {}} />);
+    expect(screen.getByLabelText("Amount")).toHaveClass("text-display");
+  });
+
+  it("defaults to title size", () => {
+    render(<AmountInput label="Amount" value="" onChange={() => {}} />);
+    expect(screen.getByLabelText("Amount")).toHaveClass("text-title");
+  });
+});
+
+describe("IconButton variant", () => {
+  it("primary uses the accent fill with ink, keeping the 44px target", () => {
+    render(<IconButton icon="check" label="Save" variant="primary" />);
+    const button = screen.getByRole("button", { name: "Save" });
+    expect(button).toHaveClass("bg-accent", "text-accent-ink");
+    expect(button.className).toMatch(TAP_44);
+  });
+
+  it("defaults to the neutral raised style", () => {
+    render(<IconButton icon="close" label="Close" />);
+    expect(screen.getByRole("button", { name: "Close" })).toHaveClass("bg-card-raised", "text-text");
   });
 });

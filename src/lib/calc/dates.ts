@@ -42,6 +42,19 @@ export function formatWeekdayDate(d: IsoDate): string {
   return weekdayDate.format(toUtcMs(d)).replace(",", "");
 }
 
+/**
+ * How a chosen date reads next to today: "Today", "Tomorrow", otherwise the
+ * weekday and date ("Wednesday 25 November"), with the year when it differs
+ * from today's ("Friday 21 November 2025").
+ */
+export function formatRelativeDay(d: IsoDate, today: IsoDate): string {
+  const diff = daysBetween(today, d);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  const label = formatWeekdayDate(d);
+  return d.slice(0, 4) === today.slice(0, 4) ? label : `${label} ${d.slice(0, 4)}`;
+}
+
 const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 const shortDate = new Intl.DateTimeFormat("en-GB", {
   weekday: "short",

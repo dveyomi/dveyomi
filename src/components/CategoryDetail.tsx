@@ -101,7 +101,7 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
             <h2 id="category-expenses" className="text-title font-semibold text-text">
               Expenses
             </h2>
-            <ButtonLink href={`/expenses/new?category=${category.id}`} variant="primary" icon="plus">
+            <ButtonLink href={`/expenses/new?category=${category.id}&returnTo=/budget/${category.id}`} variant="primary" icon="plus">
               Log expense
             </ButtonLink>
           </div>

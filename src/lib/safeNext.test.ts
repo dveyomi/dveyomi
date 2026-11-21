@@ -11,4 +11,10 @@ describe("safeNext", () => {
       expect(safeNext(bad)).toBe("/budget");
     }
   });
+
+  it("uses the given fallback instead of /budget", () => {
+    expect(safeNext("//evil.test", "/expenses")).toBe("/expenses");
+    expect(safeNext(undefined, "/expenses")).toBe("/expenses");
+    expect(safeNext("/budget/abc", "/expenses")).toBe("/budget/abc");
+  });
 });
