@@ -20,6 +20,7 @@ import {
   RadioSegments,
   SegmentedTabs,
   Select,
+  Skeleton,
   StatusBadge,
   TextField,
   Toggle,
@@ -374,6 +375,15 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
               ]}
             />
           </Card>
+        </Widths>
+      </Section>
+
+      <Section title="Skeleton">
+        <Widths>
+          <Label>segments: while a RadioSegments streams in</Label>
+          <Skeleton shape="segments" />
+          <Label>card: while a short Card streams in</Label>
+          <Skeleton shape="card" />
         </Widths>
       </Section>
 

@@ -11,6 +11,7 @@ import {
   Money,
   ProgressBar,
   RadioSegments,
+  Skeleton,
   SegmentedTabs,
   StatusBadge,
   Toggle,
@@ -339,6 +340,17 @@ describe("RadioSegments", () => {
     expect(system).toHaveAttribute("aria-checked", "true");
   });
 
+  it("Home and End select the first and last option", () => {
+    render(<Controlled />);
+    const [light, , system] = screen.getAllByRole("radio");
+    fireEvent.keyDown(light, { key: "End" });
+    expect(system).toHaveAttribute("aria-checked", "true");
+    expect(system).toHaveFocus();
+    fireEvent.keyDown(system, { key: "Home" });
+    expect(light).toHaveAttribute("aria-checked", "true");
+    expect(light).toHaveFocus();
+  });
+
   it("marks the checked option with an accent-fg edge, not the fill alone", () => {
     render(<Controlled />);
     expect(screen.getByRole("radio", { name: "Light" })).toHaveClass("border-accent-fg");
@@ -348,5 +360,28 @@ describe("RadioSegments", () => {
   it("every option is at least 44px tall", () => {
     render(<Controlled />);
     for (const radio of screen.getAllByRole("radio")) expect(radio.className).toMatch(TAP_44);
+  });
+});
+
+describe("Toggle checked edge", () => {
+  it("draws an accent-fg edge round the checked track (lime alone is too faint on white)", () => {
+    const { rerender } = render(<Toggle label="Fund" checked onChange={() => {}} />);
+    expect(screen.getByRole("switch")).toHaveClass("ring-accent-fg");
+    rerender(<Toggle label="Fund" checked={false} onChange={() => {}} />);
+    expect(screen.getByRole("switch")).not.toHaveClass("ring-accent-fg");
+  });
+});
+
+describe("Skeleton", () => {
+  it("is hidden from assistive tech and sized by shape", () => {
+    const { container } = render(
+      <>
+        <Skeleton shape="segments" />
+        <Skeleton shape="card" />
+      </>,
+    );
+    const [segments, card] = Array.from(container.children);
+    for (const el of [segments, card]) expect(el).toHaveAttribute("aria-hidden", "true");
+    expect(segments.className).not.toBe(card.className);
   });
 });

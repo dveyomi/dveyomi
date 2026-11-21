@@ -11,7 +11,10 @@ type ToggleProps = {
   disabled?: boolean;
 };
 
-/** A switch whose whole row (at least 44px tall) is the tap target. */
+/**
+ * A switch whose whole row (at least 44px tall) is the tap target. The checked
+ * track has an --accent-fg edge: lime alone is about 1.1:1 on a white card.
+ */
 export function Toggle({ label, checked, onChange, description, disabled }: ToggleProps) {
   const id = useId();
   return (
@@ -36,7 +39,7 @@ export function Toggle({ label, checked, onChange, description, disabled }: Togg
         aria-describedby={description ? `${id}-description` : undefined}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-pill p-0.5 transition-colors ${focusRing} ${checked ? "bg-accent" : "bg-border-strong"}`}
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-pill p-0.5 transition-colors ${focusRing} ${checked ? "bg-accent ring-1 ring-accent-fg ring-inset" : "bg-border-strong"}`}
       >
         <span
           aria-hidden="true"

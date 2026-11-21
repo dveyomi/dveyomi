@@ -16,7 +16,7 @@ const STEP: Partial<Record<string, number>> = { ArrowRight: 1, ArrowDown: 1, Arr
 
 /**
  * Pick one of a few settings, shown as a segmented pill: a radiogroup with one
- * tab stop where the arrow keys move and select. Works on bg and inside a Card.
+ * tab stop where the arrow keys (and Home / End) move and select. Works on bg and inside a Card.
  * For switching between views use SegmentedTabs. The checked option is a lime
  * fill with an --accent-fg edge: lime alone is under 3:1 against the light track.
  */
@@ -25,9 +25,10 @@ export function RadioSegments<T extends string>({ label, options, value, onChang
 
   function onKeyDown(e: KeyboardEvent, index: number) {
     const step = STEP[e.key];
-    if (!step) return;
+    const next =
+      e.key === "Home" ? 0 : e.key === "End" ? options.length - 1 : step ? (index + step + options.length) % options.length : -1;
+    if (next === -1) return;
     e.preventDefault();
-    const next = (index + step + options.length) % options.length;
     onChange(options[next].value);
     refs.current[next]?.focus();
   }

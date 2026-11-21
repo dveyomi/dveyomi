@@ -85,3 +85,21 @@ describe("applyTheme", () => {
     expect(document.cookie).toContain("theme=system");
   });
 });
+
+describe("themeScript runs on its own (no module scope)", () => {
+  function runWith(cookie: string) {
+    const fakeDocument = { cookie, documentElement: { dataset: {} as Record<string, string> } };
+    new Function("document", themeScript)(fakeDocument);
+    return fakeDocument.documentElement.dataset.theme;
+  }
+
+  it.each([
+    ["theme=dark", "dark"],
+    ["a=1; theme=system", "system"],
+    ["theme=light", "light"],
+    ["", "light"],
+    ["theme=neon", "light"],
+  ])("cookie %j gives %s", (cookie, expected) => {
+    expect(runWith(cookie)).toBe(expected);
+  });
+});

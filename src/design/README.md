@@ -14,7 +14,7 @@ One design system for the whole app, built for a phone first with a separately d
 
 Type, spacing, radii and layout tokens are shared and sit in their own `:root` block. Colours and elevation (`--shadow-*`, `--scrim`) differ per theme. Each theme sets `color-scheme`, so native controls and scrollbars match.
 
-The choice lives in the `theme` cookie (`light`, `dark` or `system`; one year, `path=/`, `SameSite=Lax`). `src/lib/theme.ts` holds the helpers. An inline script in the root layout's `<head>` reads the cookie and sets `<html data-theme>` before first paint, so no page shows the wrong theme, and pages stay static. The Settings Theme card and the `/design` gallery use `ThemeChooser`, which changes `data-theme` and the cookie at once, with no reload. Match device follows the OS setting live through the media query.
+The choice lives in the `theme` cookie (`light`, `dark` or `system`; one year, `path=/`, `SameSite=Lax`). `src/lib/theme.ts` holds the helpers. An inline script in the root layout's `<head>` reads the cookie and sets `<html data-theme>` before first paint, so no page shows the wrong theme, and pages stay static. The Settings Theme card and the `/design` gallery use `ThemeChooser`, which changes `data-theme` and the cookie at once, with no reload. It reads its selection from `<html data-theme>` (via `useSyncExternalStore`), so it always shows what the page really uses, even after back/forward; the server value only seeds the server render. Match device follows the OS setting live through the media query.
 
 ## Fill vs foreground colours
 
@@ -73,7 +73,7 @@ Tailwind also writes self-referencing copies such as `--text-display: var(--text
 
 All components are exported from `@/components/ui`:
 
-`Button`, `IconButton`, `Card`, `ProgressBar`, `Gauge`, `Badge`, `StatusBadge`, `Money`, `AmountInput`, `TextField`, `Select`, `Toggle`, `SegmentedTabs` (switch views; tablist), `RadioSegments` (pick one setting; radiogroup), `BottomSheet`, `ConfirmDialog`, `ListRow`, `EmptyState`, `Chip`, `Icon` (a single inline SVG set, where `IconName` is a string union).
+`Button`, `IconButton`, `Card`, `ProgressBar`, `Gauge`, `Badge`, `StatusBadge`, `Money`, `AmountInput`, `TextField`, `Select`, `Toggle`, `SegmentedTabs` (switch views; tablist), `RadioSegments` (pick one setting; radiogroup; arrows, Home and End), `Skeleton` (placeholder while request-time content streams in), `BottomSheet`, `ConfirmDialog`, `ListRow`, `EmptyState`, `Chip`, `Icon` (a single inline SVG set, where `IconName` is a string union).
 
 `/design` is a living gallery that shows every token and every component in each of its variants and states, at phone width (390) and at desktop width. A theme switch at the top shows it in light, dark or the device's setting. It is available only in development: in production it returns `notFound()`.
 

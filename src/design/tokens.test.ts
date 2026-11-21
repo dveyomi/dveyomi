@@ -208,6 +208,10 @@ describe.each(Object.entries(themes))("contrast (%s)", (_name, theme) => {
     expect(on("--accent-ink", "--accent")).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("--accent-ink (the danger button's text) is at least 4.5:1 on --danger", () => {
+    expect(on("--accent-ink", "--danger")).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("--border-strong (form control boundaries) is at least 3:1 on card and card-raised", () => {
     for (const surface of ["--card", "--card-raised"]) {
       expect(on("--border-strong", surface), surface).toBeGreaterThanOrEqual(3);
