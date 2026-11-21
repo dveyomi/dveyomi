@@ -7,6 +7,8 @@ import type { CurrentFigures, Overspend, RaiseSuggestion } from "@/lib/data/revi
 
 type OverspendReviewProps = {
   monthLabel: string;
+  /** The budgets a raise changes: the current one, and the next when it is already planned. */
+  raiseApplies: { currentLabel: string; nextLabel: string | null };
   overspent: Overspend[];
   suggestions: RaiseSuggestion[];
   /** The current budget's figures, for each raise's effect on the total. */
@@ -16,7 +18,7 @@ type OverspendReviewProps = {
 };
 
 /** The ended period's overspent categories (never carried forward), and budgets worth raising. */
-export function OverspendReview({ monthLabel, overspent, suggestions, current, apply }: OverspendReviewProps) {
+export function OverspendReview({ monthLabel, raiseApplies, overspent, suggestions, current, apply }: OverspendReviewProps) {
   // The suggestions as first shown: once one is applied the refreshed page stops suggesting it,
   // but its confirmation stays for this visit.
   const [shown] = useState(suggestions);
@@ -57,7 +59,7 @@ export function OverspendReview({ monthLabel, overspent, suggestions, current, a
             </p>
           </div>
           {shown.map((s) => (
-            <RaiseRow key={s.categoryId} suggestion={s} current={current} apply={apply} />
+            <RaiseRow key={s.categoryId} suggestion={s} current={current} applies={raiseApplies} apply={apply} />
           ))}
         </Card>
       ) : null}
@@ -68,10 +70,12 @@ export function OverspendReview({ monthLabel, overspent, suggestions, current, a
 function RaiseRow({
   suggestion,
   current,
+  applies,
   apply,
 }: {
   suggestion: RaiseSuggestion;
   current: CurrentFigures;
+  applies: OverspendReviewProps["raiseApplies"];
   apply: OverspendReviewProps["apply"];
 }) {
   const [text, setText] = useState(() => penceToInputText(suggestion.suggestedPence));
@@ -143,7 +147,11 @@ function RaiseRow({
       <Button variant="secondary" onClick={onApply} disabled={busy || pence === null}>
         {busy ? "Saving…" : `Raise ${suggestion.name} to ${pence === null ? "…" : formatGBP(pence)}`}
       </Button>
-      <p className="text-caption text-muted">Applies from this budget on. Past budgets don&apos;t change.</p>
+      <p className="text-caption text-muted">
+        {applies.nextLabel
+          ? `Applies to ${applies.currentLabel} and your planned ${applies.nextLabel} budget.`
+          : `Applies to your ${applies.currentLabel} budget and the ones after it.`}
+      </p>
     </div>
   );
 }

@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { BudgetChangedError, NameTakenError, NoBudgetError } from "@/lib/data/budgetEdit";
+import { NoBudgetError } from "@/lib/data/budgetEdit";
 import { FundNameTakenError, FundNotFoundError } from "@/lib/data/funds";
 import {
   AlreadyReviewedError,
   dismissUnassignedNudge,
   LeftoverChangedError,
   PeriodNotEndedError,
+  RaiseRefusedError,
   raiseBudget,
   recordLeftover,
   ReviewNotFoundError,
@@ -60,7 +61,7 @@ export async function applyRaiseAction(categoryId: unknown, amountPence: unknown
   try {
     await raiseBudget(await createClient(), await getToday(), categoryId as string, amountPence as number);
   } catch (e) {
-    if (e instanceof NameTakenError || e instanceof BudgetChangedError) return { error: e.message };
+    if (e instanceof RaiseRefusedError) return { error: e.message };
     if (e instanceof NoBudgetError) redirect("/onboarding");
     console.error("raiseBudget failed", e);
     return FAILED;

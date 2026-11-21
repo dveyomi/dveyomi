@@ -116,7 +116,7 @@ export async function loadBudgetEditor(supabase: Db, today: IsoDate): Promise<Bu
 }
 
 /** The current period and the end of the one after it (from the start day), for the edit functions. */
-async function editTarget(supabase: Db, today: IsoDate): Promise<{ periodId: string; nextEnd: IsoDate }> {
+export async function editTarget(supabase: Db, today: IsoDate): Promise<{ periodId: string; nextEnd: IsoDate }> {
   const current = await ensureCurrentPeriod(supabase, today);
   if (!current) throw new NoBudgetError();
   const profile = await supabase.from("profiles").select("budget_start_day").single();
@@ -162,8 +162,13 @@ export async function saveBudget(supabase: Db, today: IsoDate, input: BudgetEdit
   if (isUniqueViolation(error)) throw new NameTakenError();
   if (error?.code === "P0002") throw new BudgetChangedError();
   if (error) throw error;
-  // Editing the budget answers "Give every pound a job".
-  await dismissUnassignedNudge(supabase);
+  // Editing the budget answers "Give every pound a job". The save is already committed, so a
+  // failure here only leaves the nudge showing.
+  try {
+    await dismissUnassignedNudge(supabase);
+  } catch (e) {
+    console.error("dismissUnassignedNudge after saveBudget failed", e);
+  }
 }
 
 /** Hides the "Give every pound a job" nudge that keeping a leftover unassigned shows on the Budget tab. */

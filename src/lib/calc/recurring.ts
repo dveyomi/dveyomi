@@ -128,6 +128,10 @@ export function freedByPause(rule: Rule, prices: Price[], until: IsoDate, period
  * own date's price (the first price before any applies). `paidDates` are
  * dates the rule's payment was recorded anyway (before a later pause), so
  * nothing was freed on them.
+ *
+ * Pause history isn't stored: the rule's current pausedUntil and skippedDates
+ * are used, so a pause lifted before the review no longer counts as freeing
+ * anything in an earlier period.
  */
 export function freedInPeriod(rule: Rule, prices: Price[], period: Period, paidDates: IsoDate[] = []): number {
   return scheduleBetween(rule, period.start, period.end)

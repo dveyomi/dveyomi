@@ -56,11 +56,17 @@ describe("LeftoverPrompt", () => {
 
   it("offers the three destinations for the whole amount, and records keep unassigned", async () => {
     const record = vi.fn().mockResolvedValue({});
-    render(<LeftoverPrompt monthLabel="October" totalPence={25000} funds={funds} record={record} />);
+    render(<LeftoverPrompt monthLabel="October" currentLabel="November" totalPence={25000} funds={funds} record={record} />);
     expect(screen.getByRole("radiogroup", { name: /where should £250.00 go/i })).toBeInTheDocument();
     for (const name of ["Move to a fund", "Add to next budget", "Keep unassigned"]) {
       expect(screen.getByRole("radio", { name })).toBeInTheDocument();
     }
+    expect(screen.getByRole("radio", { name: "Add to next budget" })).toHaveAccessibleDescription(
+      "Add it to your November budget, shown as carried from October.",
+    );
+    expect(screen.getByRole("radio", { name: "Keep unassigned" })).toHaveAccessibleDescription(
+      "It stays spendable, but you'll be nudged to give it a job.",
+    );
     fireEvent.click(screen.getByRole("radio", { name: "Keep unassigned" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(record).toHaveBeenCalledWith({ destination: "unassigned" }));
@@ -68,7 +74,7 @@ describe("LeftoverPrompt", () => {
 
   it("asks for a choice before confirming", async () => {
     const record = vi.fn();
-    render(<LeftoverPrompt monthLabel="October" totalPence={25000} funds={funds} record={record} />);
+    render(<LeftoverPrompt monthLabel="October" currentLabel="November" totalPence={25000} funds={funds} record={record} />);
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Choose where your leftover goes.");
     expect(record).not.toHaveBeenCalled();
@@ -76,7 +82,7 @@ describe("LeftoverPrompt", () => {
 
   it("moves to a chosen fund, or a new one by name", async () => {
     const record = vi.fn().mockResolvedValue({});
-    render(<LeftoverPrompt monthLabel="October" totalPence={25000} funds={funds} record={record} />);
+    render(<LeftoverPrompt monthLabel="October" currentLabel="November" totalPence={25000} funds={funds} record={record} />);
     fireEvent.click(screen.getByRole("radio", { name: "Move to a fund" }));
     const select = screen.getByRole("combobox", { name: "Fund" });
     fireEvent.change(select, { target: { value: funds[0].id } });
@@ -91,7 +97,7 @@ describe("LeftoverPrompt", () => {
 
   it("shows the server's error", async () => {
     const record = vi.fn().mockResolvedValue({ error: "This budget has already been reviewed." });
-    render(<LeftoverPrompt monthLabel="October" totalPence={25000} funds={[]} record={record} />);
+    render(<LeftoverPrompt monthLabel="October" currentLabel="November" totalPence={25000} funds={[]} record={record} />);
     fireEvent.click(screen.getByRole("radio", { name: "Add to next budget" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("This budget has already been reviewed.");
@@ -99,7 +105,7 @@ describe("LeftoverPrompt", () => {
 
   it("with nothing left over offers only Done, which records the review", async () => {
     const record = vi.fn().mockResolvedValue({});
-    render(<LeftoverPrompt monthLabel="October" totalPence={0} funds={funds} record={record} />);
+    render(<LeftoverPrompt monthLabel="October" currentLabel="November" totalPence={0} funds={funds} record={record} />);
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     await waitFor(() => expect(record).toHaveBeenCalledWith(null));
@@ -115,12 +121,14 @@ describe("OverspendReview", () => {
       { categoryId: "rent", kind: "need", amountPence: 200000 },
     ],
   };
+  const nov = { currentLabel: "November", nextLabel: null };
   const groceries: RaiseSuggestion = { categoryId: "food", name: "Groceries", kind: "need", currentPence: 40000, suggestedPence: 42100 };
 
   it("lists overspent categories with the amount over, and says overspending isn't carried forward", () => {
     render(
       <OverspendReview
         monthLabel="October"
+        raiseApplies={nov}
         overspent={[{ categoryId: "food", name: "Groceries", overPence: 3000 }]}
         suggestions={[]}
         current={current}
@@ -135,12 +143,12 @@ describe("OverspendReview", () => {
   });
 
   it("says when nothing went over", () => {
-    render(<OverspendReview monthLabel="October" overspent={[]} suggestions={[]} current={current} apply={vi.fn()} />);
+    render(<OverspendReview monthLabel="October" raiseApplies={nov} overspent={[]} suggestions={[]} current={current} apply={vi.fn()} />);
     expect(screen.getByText("Nothing went over budget in October.")).toBeInTheDocument();
   });
 
   it("suggests a raise with an editable amount pre-filled, and shows its effect on the total", () => {
-    render(<OverspendReview monthLabel="October" overspent={[]} suggestions={[groceries]} current={current} apply={vi.fn()} />);
+    render(<OverspendReview monthLabel="October" raiseApplies={nov} overspent={[]} suggestions={[groceries]} current={current} apply={vi.fn()} />);
     const input = screen.getByRole("textbox", { name: "New Groceries budget" });
     expect(input).toHaveValue("421.00");
     // Pool £2,500, allocated £2,400: £100 unallocated, £79 after the raise.
@@ -149,9 +157,27 @@ describe("OverspendReview", () => {
     expect(screen.getByText(/over-allocated/i).closest("p")).toHaveTextContent("Your budget would be over-allocated by £50.00");
   });
 
+  it("says which budgets the raise applies to: the current one, and the planned next one when there is one", () => {
+    const { rerender } = render(
+      <OverspendReview monthLabel="October" raiseApplies={nov} overspent={[]} suggestions={[groceries]} current={current} apply={vi.fn()} />,
+    );
+    expect(screen.getByText("Applies to your November budget and the ones after it.")).toBeInTheDocument();
+    rerender(
+      <OverspendReview
+        monthLabel="October"
+        raiseApplies={{ currentLabel: "November", nextLabel: "December" }}
+        overspent={[]}
+        suggestions={[groceries]}
+        current={current}
+        apply={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Applies to November and your planned December budget.")).toBeInTheDocument();
+  });
+
   it("applies the edited amount and confirms it", async () => {
     const apply = vi.fn().mockResolvedValue({});
-    render(<OverspendReview monthLabel="October" overspent={[]} suggestions={[groceries]} current={current} apply={apply} />);
+    render(<OverspendReview monthLabel="October" raiseApplies={nov} overspent={[]} suggestions={[groceries]} current={current} apply={apply} />);
     fireEvent.change(screen.getByRole("textbox", { name: "New Groceries budget" }), { target: { value: "430" } });
     fireEvent.click(screen.getByRole("button", { name: "Raise Groceries to £430.00" }));
     await waitFor(() => expect(apply).toHaveBeenCalledWith("food", 43000));
@@ -160,7 +186,7 @@ describe("OverspendReview", () => {
 
   it("keeps the confirmation when the refreshed page no longer suggests the raise", async () => {
     const apply = vi.fn().mockResolvedValue({});
-    const props = { monthLabel: "October", overspent: [], current, apply };
+    const props = { monthLabel: "October", raiseApplies: nov, overspent: [], current, apply };
     const { rerender } = render(<OverspendReview {...props} suggestions={[groceries]} />);
     fireEvent.click(screen.getByRole("button", { name: "Raise Groceries to £421.00" }));
     await screen.findByText("Groceries is now £421.00 from this budget on.");
@@ -195,10 +221,15 @@ describe("BudgetOverview review states", () => {
   it("labels money carried in, and nudges to give unassigned money a job until dismissed", async () => {
     reviewActions.dismissNudgeAction.mockResolvedValue(undefined);
     render(
-      <BudgetOverview
-        {...base}
-        review={{ pending: null, carried: [{ fromLabel: "October", amountPence: 25000 }], nudgePence: 25000 }}
-      />,
+      <>
+        <h1 id="budget-heading" tabIndex={-1}>
+          Budget
+        </h1>
+        <BudgetOverview
+          {...base}
+          review={{ pending: null, carried: [{ fromLabel: "October", amountPence: 25000 }], nudgePence: 25000 }}
+        />
+      </>,
     );
     expect(screen.getByText(/carried from October/).closest("p")).toHaveTextContent("Includes £250.00 carried from October");
     const nudge = screen.getByRole("region", { name: "Give every pound a job" });
@@ -207,6 +238,8 @@ describe("BudgetOverview review states", () => {
     fireEvent.click(within(nudge).getByRole("button", { name: "Dismiss" }));
     await waitFor(() => expect(reviewActions.dismissNudgeAction).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByRole("region", { name: "Give every pound a job" })).not.toBeInTheDocument());
+    // Focus moves to the Budget heading, not the page body.
+    expect(screen.getByRole("heading", { name: "Budget", level: 1 })).toHaveFocus();
   });
 
   it("shows no review notice, carry line or nudge when there is nothing to say", () => {

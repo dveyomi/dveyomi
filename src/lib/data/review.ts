@@ -1,4 +1,5 @@
 import {
+  addDays,
   categoriesOverTwiceInThree,
   formatMonth,
   freedInPeriod,
@@ -12,7 +13,7 @@ import {
 } from "@/lib/calc";
 import type { LeftoverChoice } from "@/lib/validation/review";
 import { loadPeriodSummary, summariseRow } from "./budget";
-import { loadBudgetEditor, NoBudgetError, saveBudget } from "./budgetEdit";
+import { editTarget } from "./budgetEdit";
 import { ensureCurrentPeriod } from "./ensurePeriod";
 import { FundNameTakenError, FundNotFoundError } from "./funds";
 import type { CategoryRow, Db, PeriodRow } from "./types";
@@ -54,6 +55,8 @@ export type Review = {
   funds: { id: string; name: string }[];
   /** Ended periods still to review after this one. */
   laterCount: number;
+  /** The budgets a raise changes: the current one, and the next when it is already planned. */
+  raiseApplies: { currentLabel: string; nextLabel: string | null };
 };
 
 export type ReviewStatus = {
@@ -156,12 +159,13 @@ export async function loadReview(supabase: Db, today: IsoDate): Promise<Review |
   const target = ended.find((p) => p.reviewed_at === null);
   if (!target) return null;
 
-  const [categoriesRes, allocationsRes, fundsRes] = await Promise.all([
+  const [categoriesRes, allocationsRes, fundsRes, nextRes] = await Promise.all([
     supabase.from("categories").select("id, name, kind"),
     supabase.from("allocations").select("category_id, amount_pence").eq("period_id", current.id),
     supabase.from("funds").select("id, name").order("name"),
+    supabase.from("budget_periods").select("start_date").eq("start_date", addDays(current.end_date, 1)).maybeSingle(),
   ]);
-  for (const r of [categoriesRes, allocationsRes, fundsRes]) if (r.error) throw r.error;
+  for (const r of [categoriesRes, allocationsRes, fundsRes, nextRes]) if (r.error) throw r.error;
   const categories = categoriesRes.data!.map((c) => ({ ...c, kind: c.kind as CategoryRow["kind"] }));
   const byId = new Map(categories.map((c) => [c.id, c]));
 
@@ -200,6 +204,10 @@ export async function loadReview(supabase: Db, today: IsoDate): Promise<Review |
     current: { incomePence: current.income_pence, savingsPence: current.savings_pence, allocations: currentAllocations },
     funds: fundsRes.data!,
     laterCount: ended.filter((p) => p.reviewed_at === null && p.start_date > target.start_date).length,
+    raiseApplies: {
+      currentLabel: monthOf(current.start_date),
+      nextLabel: nextRes.data ? monthOf(nextRes.data.start_date) : null,
+    },
   };
 }
 
@@ -297,28 +305,39 @@ export async function recordLeftover(
   if (error.code === "P0002") throw new ReviewNotFoundError();
   if (error.code === "PT422") throw new LeftoverChangedError();
   if (error.code === "PT404") throw new FundNotFoundError();
-  if (error.code === "23505") throw new FundNameTakenError(to && "newFundName" in to ? to.newFundName : undefined);
+  if (error.code === "23505") {
+    // A new fund's name taken; otherwise the one-per-period key: reviewed meanwhile (another tab).
+    if (to && "newFundName" in to) throw new FundNameTakenError(to.newFundName);
+    throw new AlreadyReviewedError();
+  }
   throw error;
 }
 
 /**
- * Applies a raise suggestion: the category's allocation becomes `amountPence`
- * from the current period on (the budget editor's save, scope "this"), every
- * other figure unchanged. A category outside the current budget is added back.
+ * Applies a raise suggestion in one transaction (`raise_allocation`): the
+ * category's allocation becomes `amountPence` in the current period and, when
+ * the next period is already planned, in that one too. Every other figure of
+ * both stays as it is, so a pending "From next period" budget is kept. A
+ * category outside the budget is added back. Throws NoBudgetError without a
+ * budget, RaiseRefusedError for an amount out of range or a category that
+ * isn't the user's.
  */
 export async function raiseBudget(supabase: Db, today: IsoDate, categoryId: string, amountPence: number): Promise<void> {
-  const editor = await loadBudgetEditor(supabase, today);
-  if (!editor) throw new NoBudgetError();
-  const { incomePence, savingsPence, categories } = editor.budget;
-  const inBudget = categories.some((c) => c.id === categoryId);
-  const outside = editor.outside.find((c) => c.id === categoryId);
-  if (!inBudget && !outside) throw new Error("raiseBudget: no such category");
-  await saveBudget(supabase, today, {
-    incomePence,
-    savingsPence,
-    scope: "this",
-    categories: inBudget
-      ? categories.map((c) => (c.id === categoryId ? { ...c, amountPence } : c))
-      : [...categories, { ...outside!, amountPence }],
+  const { periodId, nextEnd } = await editTarget(supabase, today);
+  const { error } = await supabase.rpc("raise_allocation", {
+    p_period_id: periodId,
+    p_next_end: nextEnd,
+    p_category_id: categoryId,
+    p_amount_pence: amountPence,
   });
+  if (error?.code === "22023" || error?.code === "P0002" || error?.code === "23503") throw new RaiseRefusedError();
+  if (error) throw error;
+}
+
+/** The raise couldn't be applied (the category is gone, or the amount is out of range). */
+export class RaiseRefusedError extends Error {
+  constructor() {
+    super("That budget couldn't be raised. Reload the page and try again.");
+    this.name = "RaiseRefusedError";
+  }
 }

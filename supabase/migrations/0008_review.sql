@@ -46,7 +46,12 @@ alter table public.leftover_movements
 create index leftover_movements_carried_to_idx on public.leftover_movements (carried_to_period_id, user_id);
 
 -- A recorded leftover is written only by record_leftover; the only change a
--- user makes directly is dismissing the nudge.
+-- user makes directly is dismissing the nudge. Leftover rows and
+-- budget_periods.reviewed_at are the user's own bookkeeping: record_leftover
+-- is security invoker, so it needs the insert/delete/select grants (and the
+-- update grant on budget_periods), and a user can write their own rows under
+-- RLS. Doing so can only skip their own review; it changes no other user's
+-- data and no figure is derived from reviewed_at.
 revoke update on public.leftover_movements from authenticated;
 grant update (nudge_dismissed_at) on public.leftover_movements to authenticated;
 
@@ -153,3 +158,52 @@ $$;
 
 revoke execute on function public.record_leftover(uuid, date, bigint, text, uuid, text) from public, anon;
 grant execute on function public.record_leftover(uuid, date, bigint, text, uuid, text) to authenticated;
+
+-- raise_allocation ---------------------------------------------------------------
+--
+-- raise_allocation(period, next_end, category, amount) applies a review's
+-- "raise budget" suggestion: the category's allocation becomes p_amount_pence
+-- in the current period (p_period_id, from ensureCurrentPeriod) and, when the
+-- next period already exists (a "From next period" edit), in that one too,
+-- every other figure of both left as it is. One transaction, after locking the
+-- caller's profile (private.edit_targets, scope 'this'), like save_budget.
+-- Past periods are never touched. Refuses (writing nothing): 42501 not signed
+-- in; 22023 an amount outside 1p-£10m; P0002 a period or category that isn't
+-- the caller's.
+
+create function public.raise_allocation(
+  p_period_id uuid,
+  p_next_end date,
+  p_category_id uuid,
+  p_amount_pence bigint
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  uid uuid := (select auth.uid());
+  v_targets uuid[];
+begin
+  if uid is null then
+    raise exception 'raise_allocation: not signed in' using errcode = '42501';
+  end if;
+  if p_amount_pence is null or p_amount_pence not between 1 and 1000000000 then
+    raise exception 'raise_allocation: an amount of 1p to £10m is needed' using errcode = '22023';
+  end if;
+
+  v_targets := private.edit_targets(p_period_id, p_next_end, 'this');
+
+  if not exists (select 1 from public.categories where id = p_category_id and user_id = uid) then
+    raise exception 'raise_allocation: no such category' using errcode = 'P0002';
+  end if;
+
+  insert into public.allocations (user_id, period_id, category_id, amount_pence)
+  select uid, t.id, p_category_id, p_amount_pence from unnest(v_targets) as t (id)
+  on conflict (user_id, period_id, category_id) do update set amount_pence = excluded.amount_pence;
+end;
+$$;
+
+revoke execute on function public.raise_allocation(uuid, date, uuid, bigint) from public, anon;
+grant execute on function public.raise_allocation(uuid, date, uuid, bigint) to authenticated;

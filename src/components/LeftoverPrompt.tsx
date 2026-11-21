@@ -53,6 +53,8 @@ const NEW_FUND = "new";
 
 type LeftoverPromptProps = {
   monthLabel: string;
+  /** The current budget's month, where a carried leftover goes, e.g. "November". */
+  currentLabel: string;
   /** The whole leftover; 0 offers only Done. */
   totalPence: number;
   funds: { id: string; name: string }[];
@@ -64,7 +66,7 @@ type LeftoverPromptProps = {
  * Where the whole leftover goes (spec §5.9): a fund, the next budget, or kept
  * unassigned (both stay spendable, §5.5). With nothing left over, only Done.
  */
-export function LeftoverPrompt({ monthLabel, totalPence, funds, record }: LeftoverPromptProps) {
+export function LeftoverPrompt({ monthLabel, currentLabel, totalPence, funds, record }: LeftoverPromptProps) {
   const [destination, setDestination] = useState<Destination | null>(null);
   const [fundId, setFundId] = useState(funds[0]?.id ?? NEW_FUND);
   const [newFundName, setNewFundName] = useState("");
@@ -73,12 +75,12 @@ export function LeftoverPrompt({ monthLabel, totalPence, funds, record }: Leftov
 
   const options: RadioCardOption<Destination>[] = [
     { value: "fund", title: "Move to a fund", description: "Add it to your savings. It leaves your spending money." },
-    { value: "next_period", title: "Add to next budget", description: `Add it to this budget, marked as carried from ${monthLabel}.` },
     {
-      value: "unassigned",
-      title: "Keep unassigned",
-      description: "It stays spendable in this budget, and we'll remind you to give it a job.",
+      value: "next_period",
+      title: "Add to next budget",
+      description: `Add it to your ${currentLabel} budget, shown as carried from ${monthLabel}.`,
     },
+    { value: "unassigned", title: "Keep unassigned", description: "It stays spendable, but you'll be nudged to give it a job." },
   ];
 
   async function submit(e: FormEvent) {

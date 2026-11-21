@@ -55,6 +55,7 @@ export async function ReviewContent() {
         <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <OverspendReview
             monthLabel={review.monthLabel}
+            raiseApplies={review.raiseApplies}
             overspent={review.overspent}
             suggestions={review.suggestions}
             current={review.current}
@@ -64,6 +65,7 @@ export async function ReviewContent() {
         <div className="lg:col-start-1 lg:row-start-2">
           <LeftoverPrompt
             monthLabel={review.monthLabel}
+            currentLabel={review.raiseApplies.currentLabel}
             totalPence={review.breakdown.totalPence}
             funds={review.funds}
             record={recordLeftoverAction.bind(null, review.periodId)}

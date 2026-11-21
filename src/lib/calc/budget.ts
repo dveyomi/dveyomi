@@ -92,6 +92,9 @@ export function summarise(
     budget.savingsPence,
     budget.allocations,
   );
+  // record_leftover (supabase/migrations/0008_review.sql) checks a recorded leftover against this
+  // same formula in SQL (income − savings + carry − non-fund spending in the period, floored at 0).
+  // Keep the two in step.
   const leftToSpendPence = poolPence + budget.unassignedCarryPence - spentPence;
   const needsLeftPence = categories
     .filter((c) => c.kind === "need")

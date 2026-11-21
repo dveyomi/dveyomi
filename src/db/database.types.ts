@@ -589,6 +589,10 @@ export type Database = {
         Returns: string;
       };
       delete_category: { Args: { p_category_id: string; p_period_id: string }; Returns: undefined };
+      raise_allocation: {
+        Args: { p_amount_pence: number; p_category_id: string; p_next_end: string; p_period_id: string };
+        Returns: undefined;
+      };
       record_leftover: {
         Args: {
           p_amount_pence: number;

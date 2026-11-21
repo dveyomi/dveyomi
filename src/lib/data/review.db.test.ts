@@ -187,12 +187,16 @@ describe("recordLeftover", () => {
     });
   });
 
-  it("an overspend of £30 is not carried forward: the next pool rises by the whole leftover only", async () => {
-    const { u, october } = await seed();
+  it("an overspend is never carried forward: a period spent past its money leaves the current carry at 0", async () => {
+    const u = await signIn();
+    const groceries = await createCategory(db(u), { name: "Groceries", kind: "need" });
+    const october = await insertPeriod(u, "2026-10-01", "2026-10-31", { [groceries]: 250000 });
+    const november = await insertPeriod(u, "2026-11-01", "2026-11-30", { [groceries]: 250000 });
+    await spend(u, groceries, "2026-10-03", 253000); // £30 over the whole pool
     const before = await leftToSpend(u);
-    await recordLeftover(db(u), TODAY, october, { destination: "next_period" });
-    // 112000 already has Groceries' £30 over inside it; nothing more is taken off.
-    expect(await leftToSpend(u)).toBe(before + 112000);
+    await recordLeftover(db(u), TODAY, october, null);
+    expect((await periodRow(u, november)).unassigned_carry_pence).toBe(0);
+    expect(await leftToSpend(u)).toBe(before);
   });
 
   it("move to a fund: adds a contribution dated today and leaves the current pool alone", async () => {
@@ -406,9 +410,49 @@ describe("raise suggestions", () => {
     // Once raised, the suggestion is not offered again.
     expect((await loadReview(db(u), TODAY))!.suggestions).toEqual([]);
   });
+
+  it("says which budgets a raise applies to: the current one, and the next when it is already planned", async () => {
+    const { u } = await threeEnded();
+    expect((await loadReview(db(u), TODAY))!.raiseApplies).toEqual({ currentLabel: "November", nextLabel: null });
+    await insertPeriod(u, "2026-12-01", "2026-12-31", {});
+    expect((await loadReview(db(u), TODAY))!.raiseApplies).toEqual({ currentLabel: "November", nextLabel: "December" });
+  });
+
+  it("with a different next budget already planned, raises the category in both and changes nothing else in the next", async () => {
+    const { u, groceries, fun } = await threeEnded();
+    // December planned with its own figures ("From next period" edit): more income, more Fun.
+    const editor = (await loadBudgetEditor(db(u), TODAY))!;
+    await saveBudget(db(u), TODAY, {
+      incomePence: 320000,
+      savingsPence: 50000,
+      scope: "next",
+      categories: editor.budget.categories.map((c) => (c.id === fun ? { ...c, amountPence: 25000 } : c)),
+    });
+    expect((await loadBudgetEditor(db(u), TODAY))!.nextDiffers).toBe(true);
+
+    await raiseBudget(db(u), TODAY, groceries, 42100);
+
+    const after = (await loadBudgetEditor(db(u), TODAY))!;
+    const amounts = (f: typeof after.budget) => Object.fromEntries(f.categories.map((c) => [c.name, c.amountPence]));
+    expect(after.budget.incomePence).toBe(300000);
+    expect(amounts(after.budget)).toEqual({ Fun: 20000, Groceries: 42100 });
+    expect(after.nextBudget!.incomePence).toBe(320000);
+    expect(after.nextBudget!.savingsPence).toBe(50000);
+    expect(amounts(after.nextBudget!)).toEqual({ Fun: 25000, Groceries: 42100 });
+  });
+
+  it("refuses an amount out of range or a category that isn't the user's, changing nothing", async () => {
+    const { u, groceries } = await threeEnded();
+    const other = await signIn();
+    const theirs = await createCategory(db(other), { name: "Theirs", kind: "need" });
+    await expect(raiseBudget(db(u), TODAY, groceries, 0)).rejects.toThrow();
+    await expect(raiseBudget(db(u), TODAY, theirs, 42100)).rejects.toThrow();
+    const view = await loadBudgetView(db(u), TODAY);
+    expect(view.summary!.categories.find((c) => c.categoryId === groceries)!.allocatedPence).toBe(40000);
+  });
 });
 
-describe("record_leftover", () => {
+describe.each(["record_leftover", "raise_allocation"])("%s", (fn) => {
   it("runs as the caller (RLS applies) and only signed-in users may call it", () => {
     const rows = queryAsPostgres<{ anon: boolean; authenticated: boolean; public: boolean; definer: boolean; config: string[] }>(
       `select has_function_privilege('anon', p.oid, 'execute') as anon,
@@ -417,7 +461,7 @@ describe("record_leftover", () => {
               p.prosecdef as definer,
               p.proconfig as config
        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-       where n.nspname = 'public' and p.proname = 'record_leftover'`,
+       where n.nspname = 'public' and p.proname = '${fn}'`,
     );
     expect(rows).toEqual([{ anon: false, authenticated: true, public: false, definer: false, config: ['search_path=""'] }]);
   });

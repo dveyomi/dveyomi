@@ -20,7 +20,7 @@ vi.mock("@/lib/data/review", async (importOriginal) => ({
   dismissUnassignedNudge,
 }));
 
-import { AlreadyReviewedError } from "@/lib/data/review";
+import { AlreadyReviewedError, RaiseRefusedError } from "@/lib/data/review";
 import { applyRaiseAction, dismissNudgeAction, recordLeftoverAction } from "./actions";
 
 const PERIOD = "11111111-1111-4111-8111-111111111111";
@@ -63,6 +63,11 @@ describe("applyRaiseAction", () => {
   it("raises the category from the current period on", async () => {
     expect(await applyRaiseAction(PERIOD, 42100)).toEqual({});
     expect(raiseBudget).toHaveBeenCalledWith({}, "2026-11-21", PERIOD, 42100);
+  });
+
+  it("shows a refused raise's message", async () => {
+    raiseBudget.mockRejectedValue(new RaiseRefusedError());
+    expect(await applyRaiseAction(PERIOD, 42100)).toEqual({ error: "That budget couldn't be raised. Reload the page and try again." });
   });
 
   it("refuses a bad amount", async () => {

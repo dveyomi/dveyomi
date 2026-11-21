@@ -8,7 +8,9 @@ export const metadata: Metadata = { title: "Budget · Personal Finance OS" };
 export default function Page({ searchParams }: PageProps<"/budget">) {
   return (
     <div className="mx-auto flex w-full max-w-phone flex-col gap-4 px-4 py-6 md:mx-0 md:max-w-none md:p-8">
-      <h1 className="text-title font-semibold text-text">Budget</h1>
+      <h1 id="budget-heading" tabIndex={-1} className="text-title font-semibold text-text outline-none">
+        Budget
+      </h1>
       <Suspense fallback={<BudgetSkeleton />}>
         <BudgetContent searchParams={searchParams} />
       </Suspense>

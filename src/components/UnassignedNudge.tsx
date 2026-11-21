@@ -15,6 +15,8 @@ export function UnassignedNudge({ amountPence }: { amountPence: number }) {
 
   async function dismiss() {
     setDismissed(true);
+    // The button is about to go: keep keyboard and screen-reader users on the page's heading.
+    document.getElementById("budget-heading")?.focus();
     try {
       await dismissNudgeAction();
     } catch (e) {
