@@ -20,6 +20,7 @@ Updated 2026-11-21. Items move to the design doc once decided.
 - Open Banking for other banks (GoCardless free tier is one option).
 
 ## Decided
+- A category's Need/Want type is fixed once created (David, 2026-11-21). To move one, remove it from the next budget and add a new category of the other type. Status shows at least Spending Fast when any category is overspent or allocations exceed the spending money (David, 2026-11-21).
 - Themes: Light, Dark and Match device, chosen in Settings; light is the default (David, 2026-11-21). Replaces "dark theme only". The light theme uses a deeper lime for accent text and icons so it stays readable on white.
 - Sign out sits in Settings, added early (David, 2026-11-21).
 - Phone bottom nav: a floating pill with Expenses, Budget and Settings (active tab in a darker inset pill, lime icon and label) and a separate round + to its right (David's screenshot, 2026-11-21).
