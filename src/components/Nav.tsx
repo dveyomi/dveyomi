@@ -20,6 +20,11 @@ const tabs: { href: string; label: string; icon: IconName }[] = [
  */
 const FOCUSED = /^\/(?:expenses\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})|review)$/i;
 
+/** Whether `pathname` is a focused screen (no phone nav; TimezoneSync's prompt stays away too). */
+export function isFocusedRoute(pathname: string): boolean {
+  return FOCUSED.test(pathname);
+}
+
 function isCurrent(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -42,7 +47,7 @@ export function Nav() {
  */
 export function NavBar({ pathname }: { pathname: string | null }) {
   const adding = pathname === ADD_HREF;
-  const onForm = pathname !== null && FOCUSED.test(pathname);
+  const onForm = pathname !== null && isFocusedRoute(pathname);
 
   return (
     <nav

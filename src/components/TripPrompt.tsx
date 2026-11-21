@@ -2,29 +2,30 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import { Button, Card, Icon, IconButton } from "@/components/ui";
 import { buttonClasses } from "@/components/ui/Button";
 import type { IsoDate } from "@/lib/calc";
-import { promptKey, suggestedTrip, tripPrompt, type CurrentTrip } from "@/lib/trips";
+import { awayTripToRecord, promptKey, suggestedTrip, tripPrompt, type CurrentTrip } from "@/lib/trips";
 
 const STORAGE_PREFIX = "trip-prompt:";
 
-/** Storage can be blocked (private windows, previews): the prompt then just shows until dismissed on this page. */
-function wasDismissed(key: string): boolean {
+/** Whether `key` was stored on this device. Storage can be blocked (private windows, previews): the prompt then just shows until dismissed on this page. */
+function isStored(key: string): boolean {
   try {
     return window.localStorage.getItem(STORAGE_PREFIX + key) !== null;
   } catch {
     return false;
   }
 }
-function rememberDismissed(key: string) {
+function remember(key: string) {
   try {
     window.localStorage.setItem(STORAGE_PREFIX + key, "1");
   } catch {
-    // Not critical: it shows again next visit.
+    // Not critical: a dismissed prompt shows again next visit; a missed "away" only skips "Back home?".
   }
 }
+const awayKey = (tripId: string) => `away:${tripId}`;
 
 type TripPromptProps = {
   /** The browser's IANA zone. Only zones are compared; the device's location is never asked for. */
@@ -34,28 +35,43 @@ type TripPromptProps = {
   today: IsoDate;
   /** The trip whose dates include today, if any. */
   currentTrip: CurrentTrip | null;
+  /** The next trip's start after today, if any: the suggested trip ends before it. */
+  nextTripStart: IsoDate | null;
   /** Ends `id` today (a server action). */
   endTrip: (id: string) => Promise<{ error?: string }>;
 };
 
 /**
  * "Are you travelling? Start a trip?" when the device zone differs from the
- * home zone and no trip covers today (once per zone), and "Back home? End
- * your trip?" when back in the home zone during a trip (once per trip).
+ * home zone and no trip covers today (once per zone; it goes by itself once a
+ * trip covers today), and "Back home? End your trip?" when back in the home
+ * zone during a trip this device was away for (once per trip). Being away
+ * during a trip is remembered on this device (localStorage, "away:<trip id>").
  * Floats above the phone nav; bottom right on desktop.
  */
-export function TripPrompt({ deviceZone, homeZone, today, currentTrip, endTrip }: TripPromptProps) {
+export function TripPrompt({ deviceZone, homeZone, today, currentTrip, nextTripStart, endTrip }: TripPromptProps) {
   const router = useRouter();
   const headingId = useId();
   const [hidden, setHidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ending, startEnding] = useTransition();
-  const state = tripPrompt({ deviceZone, homeZone, today, currentTrip, dismissed: wasDismissed });
+  const away = awayTripToRecord({ deviceZone, homeZone, currentTrip });
+  useEffect(() => {
+    if (away) remember(awayKey(away));
+  }, [away]);
+  const state = tripPrompt({
+    deviceZone,
+    homeZone,
+    today,
+    currentTrip,
+    dismissed: isStored,
+    wasAway: (tripId) => isStored(awayKey(tripId)),
+  });
   if (!state || hidden) return null;
 
   const key = promptKey(state);
   function dismiss() {
-    rememberDismissed(key);
+    remember(key);
     setHidden(true);
   }
   function end(id: string) {
@@ -67,7 +83,7 @@ export function TripPrompt({ deviceZone, homeZone, today, currentTrip, endTrip }
     });
   }
 
-  const suggestion = state.kind === "start" ? suggestedTrip(state.zone, today) : null;
+  const suggestion = state.kind === "start" ? suggestedTrip(state.zone, today, nextTripStart) : null;
   const newTripHref = suggestion
     ? `/expenses/trips/new?${new URLSearchParams({ place: suggestion.place, start: suggestion.start, end: suggestion.end })}`
     : "";
@@ -105,7 +121,7 @@ export function TripPrompt({ deviceZone, homeZone, today, currentTrip, endTrip }
             Not now
           </Button>
           {state.kind === "start" ? (
-            <Link href={newTripHref} onClick={dismiss} className={`${buttonClasses("primary")} flex-1`}>
+            <Link href={newTripHref} className={`${buttonClasses("primary")} flex-1`}>
               Start a trip
             </Link>
           ) : (

@@ -80,6 +80,16 @@ describe("summariseTrip", () => {
     ]);
   });
 
+  it("lists only days with spending when the trip is longer than 31 days", () => {
+    const s = summariseTrip([txn("a", "2026-12-03", 1000), txn("b", "2027-01-10", 500)], { start: "2026-12-01", end: "2027-01-31" });
+    expect(s.days).toEqual([
+      { date: "2026-12-03", pence: 1000 },
+      { date: "2027-01-10", pence: 500 },
+    ]);
+    // 31 days still lists every day.
+    expect(summariseTrip([], { start: "2026-12-01", end: "2026-12-31" }).days).toHaveLength(31);
+  });
+
   it("is zero with no expenses", () => {
     const s = summariseTrip([], taiwan);
     expect(s.totalPence).toBe(0);

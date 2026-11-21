@@ -76,7 +76,7 @@ export function TripEditor({ trip }: { trip: Trip }) {
       <ConfirmDialog
         open={confirming}
         title={`Delete “${trip.name}”?`}
-        body="The trip goes; its expenses stay in your spending and budget as they are."
+        body="The trip goes; its expenses stay in your spending and budget as they are. Expenses you took out of it stay out of trips until you reset them."
         confirmLabel="Delete trip"
         cancelLabel="Keep it"
         tone="danger"

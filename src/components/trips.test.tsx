@@ -4,9 +4,12 @@ import type { TripTxn } from "@/lib/data/trips";
 import { newExpenseValues } from "@/lib/validation/expense";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+vi.mock("@/app/(app)/expenses/trips/actions", () => ({ createTripAction: vi.fn(), updateTripAction: vi.fn(), deleteTripAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
+const AWAY_KEY = "trip-prompt:away:" + "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 import { ExpenseForm } from "./ExpenseForm";
+import { TripEditor } from "./TripEditor";
 import { TripForm } from "./TripForm";
 import { TripPrompt } from "./TripPrompt";
 import { TripSummary } from "./TripSummary";
@@ -33,7 +36,7 @@ describe("TripPrompt", () => {
   beforeEach(() => endTrip.mockClear());
 
   it("asks 'Are you travelling? Start a trip?' when the device zone differs from the home zone, linking to a pre-filled new trip", () => {
-    render(<TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={null} endTrip={endTrip} />);
+    render(<TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={null} nextTripStart={null} endTrip={endTrip} />);
     const card = screen.getByRole("region", { name: "Are you travelling?" });
     expect(card).toHaveTextContent("Start a trip?");
     expect(within(card).getByRole("link", { name: "Start a trip" })).toHaveAttribute(
@@ -43,18 +46,18 @@ describe("TripPrompt", () => {
   });
 
   it("asks nothing when the device zone equals the home zone", () => {
-    render(<TripPrompt deviceZone="Europe/London" homeZone="Europe/London" today={TODAY} currentTrip={null} endTrip={endTrip} />);
+    render(<TripPrompt deviceZone="Europe/London" homeZone="Europe/London" today={TODAY} currentTrip={null} nextTripStart={null} endTrip={endTrip} />);
     expect(screen.queryByRole("region")).not.toBeInTheDocument();
   });
 
   it("once dismissed, stays dismissed for that zone on this device", () => {
     const { unmount } = render(
-      <TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={null} endTrip={endTrip} />,
+      <TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={null} nextTripStart={null} endTrip={endTrip} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(screen.queryByRole("region")).not.toBeInTheDocument();
     unmount();
-    render(<TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={null} endTrip={endTrip} />);
+    render(<TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={null} nextTripStart={null} endTrip={endTrip} />);
     expect(screen.queryByRole("region")).not.toBeInTheDocument();
   });
 
@@ -65,19 +68,65 @@ describe("TripPrompt", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("blocked");
     });
-    render(<TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={null} endTrip={endTrip} />);
+    render(<TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={null} nextTripStart={null} endTrip={endTrip} />);
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(screen.queryByRole("region")).not.toBeInTheDocument();
     vi.restoreAllMocks();
   });
 
-  it("back home during a trip, asks to end it and ends it today", async () => {
+  it("tapping Start a trip doesn't dismiss the prompt for good", () => {
+    const { unmount } = render(
+      <TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={null} nextTripStart={null} endTrip={endTrip} />,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Start a trip" }));
+    unmount();
+    render(<TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={null} nextTripStart={null} endTrip={endTrip} />);
+    expect(screen.getByRole("region", { name: "Are you travelling?" })).toBeInTheDocument();
+  });
+
+  it("suggests an end the day before the next trip when two weeks would overlap it", () => {
+    render(<TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={null} nextTripStart="2026-12-08" endTrip={endTrip} />);
+    expect(screen.getByRole("link", { name: "Start a trip" })).toHaveAttribute(
+      "href",
+      "/expenses/trips/new?place=Taipei&start=2026-12-03&end=2026-12-07",
+    );
+  });
+
+  it("a trip in the home zone, never away on this device: no 'Back home?'", () => {
     render(
       <TripPrompt
         deviceZone="Europe/London"
         homeZone="Europe/London"
         today={TODAY}
         currentTrip={{ id: TAIWAN.id, name: "Taiwan", end: TAIWAN.endDate }}
+        nextTripStart={null}
+        endTrip={endTrip}
+      />,
+    );
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+  });
+
+  it("away during a trip, then home: asks 'Back home?'", () => {
+    const trip = { id: TAIWAN.id, name: "Taiwan", end: TAIWAN.endDate };
+    const { unmount } = render(
+      <TripPrompt deviceZone="Asia/Taipei" homeZone="Europe/London" today={TODAY} currentTrip={trip} nextTripStart={null} endTrip={endTrip} />,
+    );
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(AWAY_KEY)).not.toBeNull();
+    unmount();
+    render(<TripPrompt deviceZone="Europe/London" homeZone="Europe/London" today={TODAY} currentTrip={trip} nextTripStart={null} endTrip={endTrip} />);
+    expect(screen.getByRole("region", { name: "Back home?" })).toBeInTheDocument();
+  });
+
+  it("back home during a trip, asks to end it and ends it today", async () => {
+    window.localStorage.setItem(AWAY_KEY, "1");
+    render(
+      <TripPrompt
+        deviceZone="Europe/London"
+        homeZone="Europe/London"
+        today={TODAY}
+        currentTrip={{ id: TAIWAN.id, name: "Taiwan", end: TAIWAN.endDate }}
+        nextTripStart={null}
         endTrip={endTrip}
       />,
     );
@@ -89,6 +138,14 @@ describe("TripPrompt", () => {
     expect(endTrip).toHaveBeenCalledWith(TAIWAN.id);
     expect(router.refresh).toHaveBeenCalled();
     expect(screen.queryByRole("region")).not.toBeInTheDocument();
+  });
+});
+
+describe("TripEditor", () => {
+  it("the delete confirmation says expenses taken out of the trip stay out of trips until reset", () => {
+    render(<TripEditor trip={TAIWAN} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete trip" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("Expenses you took out of it stay out of trips until you reset them");
   });
 });
 

@@ -1,11 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { adoptDeviceTimezone, endCurrentTrip } from "@/app/(app)/actions";
 import type { IsoDate } from "@/lib/calc";
 import { TZ_COOKIE } from "@/lib/timezone";
 import type { CurrentTrip } from "@/lib/trips";
+import { isFocusedRoute } from "./Nav";
 import { TripPrompt } from "./TripPrompt";
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
@@ -23,7 +24,12 @@ type TimezoneSyncProps = {
   today: IsoDate;
   /** The trip whose dates include today, if any. */
   currentTrip: CurrentTrip | null;
+  /** The next trip's start after today, if any (the suggested trip ends before it). */
+  nextTripStart: IsoDate | null;
 };
+
+/** The new trip form is where "Start a trip" leads: no prompt over it. */
+const NEW_TRIP = "/expenses/trips/new";
 
 /**
  * Keeps "today" in the device's time zone: writes the zone to the `tz` cookie
@@ -31,10 +37,13 @@ type TimezoneSyncProps = {
  * saves the zone as the home zone; after that only Settings changes it.
  * Refreshes server data only when something changed, so it settles after one
  * refresh. Once the home zone is known, a device zone that differs from it
- * brings up the travelling prompt (TripPrompt); only zones are compared.
+ * brings up the travelling prompt (TripPrompt); only zones are compared. The
+ * prompt stays off focused screens (the expense form, the review) and the new
+ * trip form.
  */
-export function TimezoneSync({ homeDetected, homeZone, today, currentTrip }: TimezoneSyncProps) {
+export function TimezoneSync({ homeDetected, homeZone, today, currentTrip, nextTripStart }: TimezoneSyncProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [deviceZone, setDeviceZone] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,5 +72,15 @@ export function TimezoneSync({ homeDetected, homeZone, today, currentTrip }: Tim
 
   // Wait until the device zone is read and the home zone is known (after first sign-in's refresh).
   if (!deviceZone || !homeDetected) return null;
-  return <TripPrompt deviceZone={deviceZone} homeZone={homeZone} today={today} currentTrip={currentTrip} endTrip={endCurrentTrip} />;
+  if (pathname && (isFocusedRoute(pathname) || pathname === NEW_TRIP)) return null;
+  return (
+    <TripPrompt
+      deviceZone={deviceZone}
+      homeZone={homeZone}
+      today={today}
+      currentTrip={currentTrip}
+      nextTripStart={nextTripStart}
+      endTrip={endCurrentTrip}
+    />
+  );
 }

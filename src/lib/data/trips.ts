@@ -42,6 +42,14 @@ export class TripNotFoundError extends Error {
   }
 }
 
+/** "End trip" on a trip whose dates don't include today. */
+export class TripNotCurrentError extends Error {
+  constructor() {
+    super("This trip isn't on today, so it can't end today.");
+    this.name = "TripNotCurrentError";
+  }
+}
+
 const TRIP_COLUMNS = "id, name, place, start_date, end_date";
 type TripRow = { id: string; name: string; place: string | null; start_date: string; end_date: string };
 const toTrip = (r: TripRow): Trip => ({ id: r.id, name: r.name, place: r.place, startDate: r.start_date, endDate: r.end_date });
@@ -104,12 +112,34 @@ export async function updateTrip(supabase: Db, id: string, input: TripInput): Pr
   if (data.length === 0) throw new TripNotFoundError();
 }
 
-/** "Back home? End your trip?": the trip now ends `today`. */
+/**
+ * "Back home? End your trip?": the trip covering `today` now ends today.
+ * Throws TripNotCurrentError when its dates don't include today (nothing
+ * changes) and TripNotFoundError for an unknown trip or another user's.
+ */
 export async function endTrip(supabase: Db, id: string, today: IsoDate): Promise<void> {
   if (!isId(id)) throw new TripNotFoundError();
-  const { data, error } = await supabase.from("trips").update({ end_date: today }).eq("id", id).select("id");
+  const { data, error } = await supabase
+    .from("trips")
+    .update({ end_date: today })
+    .eq("id", id)
+    .lte("start_date", today)
+    .gte("end_date", today)
+    .select("id");
   if (error) throw error;
-  if (data.length === 0) throw new TripNotFoundError();
+  if (data.length === 0) throw (await loadTrip(supabase, id)) ? new TripNotCurrentError() : new TripNotFoundError();
+}
+
+/** The start of the user's next trip after `date`, or null: "Start a trip" ends its suggestion before it. */
+export async function nextTripStart(supabase: Db, date: IsoDate): Promise<IsoDate | null> {
+  const { data, error } = await supabase
+    .from("trips")
+    .select("start_date")
+    .gt("start_date", date)
+    .order("start_date")
+    .limit(1);
+  if (error) throw error;
+  return data[0]?.start_date ?? null;
 }
 
 /** Deletes a trip. Expenses stay; those added to it by hand become automatic again (a trigger, in the same statement). */

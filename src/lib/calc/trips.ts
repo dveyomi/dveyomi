@@ -17,7 +17,11 @@ export type TripSummary = {
   totalPence: number;
   /** Largest first. */
   categories: CategoryShare[];
-  /** Every day of the trip in order (0 when nothing was spent), plus any day outside it with an expense added by hand. */
+  /**
+   * Every day of the trip in order (0 when nothing was spent), plus any day
+   * outside it with an expense added by hand. Trips longer than
+   * LIST_EVERY_DAY_UP_TO days list only the days with spending.
+   */
   days: { date: IsoDate; pence: number }[];
 };
 
@@ -40,6 +44,9 @@ export function formatTripRange(start: IsoDate, end: IsoDate): string {
   if (start.slice(0, 4) === end.slice(0, 4)) return `${from.slice(0, -5)} – ${to}`;
   return `${from} – ${to}`;
 }
+
+/** Up to a month, the per-day list shows every day of the trip; longer trips show only days with spending. */
+export const LIST_EVERY_DAY_UP_TO = 31;
 
 const share = (pence: number, total: number) => (total === 0 ? 0 : divRound(pence * 100, total));
 
@@ -64,7 +71,7 @@ export function summariseTrip(txns: Txn[], trip: TripRange): TripSummary {
 
   const byDay = totalsByDay(txns);
   const dates = new Set<IsoDate>(byDay.keys());
-  for (let d = trip.start; d <= trip.end; d = addDays(d, 1)) dates.add(d);
+  if (tripLength(trip) <= LIST_EVERY_DAY_UP_TO) for (let d = trip.start; d <= trip.end; d = addDays(d, 1)) dates.add(d);
   const days = [...dates].sort().map((date) => ({ date, pence: byDay.get(date) ?? 0 }));
   return { totalPence, categories, days };
 }

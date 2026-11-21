@@ -12,9 +12,19 @@ export function placeFromZone(zone: string): string {
   return parts.length < 2 ? "" : parts[parts.length - 1].replaceAll("_", " ");
 }
 
-/** "Start a trip" fills the new trip form with: the zone's city, today, and two weeks (today + 13 days). */
-export function suggestedTrip(zone: string, today: IsoDate): { place: string; start: IsoDate; end: IsoDate } {
-  return { place: placeFromZone(zone), start: today, end: addDays(today, 13) };
+/**
+ * "Start a trip" fills the new trip form with: the zone's city, today, and two
+ * weeks (today + 13 days), ending the day before `nextTripStart` (the next
+ * trip after today, if any) when two weeks would overlap it.
+ */
+export function suggestedTrip(
+  zone: string,
+  today: IsoDate,
+  nextTripStart: IsoDate | null,
+): { place: string; start: IsoDate; end: IsoDate } {
+  const twoWeeks = addDays(today, 13);
+  const end = nextTripStart && nextTripStart <= twoWeeks ? addDays(nextTripStart, -1) : twoWeeks;
+  return { place: placeFromZone(zone), start: today, end: end < today ? today : end };
 }
 
 /** The trip that covers today, as the prompt needs it. */
@@ -29,7 +39,22 @@ type TripPromptInput = {
   currentTrip: CurrentTrip | null;
   /** Whether the prompt with this key was dismissed on this device: "start:<zone>" or "end:<trip id>". */
   dismissed: (key: string) => boolean;
+  /** Whether this device was seen away from home during the trip (see awayTripToRecord). */
+  wasAway: (tripId: string) => boolean;
 };
+
+/**
+ * The trip to remember as "was away" on this device: the trip covering today
+ * while the device is in another zone. "Back home?" is only asked for a trip
+ * the device was away for, so a trip taken in the home zone never asks.
+ */
+export function awayTripToRecord({
+  deviceZone,
+  homeZone,
+  currentTrip,
+}: Pick<TripPromptInput, "deviceZone" | "homeZone" | "currentTrip">): string | null {
+  return deviceZone !== homeZone && currentTrip ? currentTrip.id : null;
+}
 
 /** The localStorage key remembering a dismissed prompt. */
 export function promptKey(state: NonNullable<TripPromptState>): string {
@@ -39,11 +64,14 @@ export function promptKey(state: NonNullable<TripPromptState>): string {
 /**
  * Which prompt to show, if any:
  * - away from the home zone with no trip covering today: "Are you travelling? Start a trip?", once per device zone;
- * - back in the home zone while a trip covers today (and doesn't already end today): "Back home? End your trip?", once per trip.
+ * - back in the home zone while a trip covers today, after this device was away during it, and the trip
+ *   doesn't already end today: "Back home? End your trip?", once per trip.
  */
-export function tripPrompt({ deviceZone, homeZone, today, currentTrip, dismissed }: TripPromptInput): TripPromptState {
+export function tripPrompt({ deviceZone, homeZone, today, currentTrip, dismissed, wasAway }: TripPromptInput): TripPromptState {
   let state: TripPromptState = null;
   if (deviceZone !== homeZone && !currentTrip) state = { kind: "start", zone: deviceZone };
-  else if (deviceZone === homeZone && currentTrip && currentTrip.end > today) state = { kind: "end", trip: currentTrip };
+  else if (deviceZone === homeZone && currentTrip && currentTrip.end > today && wasAway(currentTrip.id)) {
+    state = { kind: "end", trip: currentTrip };
+  }
   return state && !dismissed(promptKey(state)) ? state : null;
 }

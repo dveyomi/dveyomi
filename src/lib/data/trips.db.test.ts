@@ -9,10 +9,12 @@ import {
   endTrip,
   listTrips,
   loadTrip,
+  nextTripStart,
   removedFromTrip,
   resetTripOverride,
   setTripOverride,
   tripCovering,
+  TripNotCurrentError,
   TripNotFoundError,
   TripOverlapError,
   tripTransactions,
@@ -232,6 +234,23 @@ describe("editing and deleting", () => {
     await expect(updateTrip(db(u), missing, TAIWAN)).rejects.toBeInstanceOf(TripNotFoundError);
     await expect(deleteTrip(db(u), missing)).rejects.toBeInstanceOf(TripNotFoundError);
     await expect(endTrip(db(u), missing, "2026-12-05")).rejects.toBeInstanceOf(TripNotFoundError);
+  });
+
+  it("ending only works on a trip that covers today", async () => {
+    const { u } = await seed();
+    const id = await createTrip(db(u), TAIWAN);
+    await expect(endTrip(db(u), id, "2026-11-21")).rejects.toBeInstanceOf(TripNotCurrentError);
+    await expect(endTrip(db(u), id, "2026-12-16")).rejects.toBeInstanceOf(TripNotCurrentError);
+    expect((await loadTrip(db(u), id))?.endDate).toBe("2026-12-15");
+  });
+
+  it("nextTripStart is the earliest start after a day", async () => {
+    const { u } = await seed();
+    await createTrip(db(u), TAIWAN);
+    await createTrip(db(u), { name: "Paris", place: null, startDate: "2027-02-01", endDate: "2027-02-04" });
+    expect(await nextTripStart(db(u), "2026-11-21")).toBe("2026-12-01");
+    expect(await nextTripStart(db(u), "2026-12-01")).toBe("2027-02-01");
+    expect(await nextTripStart(db(u), "2027-02-01")).toBeNull();
   });
 
   it("ending a trip sets its end date to today", async () => {

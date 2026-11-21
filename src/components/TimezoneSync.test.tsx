@@ -6,14 +6,15 @@ const refresh = vi.fn();
 const adoptDeviceTimezone = vi.fn<(zone: string) => Promise<void>>(async () => {});
 // One router object, as Next.js gives: TimezoneSync's effect depends on it.
 const router = { refresh, push: vi.fn() };
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+let pathname = "/budget";
+vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => pathname }));
 vi.mock("@/app/(app)/actions", () => ({
   adoptDeviceTimezone: (zone: string) => adoptDeviceTimezone(zone),
   endCurrentTrip: async () => ({}),
 }));
 
 /** Home is the device's zone in these tests, so no travelling prompt. */
-const HOME = { homeZone: "Asia/Taipei", today: "2026-12-03", currentTrip: null };
+const HOME = { homeZone: "Asia/Taipei", today: "2026-12-03", currentTrip: null, nextTripStart: null };
 
 function setDeviceZone(timeZone: string) {
   const real = Intl.DateTimeFormat;
@@ -80,8 +81,23 @@ describe("TimezoneSync", () => {
   });
 
   describe("the travelling prompt", () => {
-    const trip = { homeZone: "Europe/London", today: "2026-12-03", currentTrip: null };
-    beforeEach(() => window.localStorage.clear());
+    const trip = { homeZone: "Europe/London", today: "2026-12-03", currentTrip: null, nextTripStart: null };
+    beforeEach(() => {
+      window.localStorage.clear();
+      pathname = "/budget";
+    });
+
+    it.each(["/expenses/new", "/expenses/11111111-1111-4111-8111-111111111111", "/review", "/expenses/trips/new"])(
+      "stays out of the way on %s (a focused screen or the new trip form)",
+      async (path) => {
+        pathname = path;
+        setDeviceZone("Asia/Taipei");
+        document.cookie = "tz=Asia%2FTaipei; path=/";
+        render(<TimezoneSync homeDetected {...trip} />);
+        await new Promise((r) => setTimeout(r, 20));
+        expect(screen.queryByRole("region")).not.toBeInTheDocument();
+      },
+    );
 
     it("asks 'Are you travelling?' when the device zone differs from the home zone", async () => {
       setDeviceZone("Asia/Taipei");
