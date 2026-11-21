@@ -29,3 +29,15 @@ export function lastDayOfMonth(year: number, month1to12: number): number {
 export function todayIn(timeZone: string, now: Date): IsoDate {
   return new Intl.DateTimeFormat("en-CA", { timeZone }).format(now);
 }
+
+const weekdayDate = new Intl.DateTimeFormat("en-GB", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  timeZone: "UTC",
+});
+
+/** A calendar date for people, in en-GB: "2026-11-25" -> "Wednesday 25 November". */
+export function formatWeekdayDate(d: IsoDate): string {
+  return weekdayDate.format(toUtcMs(d)).replace(",", "");
+}

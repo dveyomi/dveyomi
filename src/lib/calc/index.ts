@@ -1,5 +1,5 @@
 export { parsePence, formatGBP, divRound } from "./money";
-export { addDays, daysBetween, lastDayOfMonth, todayIn } from "./dates";
+export { addDays, daysBetween, formatWeekdayDate, lastDayOfMonth, todayIn } from "./dates";
 export type { IsoDate } from "./dates";
 export { periodContaining, daysLeft, previousPeriod } from "./periods";
 export type { Period } from "./periods";
@@ -21,3 +21,5 @@ export { scheduleBetween, dueOccurrences, amountOn, withPriceChange } from "./re
 export type { Frequency, Price, Rule } from "./recurring";
 export { leftoverBreakdown, categoriesOverTwiceInThree, suggestedBudget } from "./leftover";
 export type { LeftoverSource } from "./leftover";
+export { allocationTotals, splitRemainder } from "./setup";
+export type { AllocationTotals, PlannedAllocation } from "./setup";

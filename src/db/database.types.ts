@@ -524,6 +524,18 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      complete_onboarding: {
+        Args: {
+          p_categories: Json;
+          p_end: string;
+          p_funds: Json;
+          p_income_pence: number;
+          p_savings_pence: number;
+          p_start: string;
+          p_start_day: number;
+        };
+        Returns: string;
+      };
       renew_period: {
         Args: { p_end: string; p_start: string };
         Returns: {

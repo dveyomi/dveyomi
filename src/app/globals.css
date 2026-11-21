@@ -59,6 +59,11 @@
   padding-bottom: calc(var(--space-8) * 3 + env(safe-area-inset-bottom));
 }
 
+/* A fixed footer's bottom padding, clear of the home indicator. */
+@utility pb-safe {
+  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+}
+
 body {
   background: var(--bg);
   color: var(--text);

@@ -1,6 +1,7 @@
 import { daysBetween, type IsoDate } from "./dates";
 import { divRound } from "./money";
 import { daysLeft, type Period } from "./periods";
+import { allocationTotals } from "./setup";
 
 export type Txn = {
   id: string;
@@ -86,8 +87,11 @@ export function summarise(
     if (!allocated.has(categoryId)) categories.push(figure(categoryId, null, 0, spent));
   }
 
-  const poolPence = budget.incomePence - budget.savingsPence;
-  const allocatedTotal = budget.allocations.reduce((sum, a) => sum + a.amountPence, 0);
+  const { poolPence, unallocatedPence, overAllocatedPence } = allocationTotals(
+    budget.incomePence,
+    budget.savingsPence,
+    budget.allocations,
+  );
   const leftToSpendPence = poolPence + budget.unassignedCarryPence - spentPence;
   const needsLeftPence = categories
     .filter((c) => c.kind === "need")
@@ -115,8 +119,8 @@ export function summarise(
     spentPence,
     leftToSpendPence,
     needsLeftPence,
-    unallocatedPence: Math.max(0, poolPence - allocatedTotal),
-    overAllocatedPence: Math.max(0, allocatedTotal - poolPence),
+    unallocatedPence,
+    overAllocatedPence,
     daysLeft: days,
     safeToSpendPerDayPence,
     categories,

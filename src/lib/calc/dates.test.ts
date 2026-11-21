@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, daysBetween, lastDayOfMonth, todayIn } from "./dates";
+import { addDays, daysBetween, formatWeekdayDate, lastDayOfMonth, todayIn } from "./dates";
 
 describe("dates", () => {
   it("addDays crosses year end", () => {
@@ -13,5 +13,12 @@ describe("dates", () => {
   });
   it("todayIn uses the given time zone", () => {
     expect(todayIn("Asia/Taipei", new Date("2026-11-20T20:00:00Z"))).toBe("2026-11-21");
+  });
+});
+
+describe("formatWeekdayDate", () => {
+  it("formats a calendar date in en-GB as weekday, day and month", () => {
+    expect(formatWeekdayDate("2026-11-25")).toBe("Wednesday 25 November");
+    expect(formatWeekdayDate("2027-01-01")).toBe("Friday 1 January");
   });
 });
