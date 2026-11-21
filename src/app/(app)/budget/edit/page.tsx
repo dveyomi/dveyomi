@@ -1,25 +1,29 @@
 import type { Metadata } from "next";
-import { ButtonLink, Card, EmptyState } from "@/components/ui";
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui";
+import { EditContent } from "./EditContent";
 
-export const metadata: Metadata = { title: "Set new budget · Personal Finance OS" };
+export const metadata: Metadata = { title: "Edit budget · Personal Finance OS" };
 
-/** Placeholder until the budget editor is built. */
-export default function Page() {
+export default function Page({ searchParams }: PageProps<"/budget/edit">) {
   return (
     <div className="mx-auto flex w-full max-w-phone flex-col gap-4 px-4 py-6 md:mx-0 md:max-w-none md:p-8">
-      <h1 className="text-title font-semibold text-text">Set new budget</h1>
-      <Card>
-        <EmptyState
-          icon="edit"
-          title="Coming soon"
-          body="You'll change your income, savings and allocations here."
-          action={
-            <ButtonLink href="/budget" variant="secondary" icon="chevron-left">
-              Back to budget
-            </ButtonLink>
-          }
-        />
-      </Card>
+      <Suspense
+        fallback={
+          <div className="grid gap-6 lg:grid-cols-5">
+            <div className="flex flex-col gap-4 lg:col-span-3">
+              <Skeleton shape="card" />
+              <Skeleton shape="segments" />
+              <Skeleton shape="card" />
+            </div>
+            <div className="lg:col-span-2">
+              <Skeleton shape="card" />
+            </div>
+          </div>
+        }
+      >
+        <EditContent searchParams={searchParams} />
+      </Suspense>
     </div>
   );
 }

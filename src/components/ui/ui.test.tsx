@@ -250,6 +250,18 @@ describe("AmountInput controlled", () => {
   });
 });
 
+describe("AmountInput autoFocus", () => {
+  it("takes focus when it mounts, for a screen opened on one amount", () => {
+    render(
+      <>
+        <AmountInput label="Rent" value="" onChange={() => {}} />
+        <AmountInput label="Eating out" value="" onChange={() => {}} autoFocus />
+      </>,
+    );
+    expect(screen.getByLabelText("Eating out")).toHaveFocus();
+  });
+});
+
 describe("stacked dialogs", () => {
   it("Escape closes only the top-most dialog (ConfirmDialog over a BottomSheet)", () => {
     function Stack() {

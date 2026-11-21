@@ -35,12 +35,23 @@ export const MAX_PENCE = 1_000_000_000;
 /** One step's check: the cleaned value, or the first problem (and the field it belongs to, if one). */
 export type Check<T> = { ok: true; value: T } | { ok: false; error: string; field?: "income" | "savings" };
 
-const isPence = (v: unknown, min: number): v is number =>
+/** Whether `v` is whole pence from `min` up to MAX_PENCE. */
+export const isPence = (v: unknown, min: number): v is number =>
   Number.isSafeInteger(v) && (v as number) >= min && (v as number) <= MAX_PENCE;
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
-const tooLong = (name: string) => name.length > MAX_NAME_LENGTH;
+export const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
-function firstDuplicate(names: string[]): string | null {
+/** A category or fund name: trimmed, 1 to MAX_NAME_LENGTH characters. */
+export function checkName(raw: unknown, what: "category" | "fund"): Check<string> {
+  if (typeof raw !== "string" || !raw.trim()) return { ok: false, error: `Give every ${what} a name.` };
+  const name = raw.trim();
+  if (name.length > MAX_NAME_LENGTH) {
+    return { ok: false, error: `${what === "category" ? "Category" : "Fund"} names can be up to ${MAX_NAME_LENGTH} characters.` };
+  }
+  return { ok: true, value: name };
+}
+
+/** The first name that repeats an earlier one, ignoring case; null when all are unique. */
+export function firstDuplicate(names: string[]): string | null {
   const seen = new Set<string>();
   for (const name of names) {
     const key = name.toLowerCase();
@@ -68,9 +79,10 @@ export function checkCategories(raw: unknown): Check<OnboardingCategory[]> {
   if (raw.length > MAX_CATEGORIES) return fail(`You can add up to ${MAX_CATEGORIES} categories.`);
   const categories: OnboardingCategory[] = [];
   for (const c of raw as unknown[]) {
-    if (!isRecord(c) || typeof c.name !== "string" || !c.name.trim()) return fail("Give every category a name.");
-    const name = c.name.trim();
-    if (tooLong(name)) return fail(`Category names can be up to ${MAX_NAME_LENGTH} characters.`);
+    if (!isRecord(c)) return fail("Give every category a name.");
+    const checked = checkName(c.name, "category");
+    if (!checked.ok) return checked;
+    const name = checked.value;
     if (c.kind !== "need" && c.kind !== "want") return fail(`Mark ${name} as a need or a want.`);
     if (!isPence(c.amountPence, 1)) return fail(`Enter an amount between £0.01 and £10,000,000.00 for ${name}.`);
     categories.push({ name, kind: c.kind, amountPence: c.amountPence });
@@ -102,9 +114,10 @@ export function checkSavings(
   if (raw.length > MAX_FUNDS) return fail(`You can add up to ${MAX_FUNDS} funds.`);
   const funds: OnboardingFund[] = [];
   for (const f of raw as unknown[]) {
-    if (!isRecord(f) || typeof f.name !== "string" || !f.name.trim()) return fail("Give every fund a name.");
-    const name = f.name.trim();
-    if (tooLong(name)) return fail(`Fund names can be up to ${MAX_NAME_LENGTH} characters.`);
+    if (!isRecord(f)) return fail("Give every fund a name.");
+    const checked = checkName(f.name, "fund");
+    if (!checked.ok) return checked;
+    const name = checked.value;
     if (!isPence(f.amountPence, 0)) return fail(`Enter a monthly amount for ${name}, or leave it empty.`);
     if (!isPence(f.alreadySavedPence, 0)) return fail(`Enter how much is already saved in ${name}.`);
     funds.push({ name, amountPence: f.amountPence, alreadySavedPence: f.alreadySavedPence });

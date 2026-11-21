@@ -19,7 +19,11 @@ type BudgetOverviewProps = {
   summary: BudgetSummary | null;
   categories: CategoryRow[];
   tab: BudgetTab;
+  /** A confirmation after returning from the editor or the ⋯ menu. */
+  notice?: "saved" | "deleted";
 };
+
+const notices = { saved: "Budget saved.", deleted: "Category deleted." } as const;
 
 const groups = [
   { title: "Needs", kind: "need" },
@@ -28,7 +32,7 @@ const groups = [
 ] as const;
 
 /** The Budget tab (§5.4). Every figure is read from `summary`; nothing is worked out here. */
-export function BudgetOverview({ period, summary, categories, tab }: BudgetOverviewProps) {
+export function BudgetOverview({ period, summary, categories, tab, notice }: BudgetOverviewProps) {
   if (!summary) {
     return (
       <Card>
@@ -50,6 +54,13 @@ export function BudgetOverview({ period, summary, categories, tab }: BudgetOverv
   return (
     <div className="grid items-start gap-6 lg:grid-cols-5">
       <section aria-label="This period" className="flex flex-col gap-4 lg:sticky lg:top-8 lg:col-span-2">
+        <div role="status">
+          {notice ? (
+            <Notice tone="neutral">
+              <p>{notices[notice]}</p>
+            </Notice>
+          ) : null}
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <StatusBadge status={summary.status} />

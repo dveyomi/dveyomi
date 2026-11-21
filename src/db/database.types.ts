@@ -536,6 +536,11 @@ export type Database = {
         };
         Returns: string;
       };
+      delete_category: { Args: { p_category_id: string }; Returns: undefined };
+      remove_from_budget: {
+        Args: { p_category_id: string; p_next_end: string; p_period_id: string; p_scope: string };
+        Returns: undefined;
+      };
       renew_period: {
         Args: { p_end: string; p_start: string };
         Returns: {
@@ -553,6 +558,17 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      save_budget: {
+        Args: {
+          p_categories: Json;
+          p_income_pence: number;
+          p_next_end: string;
+          p_period_id: string;
+          p_savings_pence: number;
+          p_scope: string;
+        };
+        Returns: undefined;
       };
     };
     Enums: {

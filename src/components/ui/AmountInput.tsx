@@ -25,6 +25,8 @@ type AmountInputProps = {
   required?: boolean;
   /** An optional amount: empty or 0 is valid and reads as 0 pence. */
   allowZero?: boolean;
+  /** Focus the field when it mounts, e.g. on a screen opened for this one amount. */
+  autoFocus?: boolean;
 };
 
 function initialText(pence?: number) {
@@ -42,6 +44,7 @@ export function AmountInput({
   error,
   required,
   allowZero = false,
+  autoFocus,
 }: AmountInputProps) {
   const parse = allowZero ? parseOptionalPence : parsePence;
   const id = useId();
@@ -68,6 +71,7 @@ export function AmountInput({
           placeholder="0.00"
           value={text}
           required={required}
+          autoFocus={autoFocus}
           aria-invalid={shown ? true : undefined}
           aria-describedby={describedBy(id, hint, shown)}
           onChange={(e) => {

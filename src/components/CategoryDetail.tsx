@@ -13,10 +13,12 @@ type CategoryDetailProps = {
   daysLeft: number;
   /** Newest first. */
   transactions: CategoryTxn[];
+  /** False when the category has ever had an expense or has a recurring payment. */
+  deletable: boolean;
 };
 
 /** One category's budget and its expenses this period (§5.4). Figures are read, never worked out. */
-export function CategoryDetail({ period, category, figure, daysLeft, transactions }: CategoryDetailProps) {
+export function CategoryDetail({ period, category, figure, daysLeft, transactions, deletable }: CategoryDetailProps) {
   const pct = figure ? percentLeft(figure) : null;
   const over = figure !== null && figure.overPence > 0;
   const fundPaid = transactions.some((t) => t.fundName !== null);
@@ -30,7 +32,7 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
         <span className="text-body text-muted">
           {formatDayMonth(period.start)} – {formatDayMonth(period.end)}
         </span>
-        <CategoryMenu categoryId={category.id} name={category.name} />
+        <CategoryMenu categoryId={category.id} name={category.name} deletable={deletable} />
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-5">

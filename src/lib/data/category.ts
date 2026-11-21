@@ -1,5 +1,6 @@
 import type { BudgetSummary, CategoryFigure, IsoDate, Period } from "@/lib/calc";
 import { loadBudgetView } from "./budget";
+import { categoryInUse } from "./budgetEdit";
 import type { CategoryRow, Db } from "./types";
 
 /** An expense as the category detail lists it. `fundName` is set when it was paid from a fund. */
@@ -13,6 +14,8 @@ export type CategoryView = {
   figure: CategoryFigure | null;
   /** Every expense in the period, newest first, fund-paid ones included (they don't count in `figure`). */
   transactions: CategoryTxn[];
+  /** False when it has ever had an expense or has a recurring payment: it can then only be removed from the budget. */
+  deletable: boolean;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,14 +31,17 @@ export async function loadCategoryView(supabase: Db, today: IsoDate, categoryId:
   const category = categories.find((c) => c.id === categoryId);
   if (!category) return null;
 
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("id, name, amount_pence, date, funds(name)")
-    .eq("category_id", categoryId)
-    .gte("date", period.start)
-    .lte("date", period.end)
-    .order("date", { ascending: false })
-    .order("id", { ascending: false });
+  const [{ data, error }, inUse] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select("id, name, amount_pence, date, funds(name)")
+      .eq("category_id", categoryId)
+      .gte("date", period.start)
+      .lte("date", period.end)
+      .order("date", { ascending: false })
+      .order("id", { ascending: false }),
+    categoryInUse(supabase, categoryId),
+  ]);
   if (error) throw error;
 
   return {
@@ -50,5 +56,6 @@ export async function loadCategoryView(supabase: Db, today: IsoDate, categoryId:
       date: t.date,
       fundName: t.funds?.name ?? null,
     })),
+    deletable: !inUse,
   };
 }

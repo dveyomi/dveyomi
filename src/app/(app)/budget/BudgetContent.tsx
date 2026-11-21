@@ -4,13 +4,21 @@ import { loadBudgetView } from "@/lib/data/budget";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
 
-type BudgetContentProps = { searchParams: Promise<{ tab?: string | string[] }> };
+type BudgetContentProps = {
+  searchParams: Promise<{ tab?: string | string[]; saved?: string | string[]; deleted?: string | string[] }>;
+};
 
 /** Renews the current period if due; a user with no budget yet is sent to onboarding. */
 export async function BudgetContent({ searchParams }: BudgetContentProps) {
   if (!(await getUserId())) redirect("/login");
-  const [supabase, today, { tab }] = await Promise.all([createClient(), getToday(), searchParams]);
+  const [supabase, today, { tab, saved, deleted }] = await Promise.all([createClient(), getToday(), searchParams]);
   const view = await loadBudgetView(supabase, today);
   if (!view.summary) redirect("/onboarding");
-  return <BudgetOverview {...view} tab={tab === "saving" ? "saving" : "spending"} />;
+  return (
+    <BudgetOverview
+      {...view}
+      tab={tab === "saving" ? "saving" : "spending"}
+      notice={saved === "1" ? "saved" : deleted === "1" ? "deleted" : undefined}
+    />
+  );
 }
