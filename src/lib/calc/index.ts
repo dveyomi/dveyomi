@@ -12,3 +12,6 @@ export type {
   BudgetStatus,
   BudgetSummary,
 } from "./budget";
+export { totalsByDay, totalsByCategory, totalSpent } from "./totals";
+export { compareToPrevious } from "./comparison";
+export type { Comparison } from "./comparison";
