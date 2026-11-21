@@ -34,3 +34,9 @@ export function parseOptionalPence(input: string): number | null {
   const t = input.trim();
   return t === "" || /^£?0+(\.0{1,2})?$/.test(t) ? 0 : parsePence(t);
 }
+
+/** Integer pence as the text an amount field starts from, e.g. 1250 -> "12.50" (no £, no separators; parsePence reads it back). */
+export function penceToInputText(pence: number): string {
+  const abs = Math.abs(pence);
+  return `${pence < 0 ? "-" : ""}${Math.floor(abs / 100)}.${(abs % 100).toString().padStart(2, "0")}`;
+}

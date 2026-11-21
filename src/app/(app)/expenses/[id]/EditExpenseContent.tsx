@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { ExpenseForm } from "@/components/ExpenseForm";
+import { penceToInputText } from "@/lib/calc";
 import { loadExpenseOptions, loadTransaction } from "@/lib/data/transactions";
 import { safeNext } from "@/lib/safeNext";
 import { createClient, getUserId } from "@/lib/supabase/server";
@@ -26,7 +27,7 @@ export async function EditExpenseContent({ params, searchParams }: EditExpenseCo
       today={today}
       initial={{
         name: txn.name,
-        amountText: (txn.amountPence / 100).toFixed(2),
+        amountText: penceToInputText(txn.amountPence),
         date: txn.date,
         categoryId: txn.categoryId,
         fundId: txn.fundId,

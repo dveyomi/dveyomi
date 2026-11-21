@@ -10,6 +10,7 @@ const { saveExpense, deleteTransaction, redirect, getUserId } = vi.hoisted(() =>
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}), getUserId }));
 vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("@/lib/today", () => ({ getToday: async () => "2026-11-21" }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/data/transactions", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/data/transactions")>()),
@@ -57,6 +58,20 @@ describe("saveExpenseAction", () => {
   it("returns the first problem with its field and saves nothing", async () => {
     expect(await saveExpenseAction({}, { ...valid, amountPence: 0 })).toEqual({ error: expect.any(String), field: "amount" });
     expect(saveExpense).not.toHaveBeenCalled();
+  });
+
+  it("refuses a date outside 10 years back to a year ahead of the server's today", async () => {
+    expect(await saveExpenseAction({}, { ...valid, date: "2027-11-22" })).toEqual({ error: expect.any(String), field: "date" });
+    expect(await saveExpenseAction({}, { ...valid, date: "2016-11-20" })).toEqual({ error: expect.any(String), field: "date" });
+    expect(saveExpense).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a tab", "/\t/evil.test"],
+    ["a newline", "/\n/evil.test"],
+    ["a non-string", 42],
+  ])("returns to /expenses when returnTo hides another site behind %s", async (_, returnTo) => {
+    await expect(saveExpenseAction({ returnTo } as never, valid)).rejects.toThrow("NEXT_REDIRECT:/expenses");
   });
 
   it("sends signed-out callers to /login without saving", async () => {

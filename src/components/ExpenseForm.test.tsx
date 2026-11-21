@@ -164,6 +164,22 @@ describe("ExpenseForm", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("We couldn't save this expense.");
   });
 
+  it("refuses a date more than a year ahead inline, without saving", async () => {
+    renderNew({ category: RENT });
+    fill({ amount: "5", name: "Tesco" });
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2028-01-01" } });
+    await submit();
+    expect(screen.getByLabelText("Date")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent("Choose a date within the last 10 years or the next 12 months.");
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("limits the date picker to the allowed range", () => {
+    renderNew();
+    expect(screen.getByLabelText("Date")).toHaveAttribute("min", "2016-11-21");
+    expect(screen.getByLabelText("Date")).toHaveAttribute("max", "2027-11-21");
+  });
+
   it("close goes back to where the form was opened from", () => {
     renderNew();
     fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
@@ -209,6 +225,18 @@ describe("ExpenseForm editing", () => {
     fill({ amount: "30" });
     await submit();
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ name: "Tesco", amountPence: 3000, date: "2026-11-04", accountLabel: "Monzo" }));
+  });
+
+  it('shows "Deleting…" on Delete while deleting, leaving the Save label alone', async () => {
+    remove.mockReturnValue(new Promise(() => {}));
+    renderEdit();
+    fireEvent.click(screen.getByRole("button", { name: "Delete Expense" }));
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+    });
+    expect(screen.getByRole("button", { name: "Deleting…" })).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Save expense" })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Saving…" })).toBeNull();
   });
 
   it("deletes only after confirming", async () => {

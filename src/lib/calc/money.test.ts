@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { divRound, formatGBP, parsePence, parseOptionalPence } from "./money";
+import { divRound, formatGBP, parsePence, parseOptionalPence, penceToInputText } from "./money";
 
 describe("parsePence", () => {
   it("parses valid amounts", () => {
@@ -39,5 +39,19 @@ describe("parseOptionalPence", () => {
   it("rejects invalid text", () => {
     expect(parseOptionalPence("abc")).toBeNull();
     expect(parseOptionalPence("-5")).toBeNull();
+  });
+});
+
+describe("penceToInputText", () => {
+  it("writes pence as the text an amount field starts from", () => {
+    expect(penceToInputText(1250)).toBe("12.50");
+    expect(penceToInputText(5)).toBe("0.05");
+    expect(penceToInputText(0)).toBe("0.00");
+    expect(penceToInputText(1_000_000_000)).toBe("10000000.00");
+    expect(penceToInputText(123456789)).toBe("1234567.89");
+  });
+
+  it("round-trips through parsePence", () => {
+    for (const p of [1, 99, 100, 1250, 987654321]) expect(parsePence(penceToInputText(p))).toBe(p);
   });
 });

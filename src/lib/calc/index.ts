@@ -1,4 +1,4 @@
-export { parsePence, parseOptionalPence, formatGBP, divRound } from "./money";
+export { parsePence, parseOptionalPence, penceToInputText, formatGBP, divRound } from "./money";
 export {
   addDays,
   daysBetween,

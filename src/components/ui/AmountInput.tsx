@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { parseOptionalPence, parsePence } from "@/lib/calc";
+import { parseOptionalPence, parsePence, penceToInputText } from "@/lib/calc";
 import { borderFor, describedBy, FieldShell } from "./field";
 
 export const AMOUNT_ERROR = "Enter an amount greater than £0.00, e.g. 12.50";
@@ -37,7 +37,7 @@ const sizes = {
 } as const;
 
 function initialText(pence?: number) {
-  return pence === undefined ? "" : (pence / 100).toFixed(2);
+  return pence === undefined ? "" : penceToInputText(pence);
 }
 
 export function AmountInput({

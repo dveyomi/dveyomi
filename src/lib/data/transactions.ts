@@ -144,7 +144,11 @@ export async function saveExpense(supabase: Db, id: string | null, input: Expens
     await updateTransaction(supabase, id, txn);
     return id;
   } catch (e) {
-    if (created) await supabase.from("categories").delete().eq("id", created);
+    if (created) {
+      const { error: undo } = await supabase.from("categories").delete().eq("id", created);
+      // Visible in the logs: an empty category may now be left behind.
+      if (undo) console.error("saveExpense: couldn't remove the new category after a failed save", created, undo);
+    }
     throw e;
   }
 }

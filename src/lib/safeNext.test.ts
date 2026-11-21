@@ -17,4 +17,24 @@ describe("safeNext", () => {
     expect(safeNext(undefined, "/expenses")).toBe("/expenses");
     expect(safeNext("/budget/abc", "/expenses")).toBe("/budget/abc");
   });
+
+  it.each([
+    ["a tab", "/\t/evil.test"],
+    ["a newline", "/\n/evil.test"],
+    ["a carriage return", "/\r/evil.test"],
+    ["a space", "/ /evil.test"],
+    ["a DEL", "/\u007f/evil.test"],
+    ["a backslash", "/\\evil.test"],
+    ["tabs before a double slash", "/\t\t//evil.test"],
+  ])("refuses a path with %s that a browser would turn into another site", (_, bad) => {
+    expect(safeNext(bad, "/expenses")).toBe("/expenses");
+  });
+
+  it.each([42, {}, ["/budget"], true])("returns the fallback for a non-string (%s)", (bad) => {
+    expect(safeNext(bad, "/expenses")).toBe("/expenses");
+  });
+
+  it("keeps the path, query and hash of an in-app target", () => {
+    expect(safeNext("/budget/abc?x=1#top", "/expenses")).toBe("/budget/abc?x=1#top");
+  });
 });

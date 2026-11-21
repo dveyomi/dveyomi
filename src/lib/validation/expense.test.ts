@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { isIsoDate, validateExpense } from "./expense";
 
+const TODAY = "2026-11-21";
+
 const GROCERIES = "11111111-1111-4111-8111-111111111111";
 const HOLIDAY = "22222222-2222-4222-8222-222222222222";
 const valid = {
@@ -29,19 +31,19 @@ describe("isIsoDate", () => {
 
 describe("validateExpense", () => {
   it("trims the name and drops empty optional text", () => {
-    expect(validateExpense(valid)).toEqual({
+    expect(validateExpense(valid, TODAY)).toEqual({
       ok: true,
       input: { name: "Tesco", amountPence: 1250, date: "2026-11-21", category: { id: GROCERIES }, fundId: null },
     });
   });
 
   it("keeps a fund, an account label and notes (trimmed)", () => {
-    const checked = validateExpense({ ...valid, fundId: HOLIDAY, accountLabel: " Monzo ", notes: " Flights " });
+    const checked = validateExpense({ ...valid, fundId: HOLIDAY, accountLabel: " Monzo ", notes: " Flights " }, TODAY);
     expect(checked).toMatchObject({ ok: true, input: { fundId: HOLIDAY, accountLabel: "Monzo", notes: "Flights" } });
   });
 
   it("accepts a new category by name and kind (trimmed)", () => {
-    const checked = validateExpense({ ...valid, category: { name: " Gifts ", kind: "want" } });
+    const checked = validateExpense({ ...valid, category: { name: " Gifts ", kind: "want" } }, TODAY);
     expect(checked).toMatchObject({ ok: true, input: { category: { name: "Gifts", kind: "want" } } });
   });
 
@@ -58,15 +60,30 @@ describe("validateExpense", () => {
     ["a new category name over 50 characters", { category: { name: "x".repeat(51), kind: "need" } }, "newCategory"],
     ["a new category with no kind", { category: { name: "Gifts" } }, "newCategory"],
     ["an invalid date", { date: "2026-02-30" }, "date"],
+    ["a date more than 10 years ago", { date: "2016-11-20" }, "date"],
+    ["a date more than a year ahead", { date: "2027-11-22" }, "date"],
     ["a malformed fund id", { fundId: "x" }, "fund"],
     ["an account label over 50 characters", { accountLabel: "x".repeat(51) }, "accountLabel"],
     ["notes over 500 characters", { notes: "x".repeat(501) }, "notes"],
   ])("refuses %s, naming the field", (_, over, field) => {
-    const checked = validateExpense({ ...valid, ...over });
+    const checked = validateExpense({ ...valid, ...over }, TODAY);
     expect(checked).toEqual({ ok: false, error: expect.any(String), field });
   });
 
   it("refuses something that isn't an expense", () => {
-    expect(validateExpense(null)).toEqual({ ok: false, error: expect.any(String) });
+    expect(validateExpense(null, TODAY)).toEqual({ ok: false, error: expect.any(String) });
+  });
+
+  it("accepts dates from 10 years back to a year ahead of today", () => {
+    expect(validateExpense({ ...valid, date: "2016-11-21" }, TODAY).ok).toBe(true);
+    expect(validateExpense({ ...valid, date: "2027-11-21" }, TODAY).ok).toBe(true);
+  });
+
+  it("explains the date range when a date is outside it", () => {
+    expect(validateExpense({ ...valid, date: "1999-01-01" }, TODAY)).toEqual({
+      ok: false,
+      field: "date",
+      error: "Choose a date within the last 10 years or the next 12 months.",
+    });
   });
 });

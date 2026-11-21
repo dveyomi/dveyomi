@@ -16,6 +16,7 @@ import { formatRelativeDay, parsePence, type IsoDate } from "@/lib/calc";
 import type { Kind } from "@/lib/validation/budgetEdit";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
 import {
+  expenseDateRange,
   isIsoDate,
   MAX_ACCOUNT_LABEL_LENGTH,
   MAX_EXPENSE_NAME_LENGTH,
@@ -63,7 +64,9 @@ export function ExpenseForm({ categories, funds, today, initial, returnTo, save,
   const [newCategory, setNewCategory] = useState<{ name: string; kind: Kind } | null>(null);
   const [error, setError] = useState<{ message: string; field?: ExpenseField } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [busy, startTransition] = useTransition();
+  const [saving, startSaving] = useTransition();
+  const [deleting, startDeleting] = useTransition();
+  const busy = saving || deleting;
   const formRef = useRef<HTMLFormElement>(null);
 
   // Move focus to the field a failed save points at.
@@ -100,10 +103,10 @@ export function ExpenseForm({ categories, funds, today, initial, returnTo, save,
       accountLabel: values.accountLabel,
       notes: values.notes,
     };
-    const checked = validateExpense(raw);
+    const checked = validateExpense(raw, today);
     if (!checked.ok) return setError({ message: checked.error, field: checked.field });
     setError(null);
-    startTransition(async () => {
+    startSaving(async () => {
       const result = await save(raw);
       if (result) setError({ message: result.error, field: result.field });
     });
@@ -112,7 +115,7 @@ export function ExpenseForm({ categories, funds, today, initial, returnTo, save,
   function confirmDelete() {
     setConfirmingDelete(false);
     if (!remove) return;
-    startTransition(async () => {
+    startDeleting(async () => {
       const result = await remove();
       if (result) setError({ message: result.error });
     });
@@ -120,6 +123,7 @@ export function ExpenseForm({ categories, funds, today, initial, returnTo, save,
 
   const byKind = (kind: Kind) => categories.filter((c) => c.kind === kind).map((c) => ({ value: c.id, label: c.name }));
   const title = editing ? "Edit expense" : "Add expense";
+  const dateRange = expenseDateRange(today);
 
   return (
     <form
@@ -185,6 +189,8 @@ export function ExpenseForm({ categories, funds, today, initial, returnTo, save,
             onChange={(e) => update({ date: e.target.value }, "date")}
             hint={isIsoDate(values.date) ? formatRelativeDay(values.date, today) : undefined}
             error={fieldError("date")}
+            min={dateRange.min}
+            max={dateRange.max}
             required
           />
         </div>
@@ -247,7 +253,7 @@ export function ExpenseForm({ categories, funds, today, initial, returnTo, save,
         {editing ? (
           <div className="md:mr-auto">
             <Button variant="danger" fullWidth onClick={() => setConfirmingDelete(true)} disabled={busy}>
-              Delete Expense
+              {deleting ? "Deleting…" : "Delete Expense"}
             </Button>
           </div>
         ) : null}
@@ -256,7 +262,7 @@ export function ExpenseForm({ categories, funds, today, initial, returnTo, save,
             Cancel
           </Button>
           <Button variant="primary" type="submit" disabled={busy}>
-            {busy ? "Saving…" : "Save expense"}
+            {saving ? "Saving…" : "Save expense"}
           </Button>
         </div>
       </div>

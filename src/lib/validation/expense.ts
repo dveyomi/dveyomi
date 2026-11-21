@@ -43,6 +43,17 @@ export function isIsoDate(v: unknown): v is IsoDate {
   return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d;
 }
 
+/**
+ * The dates an expense may have: from 10 years before `today` to a year
+ * after it (same day of the year). Compared as YYYY-MM-DD strings.
+ */
+export function expenseDateRange(today: IsoDate): { min: IsoDate; max: IsoDate } {
+  const year = Number(today.slice(0, 4));
+  const rest = today.slice(4);
+  return { min: `${year - 10}${rest}`, max: `${year + 1}${rest}` };
+}
+export const DATE_RANGE_ERROR = "Choose a date within the last 10 years or the next 12 months.";
+
 /** Optional text: trimmed, left out when empty, at most `max` characters. */
 function optionalText(raw: unknown, max: number): { ok: true; value?: string } | { ok: false } {
   if (raw === undefined || raw === null) return { ok: true };
@@ -54,12 +65,14 @@ function optionalText(raw: unknown, max: number): { ok: true; value?: string } |
 
 /**
  * Checks untrusted expense input: a name (trimmed, 1–100 characters), an
- * amount of whole pence from 1p to £10m, a real date, an existing category id
+ * amount of whole pence from 1p to £10m, a real date within
+ * `expenseDateRange(today)` (`today` comes from the server, or the page it
+ * rendered), an existing category id
  * or a new category's name and kind, an optional fund id, and optional
  * account label (≤50) and notes (≤500). Returns the input cleaned, or the
  * first problem in words a person can act on, with its field.
  */
-export function validateExpense(raw: unknown): ExpenseValidation {
+export function validateExpense(raw: unknown, today: IsoDate): ExpenseValidation {
   const fail = (error: string, field?: ExpenseField): ExpenseValidation => ({ ok: false, error, ...(field ? { field } : {}) });
   if (!isRecord(raw)) return fail("Something was missing from this expense. Check it and try again.");
 
@@ -86,6 +99,8 @@ export function validateExpense(raw: unknown): ExpenseValidation {
   }
 
   if (!isIsoDate(raw.date)) return fail("Enter a date, e.g. 21/11/2026.", "date");
+  const range = expenseDateRange(today);
+  if (raw.date < range.min || raw.date > range.max) return fail(DATE_RANGE_ERROR, "date");
   if (raw.fundId !== null && raw.fundId !== undefined && !isId(raw.fundId)) return fail("That fund wasn't recognised.", "fund");
 
   const accountLabel = optionalText(raw.accountLabel, MAX_ACCOUNT_LABEL_LENGTH);

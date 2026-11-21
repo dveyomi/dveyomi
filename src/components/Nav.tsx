@@ -13,6 +13,9 @@ const tabs: { href: string; label: string; icon: IconName }[] = [
   { href: "/settings", label: "Settings", icon: "settings" },
 ];
 
+/** The add/edit expense form: a focused sheet with its own close and save. */
+const EXPENSE_FORM = /^\/expenses\/[^/]+$/;
+
 function isCurrent(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -21,7 +24,9 @@ function isCurrent(pathname: string, href: string): boolean {
  * Main navigation, in one DOM order for every width: Expenses, Budget,
  * Settings, then +. Under 768px it floats above the bottom edge as a pill of
  * three tabs with a round + beside it. From 768px it is a left rail with
- * "Add expense" under the tabs.
+ * "Add expense" under the tabs. On the expense form (/expenses/new and
+ * /expenses/[id]) the phone pill and + are hidden: the form has its own close
+ * and save. The desktop rail stays.
  */
 export function Nav() {
   return <NavBar pathname={usePathname()} />;
@@ -33,11 +38,12 @@ export function Nav() {
  */
 export function NavBar({ pathname }: { pathname: string | null }) {
   const adding = pathname === ADD_HREF;
+  const onForm = pathname !== null && EXPENSE_FORM.test(pathname);
 
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-4 bottom-safe z-30 flex items-stretch gap-3 md:inset-x-auto md:top-0 md:bottom-0 md:left-0 md:w-60 md:flex-col md:justify-start md:gap-6 md:border-r md:border-border md:bg-card md:px-4 md:py-6"
+      className={`fixed inset-x-4 bottom-safe z-30 ${onForm ? "hidden md:flex" : "flex"} items-stretch gap-3 md:inset-x-auto md:top-0 md:bottom-0 md:left-0 md:w-60 md:flex-col md:justify-start md:gap-6 md:border-r md:border-border md:bg-card md:px-4 md:py-6`}
     >
       <p translate="no" className="hidden px-3 text-body font-semibold text-text md:block">
         Personal Finance OS

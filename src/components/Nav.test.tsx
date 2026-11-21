@@ -65,4 +65,22 @@ describe("Nav", () => {
     expect(links.map((l) => l.textContent)).toEqual(["Expenses", "Budget", "Settings", "Add expense"]);
     for (const link of links) expect(link).not.toHaveAttribute("aria-current");
   });
+
+  it.each(["/expenses/new", "/expenses/11111111-1111-4111-8111-111111111111"])(
+    "on the expense form (%s) hides the phone pill and + (the form has its own close and save), keeping the desktop rail",
+    (path) => {
+      pathname = path;
+      render(<Nav />);
+      const el = screen.getByRole("navigation", { name: "Main", hidden: true });
+      expect(el).toHaveClass("hidden", "md:flex");
+    },
+  );
+
+  it.each(["/expenses", "/budget", "/budget/abc", "/settings"])("shows the phone pill on %s", (path) => {
+    pathname = path;
+    render(<Nav />);
+    expect(nav()).not.toHaveClass("hidden");
+    expect(nav()).toHaveClass("flex");
+  });
 });
+

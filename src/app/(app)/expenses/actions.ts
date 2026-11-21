@@ -6,13 +6,17 @@ import { NameTakenError } from "@/lib/data/budgetEdit";
 import { deleteTransaction, MissingReferenceError, saveExpense, TransactionNotFoundError } from "@/lib/data/transactions";
 import { safeNext } from "@/lib/safeNext";
 import { createClient, getUserId } from "@/lib/supabase/server";
+import { getToday } from "@/lib/today";
 import { isId } from "@/lib/validation/budgetEdit";
+import { isRecord } from "@/lib/validation/common";
 import { validateExpense, type ExpenseField } from "@/lib/validation/expense";
 
 export type ExpenseActionResult = { error: string; field?: ExpenseField };
 
-/** Which expense (none when adding) and where to go afterwards; both untrusted. */
-type Target = { id?: string; returnTo?: string };
+/** Which expense (none when adding) and where to go afterwards. Bound by the page, but untrusted: a client can change them. */
+type Target = { id?: unknown; returnTo?: unknown };
+
+const targetOf = (t: unknown): Target => (isRecord(t) ? t : {});
 
 const DEFAULT_RETURN = "/expenses";
 
@@ -21,19 +25,22 @@ const knownError = (e: unknown): string | null =>
 
 /**
  * Saves the add/edit expense form, then returns to `returnTo` (an in-app path
- * only; /expenses otherwise). The input is untrusted: it is validated here,
+ * only; /expenses otherwise). The date range is checked against the
+ * server's today for the user. The input is untrusted: it is validated here,
  * and RLS and the composite foreign keys keep the expense, its category and
  * its fund to the signed-in user.
  */
-export async function saveExpenseAction(target: Target, raw: unknown): Promise<ExpenseActionResult> {
+export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promise<ExpenseActionResult> {
   if (!(await getUserId())) redirect("/login");
+  const target = targetOf(rawTarget);
   if (target.id !== undefined && !isId(target.id)) return { error: "This expense wasn't recognised." };
+  const id = target.id as string | undefined;
 
-  const checked = validateExpense(raw);
+  const checked = validateExpense(raw, await getToday());
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
 
   try {
-    await saveExpense(await createClient(), target.id ?? null, checked.input);
+    await saveExpense(await createClient(), id ?? null, checked.input);
   } catch (e) {
     if (e instanceof NameTakenError) return { error: e.message, field: "newCategory" };
     const known = knownError(e);
@@ -46,8 +53,9 @@ export async function saveExpenseAction(target: Target, raw: unknown): Promise<E
 }
 
 /** Deletes the expense being edited, then returns to `returnTo` (as for saving). */
-export async function deleteExpenseAction(target: Target): Promise<ExpenseActionResult> {
+export async function deleteExpenseAction(rawTarget: Target): Promise<ExpenseActionResult> {
   if (!(await getUserId())) redirect("/login");
+  const target = targetOf(rawTarget);
   if (!isId(target.id)) return { error: "This expense wasn't recognised." };
 
   try {
