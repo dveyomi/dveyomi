@@ -46,7 +46,7 @@ export function SegmentedTabs<T extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(o.value)}
             onKeyDown={(e) => onKeyDown(e, i)}
-            className={`h-9 flex-1 rounded-pill px-3 text-caption font-semibold transition-colors ${focusRing} ${selected ? "bg-card-raised text-text" : "text-muted hover:text-text"}`}
+            className={`min-h-11 flex-1 rounded-pill px-3 text-caption font-semibold transition-colors ${focusRing} ${selected ? "bg-card-raised text-text" : "text-muted hover:text-text"}`}
           >
             {o.label}
           </button>

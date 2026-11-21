@@ -10,8 +10,12 @@ type AmountInputProps = {
   label: string;
   /** Form field name; the submitted value is integer pence. */
   name?: string;
-  /** Initial value in pence. */
+  /** Initial value in pence (uncontrolled use). */
   defaultPence?: number;
+  /** Controlled raw text, e.g. "12.50". Set it to "" to clear the field after saving. */
+  value?: string;
+  /** Called with the raw text on every edit (pair with `value`). */
+  onChange?: (text: string) => void;
   /** Called on every edit with integer pence, or null while the text is not a valid amount. */
   onValueChange?: (pence: number | null) => void;
   hint?: string;
@@ -28,13 +32,16 @@ export function AmountInput({
   label,
   name,
   defaultPence,
+  value,
+  onChange,
   onValueChange,
   hint,
   error,
   required,
 }: AmountInputProps) {
   const id = useId();
-  const [text, setText] = useState(() => initialText(defaultPence));
+  const [ownText, setOwnText] = useState(() => initialText(defaultPence));
+  const text = value ?? ownText;
   const [touched, setTouched] = useState(false);
   const pence = parsePence(text);
   const localError = touched && text.trim() !== "" && pence === null ? AMOUNT_ERROR : null;
@@ -58,7 +65,8 @@ export function AmountInput({
           aria-invalid={shown ? true : undefined}
           aria-describedby={describedBy(id, hint, shown)}
           onChange={(e) => {
-            setText(e.target.value);
+            if (value === undefined) setOwnText(e.target.value);
+            onChange?.(e.target.value);
             onValueChange?.(parsePence(e.target.value));
           }}
           onBlur={() => setTouched(true)}

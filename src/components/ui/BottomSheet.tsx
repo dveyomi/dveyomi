@@ -6,6 +6,9 @@ import { IconButton } from "./IconButton";
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/** Open sheets, oldest first. Only the last (top-most) one handles keys. */
+const openStack: object[] = [];
+
 type BottomSheetProps = {
   open: boolean;
   onClose: () => void;
@@ -18,7 +21,8 @@ type BottomSheetProps = {
 /**
  * A modal panel: a sheet rising from the bottom on phones (under 768px) and a
  * centred dialog above. Escape and the backdrop close it; focus moves in on open,
- * is kept inside while open, and returns to where it was on close.
+ * is kept inside while open, and returns to where it was on close. When sheets
+ * stack (a ConfirmDialog over a sheet), Escape and Tab apply only to the top one.
  */
 export function BottomSheet({ open, onClose, title, children, role = "dialog" }: BottomSheetProps) {
   const titleId = useId();
@@ -50,10 +54,13 @@ export function BottomSheet({ open, onClose, title, children, role = "dialog" }:
       (first ?? node?.querySelector<HTMLElement>(FOCUSABLE) ?? node)?.focus();
     }
 
+    const entry = {};
+    openStack.push(entry);
     const { overflow } = document.body.style;
     document.body.style.overflow = "hidden";
 
     function onKeyDown(e: KeyboardEvent) {
+      if (openStack[openStack.length - 1] !== entry) return;
       if (e.key === "Escape") {
         e.preventDefault();
         onCloseRef.current();
@@ -79,6 +86,7 @@ export function BottomSheet({ open, onClose, title, children, role = "dialog" }:
 
     return () => {
       document.removeEventListener("keydown", onKeyDown);
+      openStack.splice(openStack.indexOf(entry), 1);
       document.body.style.overflow = overflow;
       returnTo?.focus();
     };

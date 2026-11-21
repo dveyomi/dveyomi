@@ -107,6 +107,7 @@ function Label({ children }: { children: ReactNode }) {
 export function DesignGallery() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [amount, setAmount] = useState("");
   const [period, setPeriod] = useState<"week" | "month" | "year">("month");
   const [toggle, setToggle] = useState(true);
   const [chip, setChip] = useState("groceries");
@@ -308,6 +309,14 @@ export function DesignGallery() {
       <Section title="Form controls">
         <Widths>
           <AmountInput label="Amount" hint="In pounds, e.g. 12.50" />
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <AmountInput label="Amount (controlled)" value={amount} onChange={setAmount} />
+            </div>
+            <Button variant="secondary" onClick={() => setAmount("")}>
+              Clear
+            </Button>
+          </div>
           <AmountInput label="Amount (with error)" error="Enter an amount greater than £0.00" />
           <TextField label="Note" placeholder="What was it for?" />
           <TextField label="Note (with error)" defaultValue="" error="Add a note" />
@@ -359,10 +368,21 @@ export function DesignGallery() {
         </div>
         <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Add expense">
           <div className="flex flex-col gap-4">
-            <AmountInput label="Amount" />
+            <AmountInput label="Amount" value={amount} onChange={setAmount} />
             <Select label="Category" options={categories} defaultValue="groceries" />
-            <Button variant="primary" size="lg" fullWidth onClick={() => setSheetOpen(false)}>
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              onClick={() => {
+                setAmount("");
+                setSheetOpen(false);
+              }}
+            >
               Save
+            </Button>
+            <Button variant="ghost" fullWidth onClick={() => setConfirmOpen(true)}>
+              Delete (opens a dialog over this sheet)
             </Button>
           </div>
         </BottomSheet>

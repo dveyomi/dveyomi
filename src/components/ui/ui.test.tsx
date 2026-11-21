@@ -5,10 +5,18 @@ import {
   AmountInput,
   BottomSheet,
   Button,
+  Chip,
+  ConfirmDialog,
+  Gauge,
   Money,
   ProgressBar,
+  SegmentedTabs,
   StatusBadge,
+  Toggle,
 } from "@/components/ui";
+
+/** 44px minimum tap target: Tailwind h-11 / min-h-11 / size-11 (11 × --space-1 = 44px). */
+const TAP_44 = /(?:^|\s)(?:min-h-11|h-11|size-11|min-h-12|h-12|h-14)(?:\s|$)/;
 
 describe("ProgressBar", () => {
   it("renders full width with the danger fill when over, whatever the percent", () => {
@@ -26,6 +34,54 @@ describe("ProgressBar", () => {
     expect(fill).toHaveClass("bg-accent");
     expect(fill).not.toHaveClass("bg-danger");
     expect(bar).toHaveAttribute("aria-valuenow", "100");
+  });
+});
+
+describe("over state is announced", () => {
+  it("ProgressBar over has aria-valuetext", () => {
+    render(<ProgressBar percent={40} state="over" label="Groceries" />);
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuetext", "Over budget");
+  });
+
+  it("Gauge over has aria-valuetext", () => {
+    render(<Gauge percent={40} state="over" label="Budget used" />);
+    expect(screen.getByRole("meter")).toHaveAttribute("aria-valuetext", "Over budget");
+  });
+});
+
+describe("tap targets", () => {
+  it("Chip is at least 44px tall", () => {
+    render(<Chip label="Groceries" />);
+    expect(screen.getByRole("button", { name: "Groceries" }).className).toMatch(TAP_44);
+  });
+
+  it("every SegmentedTabs tab is at least 44px tall", () => {
+    render(
+      <SegmentedTabs
+        label="Period"
+        value="month"
+        onChange={() => {}}
+        options={[
+          { value: "week", label: "Week" },
+          { value: "month", label: "Month" },
+        ]}
+      />,
+    );
+    for (const tab of screen.getAllByRole("tab")) expect(tab.className).toMatch(TAP_44);
+  });
+
+  it("Toggle's whole row is the 44px target, toggles from its label and links the description", () => {
+    const onChange = vi.fn();
+    render(
+      <Toggle label="Paid from a fund" description="Counts in expenses" checked={false} onChange={onChange} />,
+    );
+    const toggle = screen.getByRole("switch", { name: "Paid from a fund" });
+    expect(toggle).toHaveAccessibleDescription("Counts in expenses");
+    const row = screen.getByText("Paid from a fund").closest("label");
+    expect(row).not.toBeNull();
+    expect(row!.className).toMatch(TAP_44);
+    fireEvent.click(screen.getByText("Paid from a fund"));
+    expect(onChange).toHaveBeenCalledWith(true);
   });
 });
 
@@ -114,6 +170,65 @@ describe("BottomSheet", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(opener).toHaveFocus();
+  });
+});
+
+describe("AmountInput controlled", () => {
+  it("follows value/onChange so a form can clear it, and still shows the inline error", () => {
+    function Form() {
+      const [text, setText] = useState("");
+      return (
+        <>
+          <AmountInput label="Amount" value={text} onChange={setText} />
+          <button onClick={() => setText("")}>Clear</button>
+        </>
+      );
+    }
+    render(<Form />);
+    const input = screen.getByLabelText("Amount");
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.blur(input);
+    expect(input).toHaveValue("0");
+    expect(screen.getByRole("alert")).toHaveTextContent(/greater than £0/i);
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(input).toHaveValue("");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("stacked dialogs", () => {
+  it("Escape closes only the top-most dialog (ConfirmDialog over a BottomSheet)", () => {
+    function Stack() {
+      const [sheet, setSheet] = useState(true);
+      const [confirm, setConfirm] = useState(true);
+      return (
+        <>
+          <BottomSheet open={sheet} onClose={() => setSheet(false)} title="Edit transaction">
+            <p>Sheet body</p>
+          </BottomSheet>
+          <ConfirmDialog
+            open={confirm}
+            title="Delete transaction?"
+            body="This cannot be undone."
+            confirmLabel="Delete"
+            tone="danger"
+            onConfirm={() => setConfirm(false)}
+            onCancel={() => setConfirm(false)}
+          />
+        </>
+      );
+    }
+    render(
+      <StrictMode>
+        <Stack />
+      </StrictMode>,
+    );
+    expect(screen.getByRole("alertdialog", { name: "Delete transaction?" })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Edit transaction" })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
 

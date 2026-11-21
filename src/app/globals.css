@@ -19,6 +19,7 @@
   --color-warning: var(--warning);
   --color-positive: var(--positive);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-scrim: var(--scrim);
 
   --font-*: initial;

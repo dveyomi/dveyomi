@@ -19,6 +19,7 @@ export function ProgressBar({ percent, state, label, className = "" }: ProgressB
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={drawn}
+      aria-valuetext={state === "over" ? "Over budget" : undefined}
       className={`h-2 w-full overflow-hidden rounded-pill bg-card-raised ${className}`}
     >
       <div

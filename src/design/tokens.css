@@ -17,7 +17,8 @@
   --danger: #FF5A5F;
   --warning: #FFB020;
   --positive: #4ADE80;
-  --border: #2A2B2E;
+  --border: #2A2B2E; /* dividers and decorative outlines */
+  --border-strong: #6B6E74; /* form control boundaries: >= 3:1 on card and card-raised */
   --scrim: rgb(0 0 0 / 0.64); /* behind sheets and dialogs */
 
   /* Type */

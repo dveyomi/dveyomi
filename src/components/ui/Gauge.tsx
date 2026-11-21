@@ -22,6 +22,7 @@ export function Gauge({ percent, state, label, children }: GaugeProps) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={drawn}
+      aria-valuetext={state === "over" ? "Over budget" : undefined}
       className="relative mx-auto aspect-[100/82] w-full max-w-72"
     >
       <svg viewBox="0 0 100 82" className="size-full" aria-hidden="true">

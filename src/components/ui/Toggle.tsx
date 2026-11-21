@@ -11,30 +11,38 @@ type ToggleProps = {
   disabled?: boolean;
 };
 
+/** A switch whose whole row (at least 44px tall) is the tap target. */
 export function Toggle({ label, checked, onChange, description, disabled }: ToggleProps) {
   const id = useId();
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="flex flex-col">
+    <label
+      className={`flex min-h-11 items-center justify-between gap-4 ${disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
+    >
+      <span className="flex flex-col">
         <span id={`${id}-label`} className="text-body text-text">
           {label}
         </span>
-        {description ? <span className="text-caption text-muted">{description}</span> : null}
-      </div>
+        {description ? (
+          <span id={`${id}-description`} className="text-caption text-muted">
+            {description}
+          </span>
+        ) : null}
+      </span>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         aria-labelledby={`${id}-label`}
+        aria-describedby={description ? `${id}-description` : undefined}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-pill p-0.5 transition-colors disabled:opacity-40 ${focusRing} ${checked ? "bg-accent" : "bg-border"}`}
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-pill p-0.5 transition-colors ${focusRing} ${checked ? "bg-accent" : "bg-border-strong"}`}
       >
         <span
           aria-hidden="true"
           className={`size-6 rounded-pill transition-transform ${checked ? "translate-x-5 bg-accent-ink" : "translate-x-0 bg-text"}`}
         />
       </button>
-    </div>
+    </label>
   );
 }
