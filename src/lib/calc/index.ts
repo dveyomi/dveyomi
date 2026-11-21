@@ -19,3 +19,5 @@ export { fundBalance, fundHistory } from "./funds";
 export type { FundMovement, FundEntry } from "./funds";
 export { scheduleBetween, dueOccurrences, amountOn, withPriceChange } from "./recurring";
 export type { Frequency, Price, Rule } from "./recurring";
+export { leftoverBreakdown, categoriesOverTwiceInThree, suggestedBudget } from "./leftover";
+export type { LeftoverSource } from "./leftover";
