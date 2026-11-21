@@ -15,3 +15,5 @@ export type {
 export { totalsByDay, totalsByCategory, totalSpent } from "./totals";
 export { compareToPrevious } from "./comparison";
 export type { Comparison } from "./comparison";
+export { fundBalance, fundHistory } from "./funds";
+export type { FundMovement, FundEntry } from "./funds";
