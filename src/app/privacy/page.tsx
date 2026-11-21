@@ -32,18 +32,19 @@ export default function PrivacyPage() {
       <Card className="flex flex-col gap-6 md:p-8">
         <Part title="What we store">
           <ul className={`list-disc pl-5 ${text}`}>
-            <li>The email address you sign in with.</li>
+            <li>What Google shares when you sign in with it: your email address, name and profile picture.</li>
             <li>
               The budget and spending details you enter: income, budgets, expenses, savings funds, trips and recurring
-              payments, plus any bank files you import.
+              payments.
             </li>
+            <li>The expenses you import from bank files (we keep the file&apos;s name, not the file).</li>
             <li>Your home time zone and budget settings, so dates and budgets line up with your days.</li>
           </ul>
         </Part>
         <Part title="Where it's kept">
           <p className={text}>
-            In a database run by our database provider, Supabase. It&apos;s sent over an encrypted connection. Daily
-            backups are kept in case something goes wrong.
+            In a database run by our database provider, Supabase. It&apos;s sent over an encrypted connection.
+            Backups are kept by our database provider in case something goes wrong.
           </p>
         </Part>
         <Part title="Who can see it">
@@ -67,8 +68,8 @@ export default function PrivacyPage() {
             <Link href="/settings" className={link}>
               Settings
             </Link>
-            , Export my data downloads everything you&apos;ve stored as a file. Delete my account removes your account
-            and all your data for good.
+            , Export my data downloads everything you&apos;ve entered, with your account email, as a file. Delete my
+            account removes your account and all your data for good.
           </p>
         </Part>
         <Part title="Questions">

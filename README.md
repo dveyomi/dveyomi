@@ -64,7 +64,7 @@ The route answers 401 unless the request carries `Authorization: Bearer <CRON_SE
 
 Turn on backups for the hosted Supabase project before real data goes in: daily backups (Database →
 Backups), and Point-in-Time Recovery if the plan allows it. This is a project setting, not code. The
-privacy page tells users daily backups are kept.
+privacy page says backups are kept by the database provider, so this must be on.
 
 ## Deploy checklist
 

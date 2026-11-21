@@ -12,3 +12,12 @@ export function isPublic(pathname: string): boolean {
     pathname.startsWith("/auth/")
   );
 }
+
+/**
+ * API routes: the proxy lets these through signed out, so each answers with
+ * its own 401 JSON (a redirect to the sign-in page means nothing to fetch).
+ * Every route checks the session or its secret itself.
+ */
+export function isApiRoute(pathname: string): boolean {
+  return pathname === "/api" || pathname.startsWith("/api/");
+}

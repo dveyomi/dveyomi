@@ -12,7 +12,9 @@ const fail = (status: number, error: string) => NextResponse.json({ error }, { s
 function sameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return true;
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host;
+  // A proxy chain may list several forwarded hosts; the first is the one the browser used.
+  const forwarded = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwarded || request.headers.get("host") || new URL(request.url).host;
   try {
     return new URL(origin).host === host;
   } catch {

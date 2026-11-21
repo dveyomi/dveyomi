@@ -20,6 +20,14 @@ describe("Privacy page", () => {
     expect(screen.getByText(/Contact the person who invited you/)).toBeInTheDocument();
   });
 
+  it("says exactly what is kept: Google sign-in details, imported expenses but not the file, provider backups", () => {
+    render(<PrivacyPage />);
+    expect(screen.getByText(/your email address, name and profile picture/)).toBeInTheDocument();
+    expect(screen.getByText(/we keep the file's name, not the file/)).toBeInTheDocument();
+    expect(screen.getByText(/Backups are kept by our database provider/)).toBeInTheDocument();
+    expect(screen.getByText(/everything you've entered/)).toBeInTheDocument();
+  });
+
   it("names no personal email address", () => {
     const { container } = render(<PrivacyPage />);
     expect(container.textContent).not.toMatch(/@/);

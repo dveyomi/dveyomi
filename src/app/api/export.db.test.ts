@@ -46,6 +46,13 @@ describe("exportUserData", () => {
     expect(txns.filter((t) => t.user_id === b.id)).toEqual([]);
   });
 
+  it("reads every row with a page size below the server's cap, so paging never relies on max_rows", async () => {
+    const small = await exportUserData(a.client as unknown as Db, 300);
+    expect(small.transactions).toHaveLength(EXTRA + 5);
+    expect(new Set(small.transactions.map((t) => t.id)).size).toBe(EXTRA + 5);
+    for (const table of USER_TABLES) expect(small[table].length, table).toBe(exported[table].length);
+  });
+
   it("includes the profile with its settings", () => {
     expect(exported.profiles).toEqual([
       expect.objectContaining({ user_id: a.id, currency: "GBP", timezone: "Europe/London", budget_start_day: 1 }),

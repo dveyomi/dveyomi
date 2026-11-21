@@ -59,6 +59,50 @@ describe("BudgetSection", () => {
   });
 });
 
+describe("saving quickly in a row", () => {
+  it("a failed save goes back to the last value confirmed saved, not the one before the change (A→B→C, B saved, C failed)", async () => {
+    let resolveB!: (r: { ok: true }) => void;
+    let resolveC!: (r: { error: string }) => void;
+    saveStartDay
+      .mockImplementationOnce(() => new Promise((r) => (resolveB = r)))
+      .mockImplementationOnce(() => new Promise((r) => (resolveC = r)));
+    render(<BudgetSection startDay={1} nextBudgetStart="2026-12-01" />);
+    const select = screen.getByLabelText("Budget start day");
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "10" } });
+    });
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "20" } });
+    });
+    await act(async () => resolveB({ ok: true }));
+    await act(async () => resolveC({ error: "We couldn't save your start day. Check your connection and try again." }));
+    expect(screen.getByLabelText("Budget start day")).toHaveValue("10");
+    expect(screen.getByRole("alert")).toHaveTextContent("We couldn't save your start day.");
+  });
+});
+
+describe("saving quickly in a row, earlier save fails", () => {
+  it("an older failed save doesn't undo a newer one that succeeds (A→B→C, B failed, C saved)", async () => {
+    let resolveB!: (r: { error: string }) => void;
+    let resolveC!: (r: { ok: true }) => void;
+    saveStartDay
+      .mockImplementationOnce(() => new Promise((r) => (resolveB = r)))
+      .mockImplementationOnce(() => new Promise((r) => (resolveC = r)));
+    render(<BudgetSection startDay={1} nextBudgetStart="2026-12-01" />);
+    const select = screen.getByLabelText("Budget start day");
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "10" } });
+    });
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "20" } });
+    });
+    await act(async () => resolveB({ error: "We couldn't save your start day. Check your connection and try again." }));
+    await act(async () => resolveC({ ok: true }));
+    expect(screen.getByLabelText("Budget start day")).toHaveValue("20");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
 describe("RegionSection", () => {
   const zones = ["Europe/London", "America/New_York", "Asia/Tokyo"];
 
@@ -119,6 +163,20 @@ describe("DeleteAccount", () => {
     expect(init.method).toBe("POST");
     expect((init.body as FormData).get("confirm")).toBe("DELETE");
     await waitFor(() => expect(assign).toHaveBeenCalledWith("http://localhost/login?deleted=1"));
+  });
+
+  it("treats a redirect anywhere but /login?deleted=1 as a failure (e.g. a signed-out session sent to sign in)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, redirected: true, url: "http://localhost/login?next=%2Fapi%2Faccount%2Fdelete", json: async () => null }),
+    );
+    const dialog = open();
+    fireEvent.change(within(dialog).getByLabelText("Type DELETE to confirm"), { target: { value: "DELETE" } });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Delete account" }));
+    });
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("We couldn't delete your account");
+    expect(assign).not.toHaveBeenCalled();
   });
 
   it("shows the server's error and keeps the dialog open when the delete fails", async () => {

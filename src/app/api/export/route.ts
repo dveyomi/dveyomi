@@ -1,5 +1,5 @@
 import { exportUserData } from "@/lib/data/account";
-import { createClient, getUserId } from "@/lib/supabase/server";
+import { createClient, getClaims } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
 
 const noStore = { "Cache-Control": "no-store" };
@@ -10,10 +10,21 @@ const noStore = { "Cache-Control": "no-store" };
  * to their rows; the service role is never used here.
  */
 export async function GET(): Promise<Response> {
-  if (!(await getUserId())) return Response.json({ error: "Sign in to export your data." }, { status: 401, headers: noStore });
+  const claims = await getClaims();
+  if (!claims?.sub) return Response.json({ error: "Sign in to export your data." }, { status: 401, headers: noStore });
   try {
     const [tables, today] = await Promise.all([exportUserData(await createClient()), getToday()]);
-    const body = JSON.stringify({ app: "Personal Finance OS", exportedOn: today, exportedAt: new Date().toISOString(), tables }, null, 2);
+    const body = JSON.stringify(
+      {
+        app: "Personal Finance OS",
+        exportedOn: today,
+        exportedAt: new Date().toISOString(),
+        account: { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null },
+        tables,
+      },
+      null,
+      2,
+    );
     return new Response(body, {
       headers: {
         ...noStore,

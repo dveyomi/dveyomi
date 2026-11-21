@@ -4,6 +4,12 @@ import { useState, type FormEvent } from "react";
 import { BottomSheet, Button, ListRow, Notice, TextField } from "@/components/ui";
 import { DELETE_CONFIRMATION } from "@/lib/validation/settings";
 
+/** Success is only the route's own redirect to /login?deleted=1, never some other page (such as sign-in). */
+function isDeletedLanding(url: string): boolean {
+  const landing = new URL(url, window.location.href);
+  return landing.pathname === "/login" && landing.searchParams.get("deleted") === "1";
+}
+
 const FAILED = "We couldn't delete your account. Nothing was removed. Check your connection and try again.";
 
 /**
@@ -33,7 +39,7 @@ export function DeleteAccount() {
       const body = new FormData();
       body.set("confirm", typed);
       const res = await fetch("/api/account/delete", { method: "POST", body });
-      if (res.ok && res.redirected) {
+      if (res.ok && res.redirected && isDeletedLanding(res.url)) {
         window.location.assign(res.url);
         return;
       }

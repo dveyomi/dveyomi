@@ -1,23 +1,23 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getUserId, exportUserData } = vi.hoisted(() => ({ getUserId: vi.fn(), exportUserData: vi.fn() }));
+const { getClaims, exportUserData } = vi.hoisted(() => ({ getClaims: vi.fn(), exportUserData: vi.fn() }));
 const db = { tag: "user-client" };
-vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db, getUserId }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db, getClaims }));
 vi.mock("@/lib/today", () => ({ getToday: async () => "2026-11-21" }));
 vi.mock("@/lib/data/account", () => ({ exportUserData }));
 
 import { GET } from "./route";
 
 beforeEach(() => {
-  getUserId.mockReset().mockResolvedValue("user-a");
+  getClaims.mockReset().mockResolvedValue({ sub: "user-a", email: "a@example.test" });
   exportUserData.mockReset().mockResolvedValue({ profiles: [{ user_id: "user-a" }], transactions: [] });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 describe("GET /api/export", () => {
   it("refuses a signed-out caller with 401 and reads nothing", async () => {
-    getUserId.mockResolvedValue(null);
+    getClaims.mockResolvedValue(null);
     const res = await GET();
     expect(res.status).toBe(401);
     expect(res.headers.get("cache-control")).toBe("no-store");
@@ -37,6 +37,7 @@ describe("GET /api/export", () => {
     expect(body).toMatchObject({
       app: "Personal Finance OS",
       exportedOn: "2026-11-21",
+      account: { id: "user-a", email: "a@example.test" },
       tables: { profiles: [{ user_id: "user-a" }], transactions: [] },
     });
   });

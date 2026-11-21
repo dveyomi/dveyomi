@@ -19,6 +19,8 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
+  // A is normally gone already; clean up anyway if a test failed before deleting it.
+  await deleteUser(a).catch(() => undefined);
   await deleteUser(b);
 });
 

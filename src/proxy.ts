@@ -1,10 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { isPublic } from "@/lib/publicPaths";
+import { isApiRoute, isPublic } from "@/lib/publicPaths";
 
 /**
  * Refreshes the Supabase session on every request and sends signed-out
- * visitors to /login. Server code still verifies the user itself.
+ * visitors to /login, except on /api routes, which answer 401 themselves.
+ * Server code still verifies the user itself.
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -42,7 +43,7 @@ export async function proxy(request: NextRequest) {
     return redirect;
   };
 
-  if (!signedIn && !isPublic(pathname)) {
+  if (!signedIn && !isPublic(pathname) && !isApiRoute(pathname)) {
     return redirectTo("/login", pathname === "/" ? undefined : `${pathname}${search}`);
   }
   if (signedIn && pathname === "/login") return redirectTo("/budget");

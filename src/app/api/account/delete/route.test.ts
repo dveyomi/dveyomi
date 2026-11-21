@@ -60,6 +60,15 @@ describe("POST /api/account/delete", () => {
     expect(deleteAccount).not.toHaveBeenCalled();
   });
 
+  it("compares the origin with the first host of a comma-separated x-forwarded-host", async () => {
+    const ok = await call("DELETE", { origin: "https://app.example.com", "x-forwarded-host": "app.example.com, internal:3000" });
+    expect(ok.status).toBe(303);
+    deleteAccount.mockClear();
+    const bad = await call("DELETE", { origin: "https://internal:3000", "x-forwarded-host": "app.example.com, internal:3000" });
+    expect(bad.status).toBe(403);
+    expect(deleteAccount).not.toHaveBeenCalled();
+  });
+
   it("deletes the signed-in user with the service role, signs out, then sends them to /login?deleted=1", async () => {
     const res = await call("DELETE");
     expect(deleteAccount).toHaveBeenCalledWith(admin, "user-a");
