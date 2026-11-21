@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { AmountInput, Button, Card, EmptyState, IconButton, Money, TextField } from "@/components/ui";
 import { AMOUNT_ERROR } from "@/components/ui/AmountInput";
 import { formatGBP, parsePence, type AllocationTotals } from "@/lib/calc";
-import { MAX_CATEGORIES, MAX_NAME_LENGTH } from "@/lib/data/onboarding";
+import { MAX_CATEGORIES, MAX_NAME_LENGTH } from "@/lib/validation/common";
 
 /**
  * The pieces of a category-allocation editor, shared by onboarding's spending

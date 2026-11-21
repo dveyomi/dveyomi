@@ -20,7 +20,7 @@ export async function CategoryContent({ params }: CategoryContentProps) {
       figure={view.figure}
       daysLeft={view.summary.daysLeft}
       transactions={view.transactions}
-      deletable={view.deletable}
+      inUse={view.inUse}
     />
   );
 }

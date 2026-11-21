@@ -14,7 +14,7 @@ export async function EditContent({ searchParams }: EditContentProps) {
   const [supabase, today, { category }] = await Promise.all([createClient(), getToday(), searchParams]);
   const editor = await loadBudgetEditor(supabase, today);
   if (!editor) redirect("/onboarding");
-  const { current, next } = editor;
+  const { current } = editor;
   const period = { start: current.start_date, end: current.end_date, nextStart: addDays(current.end_date, 1) };
 
   return (
@@ -32,10 +32,10 @@ export async function EditContent({ searchParams }: EditContentProps) {
       </div>
       <BudgetEditor
         period={period}
-        nextExists={next !== null}
-        incomePence={current.income_pence}
-        savingsPence={current.savings_pence}
-        categories={editor.categories}
+        budget={editor.budget}
+        nextBudget={editor.nextBudget}
+        nextDiffers={editor.nextDiffers}
+        outside={editor.outside}
         focusCategoryId={typeof category === "string" ? category : undefined}
       />
     </>

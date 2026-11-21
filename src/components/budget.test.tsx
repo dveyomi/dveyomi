@@ -97,6 +97,14 @@ describe("BudgetOverview", () => {
     expect(screen.queryByText(/saved|deleted/)).not.toBeInTheDocument();
   });
 
+  it("clears ?saved from the address once shown, keeping other parameters", () => {
+    window.history.replaceState(null, "", "/budget?saved=1&tab=saving");
+    render(<BudgetOverview period={period} summary={summary()} categories={categories} tab="saving" notice="saved" />);
+    expect(window.location.search).toBe("?tab=saving");
+    expect(screen.getByRole("status")).toHaveTextContent("Budget saved.");
+    window.history.replaceState(null, "", "/");
+  });
+
   it("shows the reference safe to spend per day in the gauge", () => {
     const ref = summary({
       poolPence: 600000,
@@ -221,7 +229,7 @@ describe("CategoryDetail", () => {
   beforeEach(() => Object.values(actions).forEach((a) => a.mockReset()));
 
   it("shows Budget, Spent, Next budget, percent left, £X left and days left", () => {
-    render(<CategoryDetail deletable period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
+    render(<CategoryDetail inUse={null} period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
     expect(screen.getByRole("heading", { name: "Travel" })).toBeInTheDocument();
     expect(screen.getByText("1 Nov – 30 Nov")).toBeInTheDocument();
     expect(byText("Budget£5,000.00")).toBeInTheDocument();
@@ -235,7 +243,7 @@ describe("CategoryDetail", () => {
   });
 
   it("lists the expenses in the given order, tagging fund-paid ones", () => {
-    render(<CategoryDetail deletable period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
+    render(<CategoryDetail inUse={null} period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
     const list = screen.getByRole("list", { name: /expenses/i });
     const items = within(list).getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual([
@@ -249,12 +257,12 @@ describe("CategoryDetail", () => {
   });
 
   it("logs an expense with the category chosen", () => {
-    render(<CategoryDetail deletable period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
+    render(<CategoryDetail inUse={null} period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
     expect(screen.getByRole("link", { name: /log expense/i })).toHaveAttribute("href", "/expenses/new?category=travel");
   });
 
   it("offers Edit budget in the ⋯ menu", () => {
-    render(<CategoryDetail deletable period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
+    render(<CategoryDetail inUse={null} period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
     fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
     const menu = screen.getByRole("dialog", { name: "Travel" });
     expect(within(menu).getByRole("link", { name: "Edit budget" })).toHaveAttribute("href", "/budget/edit?category=travel");
@@ -262,7 +270,7 @@ describe("CategoryDetail", () => {
 
   it("offers Rename in the ⋯ menu: a sheet with the name, saved through the server", async () => {
     actions.renameCategoryAction.mockResolvedValue(undefined);
-    render(<CategoryDetail deletable period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
+    render(<CategoryDetail inUse={null} period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
     fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
     fireEvent.click(within(screen.getByRole("dialog", { name: "Travel" })).getByRole("button", { name: "Rename" }));
     const sheet = screen.getByRole("dialog", { name: "Rename category" });
@@ -276,7 +284,7 @@ describe("CategoryDetail", () => {
 
   it("shows the server's rename error in the sheet", async () => {
     actions.renameCategoryAction.mockResolvedValue({ error: "You already have a category called Rent." });
-    render(<CategoryDetail deletable period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
+    render(<CategoryDetail inUse={null} period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
     fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
     fireEvent.click(screen.getByRole("button", { name: "Rename" }));
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Rent" } });
@@ -286,7 +294,7 @@ describe("CategoryDetail", () => {
 
   it("Delete asks first, then deletes a category that was never used", async () => {
     actions.deleteCategoryAction.mockResolvedValue(undefined);
-    render(<CategoryDetail deletable period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={[]} />);
+    render(<CategoryDetail inUse={null} period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
     fireEvent.click(screen.getByRole("button", { name: "Delete category" }));
     const dialog = screen.getByRole("alertdialog", { name: "Delete Travel?" });
@@ -296,10 +304,11 @@ describe("CategoryDetail", () => {
 
   it("Delete on a category with expenses explains why and offers Remove from budget instead", async () => {
     actions.removeFromBudgetAction.mockResolvedValue(undefined);
-    render(<CategoryDetail deletable={false} period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
+    render(<CategoryDetail inUse="expenses" period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
     fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
     fireEvent.click(screen.getByRole("button", { name: "Delete category" }));
-    const dialog = screen.getByRole("alertdialog", { name: "Travel has expenses" });
+    const dialog = screen.getByRole("alertdialog", { name: "Travel is in use" });
+    expect(dialog).toHaveTextContent(/it has expenses/i);
     expect(dialog).toHaveTextContent(/past spending keeps its category/i);
     expect(within(dialog).queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Remove from budget" }));
@@ -307,9 +316,23 @@ describe("CategoryDetail", () => {
     expect(actions.deleteCategoryAction).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["recurring", /a recurring payment/i],
+    ["history", /past budgets/i],
+  ] as const)("names the reason (%s) and, with no budget now, offers no Remove from budget", (inUse, reason) => {
+    render(<CategoryDetail inUse={inUse} period={period} category={travel} figure={null} daysLeft={4} transactions={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete category" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Travel is in use" });
+    expect(dialog).toHaveTextContent(reason);
+    expect(within(dialog).queryByRole("button", { name: "Remove from budget" })).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "OK" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
   it("shows an overspent category as £X over in red with a red, full bar", () => {
     const over = fig({ categoryId: "travel", allocatedPence: 10000, spentPence: 20000, leftPence: -10000, overPence: 10000 });
-    render(<CategoryDetail deletable period={period} category={travel} figure={over} daysLeft={4} transactions={txns} />);
+    render(<CategoryDetail inUse={null} period={period} category={travel} figure={over} daysLeft={4} transactions={txns} />);
     expect(byText("£100.00 over")).toHaveClass("text-danger-fg");
     const bar = screen.getByRole("progressbar", { name: /travel/i });
     expect(bar).toHaveAttribute("aria-valuenow", "100");
@@ -318,14 +341,14 @@ describe("CategoryDetail", () => {
   });
 
   it("shows no budget yet for a category without an allocation", () => {
-    render(<CategoryDetail deletable period={period} category={travel} figure={null} daysLeft={4} transactions={[]} />);
+    render(<CategoryDetail inUse={null} period={period} category={travel} figure={null} daysLeft={4} transactions={[]} />);
     expect(screen.getByText(/no budget yet/i)).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(screen.getByText(/no expenses in this category/i)).toBeInTheDocument();
   });
 
   it("shows one day left in the singular", () => {
-    render(<CategoryDetail deletable period={period} category={travel} figure={travelFigure} daysLeft={1} transactions={[]} />);
+    render(<CategoryDetail inUse={null} period={period} category={travel} figure={travelFigure} daysLeft={1} transactions={[]} />);
     expect(screen.getByText("1 day left")).toBeInTheDocument();
   });
 });

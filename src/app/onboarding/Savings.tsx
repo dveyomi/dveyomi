@@ -2,7 +2,7 @@
 
 import { AmountInput, Button, Card, IconButton, Money, TextField, Toggle } from "@/components/ui";
 import { formatGBP, splitRemainder } from "@/lib/calc";
-import { MAX_FUNDS, MAX_NAME_LENGTH } from "@/lib/data/onboarding";
+import { MAX_FUNDS, MAX_NAME_LENGTH } from "@/lib/validation/common";
 import { livePence, type FundDraft } from "./draft";
 import { StepHeading } from "./StepHeading";
 

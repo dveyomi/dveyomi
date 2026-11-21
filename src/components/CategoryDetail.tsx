@@ -2,6 +2,7 @@ import { categoryIcon } from "@/components/categoryIcon";
 import { CategoryMenu } from "@/components/CategoryMenu";
 import { ButtonLink, Card, EmptyState, Icon, ListRow, Money, ProgressBar } from "@/components/ui";
 import { formatDayMonth, formatShortDate, percentLeft, type CategoryFigure, type Period } from "@/lib/calc";
+import type { CategoryUse } from "@/lib/data/budgetEdit";
 import type { CategoryTxn } from "@/lib/data/category";
 import type { CategoryRow } from "@/lib/data/types";
 
@@ -13,12 +14,12 @@ type CategoryDetailProps = {
   daysLeft: number;
   /** Newest first. */
   transactions: CategoryTxn[];
-  /** False when the category has ever had an expense or has a recurring payment. */
-  deletable: boolean;
+  /** Why it can't be deleted, or null when it can. */
+  inUse: CategoryUse | null;
 };
 
 /** One category's budget and its expenses this period (§5.4). Figures are read, never worked out. */
-export function CategoryDetail({ period, category, figure, daysLeft, transactions, deletable }: CategoryDetailProps) {
+export function CategoryDetail({ period, category, figure, daysLeft, transactions, inUse }: CategoryDetailProps) {
   const pct = figure ? percentLeft(figure) : null;
   const over = figure !== null && figure.overPence > 0;
   const fundPaid = transactions.some((t) => t.fundName !== null);
@@ -32,7 +33,7 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
         <span className="text-body text-muted">
           {formatDayMonth(period.start)} – {formatDayMonth(period.end)}
         </span>
-        <CategoryMenu categoryId={category.id} name={category.name} deletable={deletable} />
+        <CategoryMenu categoryId={category.id} name={category.name} inUse={inUse} inBudget={pct !== null} />
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-5">

@@ -2,6 +2,7 @@ import { AllocationCard } from "@/components/AllocationCard";
 import { BudgetTabs, type BudgetTab } from "@/components/BudgetTabs";
 import { categoryIcon } from "@/components/categoryIcon";
 import { SafeToSpendInfo } from "@/components/SafeToSpendInfo";
+import { SavedNotice, type SavedNoticeKind } from "@/components/SavedNotice";
 import { ButtonLink, Card, EmptyState, Gauge, Money, Notice, StatusBadge } from "@/components/ui";
 import {
   formatDayMonth,
@@ -20,10 +21,8 @@ type BudgetOverviewProps = {
   categories: CategoryRow[];
   tab: BudgetTab;
   /** A confirmation after returning from the editor or the ⋯ menu. */
-  notice?: "saved" | "deleted";
+  notice?: SavedNoticeKind;
 };
-
-const notices = { saved: "Budget saved.", deleted: "Category deleted." } as const;
 
 const groups = [
   { title: "Needs", kind: "need" },
@@ -54,13 +53,7 @@ export function BudgetOverview({ period, summary, categories, tab, notice }: Bud
   return (
     <div className="grid items-start gap-6 lg:grid-cols-5">
       <section aria-label="This period" className="flex flex-col gap-4 lg:sticky lg:top-8 lg:col-span-2">
-        <div role="status">
-          {notice ? (
-            <Notice tone="neutral">
-              <p>{notices[notice]}</p>
-            </Notice>
-          ) : null}
-        </div>
+        <SavedNotice notice={notice} />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <StatusBadge status={summary.status} />

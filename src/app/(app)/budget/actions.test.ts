@@ -52,8 +52,9 @@ describe("category actions", () => {
 
   it("delete goes to the budget with a confirmation, or explains a category in use", async () => {
     await expect(deleteCategoryAction(ID)).rejects.toThrow("NEXT_REDIRECT:/budget?deleted=1");
+    expect(data.deleteCategory).toHaveBeenCalledWith({}, "2026-11-21", ID);
     data.deleteCategory.mockRejectedValue(new CategoryInUseError());
-    expect(await deleteCategoryAction(ID)).toEqual({ error: expect.stringMatching(/expenses/) });
+    expect(await deleteCategoryAction(ID)).toEqual({ error: expect.stringMatching(/in use/) });
   });
 
   it("remove from budget applies from this period, for the server's today", async () => {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { NameTakenError, NoBudgetError, saveBudget, validateBudgetEdit } from "@/lib/data/budgetEdit";
+import { BudgetChangedError, NameTakenError, NoBudgetError, saveBudget, validateBudgetEdit } from "@/lib/data/budgetEdit";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
 
@@ -20,7 +20,7 @@ export async function saveBudgetAction(raw: unknown): Promise<{ error: string }>
   try {
     await saveBudget(await createClient(), await getToday(), checked.input);
   } catch (e) {
-    if (e instanceof NameTakenError) return { error: e.message };
+    if (e instanceof NameTakenError || e instanceof BudgetChangedError) return { error: e.message };
     if (e instanceof NoBudgetError) redirect("/onboarding");
     console.error("saveBudget failed", e);
     return { error: "We couldn't save your budget. Check your connection and try again." };

@@ -3,6 +3,7 @@ import { admin, createSignedInUser, deleteUser, queryAsPostgres, type TestUser }
 import {
   CategoryInUseError,
   NameTakenError,
+  categoryUse,
   deleteCategory,
   loadBudgetEditor,
   removeFromBudget,
@@ -118,15 +119,16 @@ function edit(
 describe("budget edit functions", () => {
   it("run as the caller (RLS applies) and only signed-in users may call them", () => {
     const rows = queryAsPostgres<{ name: string; definer: boolean; anon: boolean; authenticated: boolean; path: string }>(`
-      select p.proname as name, p.prosecdef as definer,
+      select n.nspname || '.' || p.proname as name, p.prosecdef as definer,
              has_function_privilege('anon', p.oid, 'execute') as anon,
              has_function_privilege('authenticated', p.oid, 'execute') as authenticated,
              array_to_string(p.proconfig, ',') as path
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname = 'public' and p.proname in ('save_budget', 'remove_from_budget', 'delete_category')
-      order by p.proname`);
+      where (n.nspname = 'public' and p.proname in ('save_budget', 'remove_from_budget', 'delete_category'))
+         or (n.nspname = 'private' and p.proname = 'edit_targets')
+      order by 1`);
     expect(rows).toEqual(
-      ["delete_category", "remove_from_budget", "save_budget"].map((name) => ({
+      ["private.edit_targets", "public.delete_category", "public.remove_from_budget", "public.save_budget"].map((name) => ({
         name,
         definer: false,
         anon: false,
@@ -135,19 +137,62 @@ describe("budget edit functions", () => {
       })),
     );
   });
+
+  it("keeps the private schema out of anon's reach and out of the Data API", async () => {
+    const [row] = queryAsPostgres<{ anon: boolean }>(`select has_schema_privilege('anon', 'private', 'usage') as anon`);
+    expect(row.anon).toBe(false);
+    const u = await signIn();
+    const { error } = await u.client.schema("private").rpc("edit_targets", {
+      p_period_id: crypto.randomUUID(),
+      p_next_end: "2026-12-31",
+      p_scope: "this",
+    });
+    expect(error?.code).toBe("PGRST106");
+  });
 });
 
 describe("loadBudgetEditor", () => {
-  it("returns the current period, no next period yet, and the current allocations with their categories", async () => {
+  it("returns the current period and its figures, no next period yet, and the categories outside the budget", async () => {
     const { u, rent, food, fun, nov } = await seeded();
+    const gifts = await insertCategory(u, "Gifts", "want");
     const editor = await loadBudgetEditor(u.client, TODAY);
     expect(editor?.current.id).toBe(nov);
     expect(editor?.next).toBeNull();
-    expect(editor?.categories).toEqual([
-      { id: fun, name: "Eating out", kind: "want", amountPence: 20000 },
-      { id: food, name: "Groceries", kind: "need", amountPence: 40000 },
-      { id: rent, name: "Rent", kind: "need", amountPence: 150000 },
-    ]);
+    expect(editor?.budget).toEqual({
+      incomePence: 300000,
+      savingsPence: 50000,
+      categories: [
+        { id: fun, name: "Eating out", kind: "want", amountPence: 20000 },
+        { id: food, name: "Groceries", kind: "need", amountPence: 40000 },
+        { id: rent, name: "Rent", kind: "need", amountPence: 150000 },
+      ],
+    });
+    expect(editor?.nextBudget).toBeNull();
+    expect(editor?.nextDiffers).toBe(false);
+    expect(editor?.outside).toEqual([{ id: gifts, name: "Gifts", kind: "want" }]);
+  });
+
+  it("returns a pre-created next period's own figures and whether they differ", async () => {
+    const { u, rent, food, fun } = await seeded();
+    const dec = await insertPeriod(u, "2026-12-01", "2026-12-31", { [rent]: 160000, [food]: 40000, [fun]: 20000 });
+    const editor = await loadBudgetEditor(u.client, TODAY);
+    expect(editor?.next?.id).toBe(dec);
+    expect(editor?.nextBudget).toEqual({
+      incomePence: 300000,
+      savingsPence: 50000,
+      categories: [
+        { id: fun, name: "Eating out", kind: "want", amountPence: 20000 },
+        { id: food, name: "Groceries", kind: "need", amountPence: 40000 },
+        { id: rent, name: "Rent", kind: "need", amountPence: 160000 },
+      ],
+    });
+    expect(editor?.nextDiffers).toBe(true);
+  });
+
+  it("a next period with the same figures does not differ", async () => {
+    const { u, rent, food, fun } = await seeded();
+    await insertPeriod(u, "2026-12-01", "2026-12-31", { [rent]: 150000, [food]: 40000, [fun]: 20000 });
+    expect((await loadBudgetEditor(u.client, TODAY))?.nextDiffers).toBe(false);
   });
 
   it("returns null for a user with no budget", async () => {
@@ -179,7 +224,7 @@ describe("saveBudget, from this period", () => {
     expect((await periods(u))[2]).toMatchObject({ id: dec, income_pence: 320000, savings_pence: 60000 });
   });
 
-  it("adds a new category, renames and re-kinds one, and removes one from the budget", async () => {
+  it("adds a new category, renames one, and removes one from the budget", async () => {
     const { u, rent, food, fun, oct, nov } = await seeded();
     await saveBudget(
       u.client,
@@ -201,12 +246,27 @@ describe("saveBudget, from this period", () => {
     const gym = cats.find((c) => c.name === "Gym")!;
     expect(cats).toEqual([
       { id: fun, name: "Eating out", kind: "want" },
-      { id: food, name: "Food shop", kind: "want" },
+      { id: food, name: "Food shop", kind: "need" },
       { id: gym.id, name: "Gym", kind: "want" },
       { id: rent, name: "Rent", kind: "need" },
     ]);
     expect(await allocationsOf(nov)).toEqual({ [rent]: 150000, [food]: 0, [gym.id]: 3000 });
     expect(await allocationsOf(oct)).toEqual({ [rent]: 150000, [food]: 40000, [fun]: 20000 });
+  });
+
+  it("never changes an existing category's kind", async () => {
+    const { u, rent, food, fun } = await seeded();
+    await saveBudget(
+      u.client,
+      TODAY,
+      edit({ rent, food, fun }, {
+        categories: [
+          { id: rent, name: "Rent", kind: "want", amountPence: 150000 },
+          { id: food, name: "Groceries", kind: "need", amountPence: 40000 },
+        ],
+      }),
+    );
+    expect((await categoriesOf(u)).find((c) => c.id === rent)?.kind).toBe("need");
   });
 
   it("adding a category with the name of one outside the budget brings that category back", async () => {
@@ -223,7 +283,8 @@ describe("saveBudget, from this period", () => {
       }),
     );
     expect(await allocationsOf(nov)).toEqual({ [rent]: 150000, [gifts]: 2500 });
-    expect((await categoriesOf(u)).find((c) => c.id === gifts)).toEqual({ id: gifts, name: "gifts", kind: "want" });
+    // Brought back under the name typed, keeping its own kind.
+    expect((await categoriesOf(u)).find((c) => c.id === gifts)).toEqual({ id: gifts, name: "gifts", kind: "need" });
   });
 
   it("refuses renaming to the name of another category, ignoring case, and changes nothing", async () => {
@@ -350,31 +411,46 @@ describe("renameCategory", () => {
 });
 
 describe("deleteCategory", () => {
-  it("deletes a category that was never used, with its allocations", async () => {
-    const { u, fun, nov } = await seeded();
-    await deleteCategory(u.client, fun);
-    expect((await categoriesOf(u)).map((c) => c.id)).not.toContain(fun);
-    expect(await allocationsOf(nov)).not.toHaveProperty(fun);
+  it("deletes a category used only in the current budget, with its allocations", async () => {
+    const { u, nov } = await seeded();
+    const gym = await insertCategory(u, "Gym", "want");
+    await u.client.from("allocations").insert({ period_id: nov, category_id: gym, amount_pence: 3000 });
+    expect(await categoryUse(u.client, gym, "2026-11-01")).toBeNull();
+    await deleteCategory(u.client, TODAY, gym);
+    expect((await categoriesOf(u)).map((c) => c.id)).not.toContain(gym);
+    expect(await allocationsOf(nov)).not.toHaveProperty(gym);
   });
 
   it("refuses a category with transactions, and deletes nothing", async () => {
-    const { u, food, nov } = await seeded();
+    const { u, nov } = await seeded();
+    const gym = await insertCategory(u, "Gym", "want");
+    await u.client.from("allocations").insert({ period_id: nov, category_id: gym, amount_pence: 3000 });
     const t = await u.client
       .from("transactions")
-      .insert({ name: "Tesco", amount_pence: 100, date: "2026-10-03", category_id: food });
+      .insert({ name: "Gym", amount_pence: 100, date: "2026-11-03", category_id: gym });
     if (t.error) throw t.error;
-    await expect(deleteCategory(u.client, food)).rejects.toBeInstanceOf(CategoryInUseError);
-    expect((await categoriesOf(u)).map((c) => c.id)).toContain(food);
-    expect(await allocationsOf(nov)).toHaveProperty(food);
+    expect(await categoryUse(u.client, gym, "2026-11-01")).toBe("expenses");
+    await expect(deleteCategory(u.client, TODAY, gym)).rejects.toBeInstanceOf(CategoryInUseError);
+    expect((await categoriesOf(u)).map((c) => c.id)).toContain(gym);
+    expect(await allocationsOf(nov)).toHaveProperty(gym);
   });
 
   it("refuses a category with a recurring payment", async () => {
-    const { u, rent } = await seeded();
+    const { u } = await seeded();
+    const gym = await insertCategory(u, "Gym", "want");
     const r = await u.client
       .from("recurring_rules")
-      .insert({ name: "Rent", category_id: rent, frequency: "monthly", anchor_date: "2026-11-01" });
+      .insert({ name: "Gym", category_id: gym, frequency: "monthly", anchor_date: "2026-11-01" });
     if (r.error) throw r.error;
-    await expect(deleteCategory(u.client, rent)).rejects.toBeInstanceOf(CategoryInUseError);
+    expect(await categoryUse(u.client, gym, "2026-11-01")).toBe("recurring");
+    await expect(deleteCategory(u.client, TODAY, gym)).rejects.toBeInstanceOf(CategoryInUseError);
+  });
+
+  it("refuses a category in a past budget, so the past budget keeps it", async () => {
+    const { u, fun, oct } = await seeded();
+    expect(await categoryUse(u.client, fun, "2026-11-01")).toBe("history");
+    await expect(deleteCategory(u.client, TODAY, fun)).rejects.toBeInstanceOf(CategoryInUseError);
+    expect((await allocationsOf(oct))[fun]).toBe(20000);
   });
 });
 
@@ -420,7 +496,7 @@ describe("isolation", () => {
       saveBudget(other.client, TODAY, edit({ rent, food, fun })),
     ).rejects.toThrow();
     await expect(renameCategory(other.client, rent, "Mine")).rejects.toThrow();
-    await expect(deleteCategory(other.client, rent)).rejects.toThrow();
+    await expect(deleteCategory(other.client, TODAY, rent)).rejects.toThrow();
     await expect(removeFromBudget(other.client, TODAY, rent, "this")).rejects.toThrow();
 
     expect(await allocationsOf(nov)).toEqual({ [rent]: 150000, [food]: 40000, [fun]: 20000 });
@@ -430,25 +506,27 @@ describe("isolation", () => {
 
 describe("save_budget called directly", () => {
   const ok = (rent: string) => ({ id: rent, name: "Rent", kind: "need", amount_pence: 1000 });
-  const cases: [string, (rent: string) => Record<string, unknown>][] = [
-    ["categories not an array", () => ({ p_categories: { name: "Rent" } })],
+  const cases: [string, string, (rent: string) => Record<string, unknown>][] = [
+    ["categories not an array", "22023", () => ({ p_categories: { name: "Rent" } })],
     [
       "51 categories in the budget",
+      "22023",
       () => ({ p_categories: Array.from({ length: 51 }, (_, i) => ({ name: `C${i}`, kind: "need", amount_pence: 1 })) }),
     ],
-    ["a name over 50 characters", (rent) => ({ p_categories: [{ ...ok(rent), name: "x".repeat(51) }] })],
-    ["a blank name", (rent) => ({ p_categories: [{ ...ok(rent), name: "   " }] })],
-    ["a bad kind", (rent) => ({ p_categories: [{ ...ok(rent), kind: "luxury" }] })],
-    ["a negative amount", (rent) => ({ p_categories: [{ ...ok(rent), amount_pence: -1 }] })],
-    ["an amount over £10m", (rent) => ({ p_categories: [{ ...ok(rent), amount_pence: 1_000_000_001 }] })],
-    ["income over £10m", () => ({ p_income_pence: 1_000_000_001 })],
-    ["savings over income", () => ({ p_savings_pence: 300001 })],
-    ["a bad scope", () => ({ p_scope: "past" })],
-    ["an unknown category id", () => ({ p_categories: [ok(crypto.randomUUID())] })],
-    ["a next period ending before it starts", () => ({ p_scope: "next", p_next_end: "2026-11-30" })],
+    ["a name over 50 characters", "22023", (rent) => ({ p_categories: [{ ...ok(rent), name: "x".repeat(51) }] })],
+    ["a blank name", "22023", (rent) => ({ p_categories: [{ ...ok(rent), name: "   " }] })],
+    ["a bad kind", "22023", (rent) => ({ p_categories: [{ ...ok(rent), kind: "luxury" }] })],
+    ["a negative amount", "22023", (rent) => ({ p_categories: [{ ...ok(rent), amount_pence: -1 }] })],
+    ["an amount over £10m", "22023", (rent) => ({ p_categories: [{ ...ok(rent), amount_pence: 1_000_000_001 }] })],
+    ["income over £10m", "23514", () => ({ p_income_pence: 1_000_000_001 })],
+    ["savings over income", "22023", () => ({ p_savings_pence: 300001 })],
+    ["a bad scope", "22023", () => ({ p_scope: "past" })],
+    ["an unknown category id", "P0002", () => ({ p_categories: [ok(crypto.randomUUID())] })],
+    ["an unknown period", "P0002", () => ({ p_period_id: crypto.randomUUID() })],
+    ["a next period ending before it starts", "22023", () => ({ p_scope: "next", p_next_end: "2026-11-30" })],
   ];
 
-  it.each(cases)("refuses %s and changes nothing", async (_, override) => {
+  it.each(cases)("refuses %s (%s) and changes nothing", async (_, code, override) => {
     const { u, rent, food, fun, nov } = await seeded();
     const { error } = await u.client.rpc("save_budget", {
       p_period_id: nov,
@@ -459,7 +537,7 @@ describe("save_budget called directly", () => {
       p_categories: [ok(rent)],
       ...override(rent),
     });
-    expect(error).not.toBeNull();
+    expect(error?.code).toBe(code);
     expect(await periods(u)).toHaveLength(2);
     expect((await periods(u))[1].savings_pence).toBe(50000);
     expect(await allocationsOf(nov)).toEqual({ [rent]: 150000, [food]: 40000, [fun]: 20000 });

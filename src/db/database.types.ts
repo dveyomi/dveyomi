@@ -536,7 +536,7 @@ export type Database = {
         };
         Returns: string;
       };
-      delete_category: { Args: { p_category_id: string }; Returns: undefined };
+      delete_category: { Args: { p_category_id: string; p_period_id: string }; Returns: undefined };
       remove_from_budget: {
         Args: { p_category_id: string; p_next_end: string; p_period_id: string; p_scope: string };
         Returns: undefined;

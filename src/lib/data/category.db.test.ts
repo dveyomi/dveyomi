@@ -76,7 +76,7 @@ describe("loadCategoryView", () => {
       { id: expect.any(String), name: "Taxi", amountPence: 6000, date: "2026-11-03", fundName: null },
     ]);
     // It has expenses, so it can only be removed from the budget.
-    expect(view!.deletable).toBe(false);
+    expect(view!.inUse).toBe("expenses");
   });
 
   it("returns a null figure for a category with no allocation and no spending", async () => {
@@ -85,7 +85,7 @@ describe("loadCategoryView", () => {
     const view = await loadCategoryView(u.client, "2026-11-21", gifts);
     expect(view!.figure).toBeNull();
     expect(view!.transactions).toEqual([]);
-    expect(view!.deletable).toBe(true);
+    expect(view!.inUse).toBeNull();
   });
 
   it("returns null for another user's category", async () => {

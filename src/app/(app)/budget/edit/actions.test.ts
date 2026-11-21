@@ -16,7 +16,7 @@ vi.mock("@/lib/data/budgetEdit", async (importOriginal) => ({
   saveBudget,
 }));
 
-import { NameTakenError } from "@/lib/data/budgetEdit";
+import { BudgetChangedError, NameTakenError } from "@/lib/data/budgetEdit";
 import { saveBudgetAction } from "./actions";
 
 const RENT = "11111111-1111-4111-8111-111111111111";
@@ -71,5 +71,10 @@ describe("saveBudgetAction", () => {
   it("returns a taken name as a message", async () => {
     saveBudget.mockRejectedValue(new NameTakenError());
     expect(await saveBudgetAction(valid)).toEqual({ error: "Another category already has that name." });
+  });
+
+  it("a budget changed elsewhere asks for a reload", async () => {
+    saveBudget.mockRejectedValue(new BudgetChangedError());
+    expect(await saveBudgetAction(valid)).toEqual({ error: "This budget changed in another tab. Reload and try again." });
   });
 });

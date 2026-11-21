@@ -13,6 +13,10 @@
 -- if needed. ensureCurrentPeriod returns that pre-created period once today
 -- reaches it, because it picks the latest period starting on or before today.
 --
+-- The app always passes the server-derived current period (from the user's
+-- today), so past periods are never targeted. A direct call can only reach
+-- the caller's own rows, which RLS already lets them change.
+--
 -- Every function is security invoker (RLS applies to every statement), with
 -- an empty search_path, and callable only by signed-in users. Each locks the
 -- caller's profile row first, so a user's edits and renewals run one at a time.
@@ -148,6 +152,8 @@ grant execute on function private.edit_targets(uuid, date, text) to authenticate
 -- allocation there. A row with an id renames / re-kinds that category; a row
 -- without one creates a category, or brings back one outside the budget with
 -- the same name (ignoring case). Refuses (23505) a name another category has.
+-- A row with an id may rename its category but never changes its kind (the
+-- kind given is used only for a new category).
 
 create function public.save_budget(
   p_period_id uuid,
@@ -233,10 +239,11 @@ begin
   end if;
 
   -- Existing categories first, so a new row can take a name one gives up.
+  -- Only the name changes: a category's kind is set when it is created.
   update public.categories c
-  set name = i.name, kind = i.kind
+  set name = i.name
   from jsonb_to_recordset(kept_rows) as i (id uuid, name text, kind text, amount_pence bigint)
-  where c.user_id = uid and c.id = i.id and (c.name, c.kind) is distinct from (i.name, i.kind);
+  where c.user_id = uid and c.id = i.id and c.name is distinct from i.name;
 
   for row_ in select i.*
               from jsonb_array_elements(kept_rows) with ordinality as e (value, ord),
@@ -251,7 +258,8 @@ begin
         insert into public.categories (user_id, name, kind) values (uid, row_.name, row_.kind)
         returning id into cat_id;
       else
-        update public.categories set name = row_.name, kind = row_.kind where user_id = uid and id = cat_id;
+        -- Brought back under the name typed; it keeps its kind.
+        update public.categories set name = row_.name where user_id = uid and id = cat_id;
       end if;
     end if;
     kept := kept || cat_id;
@@ -305,10 +313,11 @@ grant execute on function public.remove_from_budget(uuid, date, text, uuid) to a
 
 -- delete_category ------------------------------------------------------------------
 -- Deletes a category that was never used, with its allocations. Refuses
--- (PT409) one with any expense or recurring payment: remove it from the
--- budget instead, so past spending keeps its category.
+-- (PT409) one with any expense or recurring payment, or with an allocation in
+-- a period that started before the current one (deleting it would rewrite a
+-- past budget): remove it from the budget instead, so the past keeps it.
 
-create function public.delete_category(p_category_id uuid)
+create function public.delete_category(p_category_id uuid, p_period_id uuid)
 returns void
 language plpgsql
 security invoker
@@ -316,6 +325,7 @@ set search_path = ''
 as $$
 declare
   uid uuid := (select auth.uid());
+  current_start date;
 begin
   if uid is null then
     raise exception 'delete_category: not signed in' using errcode = '42501';
@@ -326,9 +336,17 @@ begin
     raise exception 'delete_category: unknown category' using errcode = 'P0002';
   end if;
 
+  select start_date into current_start from public.budget_periods where id = p_period_id and user_id = uid;
+  if current_start is null then
+    raise exception 'delete_category: no such period' using errcode = 'P0002';
+  end if;
+
   if exists (select 1 from public.transactions where user_id = uid and category_id = p_category_id)
-     or exists (select 1 from public.recurring_rules where user_id = uid and category_id = p_category_id) then
-    raise exception 'delete_category: the category has expenses' using errcode = 'PT409';
+     or exists (select 1 from public.recurring_rules where user_id = uid and category_id = p_category_id)
+     or exists (select 1 from public.allocations a
+                join public.budget_periods p on p.id = a.period_id and p.user_id = a.user_id
+                where a.user_id = uid and a.category_id = p_category_id and p.start_date < current_start) then
+    raise exception 'delete_category: the category is in use' using errcode = 'PT409';
   end if;
 
   delete from public.allocations where user_id = uid and category_id = p_category_id;
@@ -336,5 +354,5 @@ begin
 end;
 $$;
 
-revoke execute on function public.delete_category(uuid) from public, anon;
-grant execute on function public.delete_category(uuid) to authenticated;
+revoke execute on function public.delete_category(uuid, uuid) from public, anon;
+grant execute on function public.delete_category(uuid, uuid) to authenticated;

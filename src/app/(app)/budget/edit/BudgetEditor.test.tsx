@@ -13,16 +13,17 @@ const categories = [
   { id: "33333333-3333-4333-8333-333333333333", name: "Eating out", kind: "want" as const, amountPence: 20000 },
 ];
 
+const budget = { incomePence: 300000, savingsPence: 50000, categories };
+const nextBudget = {
+  incomePence: 320000,
+  savingsPence: 50000,
+  categories: [{ ...categories[0], amountPence: 160000 }, categories[1], categories[2]],
+};
+const GIFTS = { id: "44444444-4444-4444-8444-444444444444", name: "Gifts", kind: "want" as const };
+
 function renderEditor(props: Partial<Parameters<typeof BudgetEditor>[0]> = {}) {
   return render(
-    <BudgetEditor
-      period={period}
-      nextExists={false}
-      incomePence={300000}
-      savingsPence={50000}
-      categories={categories}
-      {...props}
-    />,
+    <BudgetEditor period={period} budget={budget} nextBudget={null} nextDiffers={false} outside={[GIFTS]} {...props} />,
   );
 }
 
@@ -97,17 +98,14 @@ describe("BudgetEditor", () => {
     });
   });
 
-  it("renames a category and moves it to Wants from its edit sheet", async () => {
+  it("renames a category from its edit sheet; its kind can't change there", async () => {
     saveBudgetAction.mockResolvedValue(undefined);
     renderEditor();
     click("Edit Groceries");
-    const sheet = screen.getByRole("dialog", { name: "Edit category" });
+    const sheet = screen.getByRole("dialog", { name: "Rename category" });
+    expect(within(sheet).queryByRole("radiogroup")).not.toBeInTheDocument();
     fireEvent.change(within(sheet).getByLabelText("Name"), { target: { value: "Food shop" } });
-    fireEvent.click(within(sheet).getByRole("radio", { name: "Want" }));
     fireEvent.click(within(sheet).getByRole("button", { name: "Done" }));
-
-    expect(screen.queryByLabelText("Food shop")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Wants" }));
     expect(screen.getByLabelText("Food shop")).toHaveValue("400.00");
 
     click("Save budget");
@@ -115,15 +113,28 @@ describe("BudgetEditor", () => {
     expect(saveBudgetAction.mock.calls[0][0].categories[1]).toEqual({
       id: categories[1].id,
       name: "Food shop",
-      kind: "want",
+      kind: "need",
       amountPence: 40000,
     });
+  });
+
+  it("adding the name of a category outside the budget brings it back with its own kind", async () => {
+    saveBudgetAction.mockResolvedValue(undefined);
+    renderEditor();
+    type("Category name", "gifts");
+    type("Amount", "25");
+    click("Add category");
+    fireEvent.click(screen.getByRole("tab", { name: "Wants" }));
+    expect(screen.getByLabelText("Gifts")).toHaveValue("25");
+    click("Save budget");
+    await waitFor(() => expect(saveBudgetAction).toHaveBeenCalled());
+    expect(saveBudgetAction.mock.calls[0][0].categories[3]).toEqual({ id: GIFTS.id, name: "Gifts", kind: "want", amountPence: 2500 });
   });
 
   it("refuses renaming to another category's name, ignoring case", () => {
     renderEditor();
     click("Edit Groceries");
-    const sheet = screen.getByRole("dialog", { name: "Edit category" });
+    const sheet = screen.getByRole("dialog", { name: "Rename category" });
     fireEvent.change(within(sheet).getByLabelText("Name"), { target: { value: "rent" } });
     fireEvent.click(within(sheet).getByRole("button", { name: "Done" }));
     expect(within(sheet).getByRole("alert")).toHaveTextContent("You already have a category called Rent.");
@@ -133,6 +144,48 @@ describe("BudgetEditor", () => {
     renderEditor({ focusCategoryId: categories[2].id });
     expect(screen.getByRole("tab", { name: "Wants" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Eating out")).toHaveFocus();
+  });
+
+  it("with ?category for a category outside the budget, adds it at £0 with its amount focused", () => {
+    renderEditor({ focusCategoryId: GIFTS.id });
+    expect(screen.getByRole("tab", { name: "Wants" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText("Gifts")).toHaveValue("0.00");
+    expect(screen.getByLabelText("Gifts")).toHaveFocus();
+  });
+
+  it("with a next period already set up, From next period shows that period's own figures", () => {
+    renderEditor({ nextBudget, nextDiffers: true });
+    expect(screen.getByLabelText("Rent")).toHaveValue("1500.00");
+    fireEvent.click(screen.getByRole("radio", { name: "From next period" }));
+    expect(screen.getByLabelText("Monthly income")).toHaveValue("3200.00");
+    expect(screen.getByLabelText("Rent")).toHaveValue("1600.00");
+    fireEvent.click(screen.getByRole("radio", { name: "From this period" }));
+    expect(screen.getByLabelText("Rent")).toHaveValue("1500.00");
+  });
+
+  it("switching scope with unsaved changes asks first, and keeps them on Cancel", () => {
+    renderEditor({ nextBudget, nextDiffers: true });
+    type("Rent", "1700");
+    fireEvent.click(screen.getByRole("radio", { name: "From next period" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Discard your changes?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByRole("radio", { name: "From this period" })).toBeChecked();
+    expect(screen.getByLabelText("Rent")).toHaveValue("1700");
+
+    fireEvent.click(screen.getByRole("radio", { name: "From next period" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard and switch" }));
+    expect(screen.getByRole("radio", { name: "From next period" })).toBeChecked();
+    expect(screen.getByLabelText("Rent")).toHaveValue("1600.00");
+  });
+
+  it("warns before saving from this period over a next period with different figures", () => {
+    const { rerender } = renderEditor({ nextBudget, nextDiffers: true });
+    expect(screen.getByText("Your budget from Tue 1 Dec is different. Saving here replaces it with these figures.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "From next period" }));
+    expect(screen.queryByText(/is different/)).not.toBeInTheDocument();
+    rerender(<BudgetEditor period={period} budget={budget} nextBudget={budget} nextDiffers={false} outside={[]} />);
+    fireEvent.click(screen.getByRole("radio", { name: "From this period" }));
+    expect(screen.queryByText(/is different/)).not.toBeInTheDocument();
   });
 
   it("an amount that isn't a number stops the save with a message", () => {
