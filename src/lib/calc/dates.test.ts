@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, daysBetween, formatDayMonth, formatShortDate, formatWeekdayDate, lastDayOfMonth, todayIn } from "./dates";
+import { addDays, daysBetween, formatDaysLeft, formatDayMonth, formatPeriodRange, formatShortDate, formatWeekdayDate, lastDayOfMonth, todayIn } from "./dates";
 
 describe("dates", () => {
   it("addDays crosses year end", () => {
@@ -33,5 +33,19 @@ describe("formatDayMonth", () => {
 describe("formatShortDate", () => {
   it("formats a calendar date as short weekday, day and short month", () => {
     expect(formatShortDate("2026-11-21")).toBe("Sat 21 Nov");
+  });
+});
+
+describe("formatDaysLeft", () => {
+  it("pluralises", () => {
+    expect(formatDaysLeft(1)).toBe("1 day left");
+    expect(formatDaysLeft(0)).toBe("0 days left");
+    expect(formatDaysLeft(5)).toBe("5 days left");
+  });
+});
+
+describe("formatPeriodRange", () => {
+  it("formats start and end as day and short month", () => {
+    expect(formatPeriodRange("2026-11-01", "2026-11-30")).toBe("1 Nov – 30 Nov");
   });
 });

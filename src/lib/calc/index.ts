@@ -2,7 +2,9 @@ export { parsePence, parseOptionalPence, formatGBP, divRound } from "./money";
 export {
   addDays,
   daysBetween,
+  formatDaysLeft,
   formatDayMonth,
+  formatPeriodRange,
   formatShortDate,
   formatWeekdayDate,
   lastDayOfMonth,

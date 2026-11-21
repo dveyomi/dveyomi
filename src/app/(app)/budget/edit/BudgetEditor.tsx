@@ -23,7 +23,7 @@ import {
 } from "@/components/ui";
 import {
   allocationTotals,
-  formatDayMonth,
+  formatPeriodRange,
   formatShortDate,
   parseOptionalPence,
   parsePence,
@@ -234,7 +234,7 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
           <RadioSegments label="When the changes start" options={SCOPES} value={scope} onChange={chooseScope} />
           <p className="text-caption text-muted">
             {scope === "this"
-              ? `Changes this period (${formatDayMonth(period.start)} – ${formatDayMonth(period.end)})${nextBudget ? ` and the one from ${nextStartText}` : ""} onward. Past periods stay as they were.`
+              ? `Changes this period (${formatPeriodRange(period.start, period.end)})${nextBudget ? ` and the one from ${nextStartText}` : ""} onward. Past periods stay as they were.`
               : nextBudget
                 ? `This period stays as it is. These are your budget's figures from ${nextStartText}.`
                 : `This period stays as it is. Your new budget starts on ${nextStartText}.`}

@@ -5,7 +5,8 @@ import { SafeToSpendInfo } from "@/components/SafeToSpendInfo";
 import { SavedNotice, type SavedNoticeKind } from "@/components/SavedNotice";
 import { ButtonLink, Card, EmptyState, Gauge, Money, Notice, StatusBadge } from "@/components/ui";
 import {
-  formatDayMonth,
+  formatDaysLeft,
+  formatPeriodRange,
   formatGBP,
   formatShortDate,
   leftToSpendPercent,
@@ -58,7 +59,7 @@ export function BudgetOverview({ period, summary, categories, tab, notice }: Bud
           <div className="flex items-center gap-3">
             <StatusBadge status={summary.status} />
             <span className="text-body text-muted">
-              {formatDayMonth(period.start)} – {formatDayMonth(period.end)}
+              {formatPeriodRange(period.start, period.end)}
             </span>
           </div>
           <ButtonLink href="/budget/edit" variant="secondary" icon="edit">
@@ -89,7 +90,7 @@ export function BudgetOverview({ period, summary, categories, tab, notice }: Bud
               </>
             )}
             <span className="text-caption text-muted">
-              {summary.daysLeft} {summary.daysLeft === 1 ? "day" : "days"} left
+              {formatDaysLeft(summary.daysLeft)}
             </span>
           </Gauge>
 

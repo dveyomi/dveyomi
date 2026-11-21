@@ -99,6 +99,8 @@ export function summarise(
   const days = daysLeft(period, today);
   const safeToSpendPerDayPence = divRound(leftToSpendPence - needsLeftPence, days);
 
+  // Out of Budget wins. Spending Fast: a budgeted category is overspent, allocations exceed the
+  // spending money, or Wants are ahead of pace. Unbudgeted spending alone never triggers it.
   let status: BudgetStatus = "on_track";
   if (safeToSpendPerDayPence < 0) {
     status = "out_of_budget";
@@ -109,9 +111,10 @@ export function summarise(
     // elapsedDays counts period.start through today inclusive.
     const periodDays = daysBetween(period.start, period.nextStart);
     const elapsedDays = periodDays - days + 1;
-    if (wantsAllocated > 0 && wantsSpent / wantsAllocated > elapsedDays / periodDays + PACE_TOLERANCE) {
-      status = "spending_fast";
-    }
+    const wantsAheadOfPace =
+      wantsAllocated > 0 && wantsSpent / wantsAllocated > elapsedDays / periodDays + PACE_TOLERANCE;
+    const categoryOverspent = categories.some((c) => !c.noBudget && c.overPence > 0);
+    if (categoryOverspent || overAllocatedPence > 0 || wantsAheadOfPace) status = "spending_fast";
   }
 
   return {

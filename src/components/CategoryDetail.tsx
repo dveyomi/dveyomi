@@ -1,7 +1,7 @@
 import { categoryIcon } from "@/components/categoryIcon";
 import { CategoryMenu } from "@/components/CategoryMenu";
 import { ButtonLink, Card, EmptyState, Icon, ListRow, Money, ProgressBar } from "@/components/ui";
-import { formatDayMonth, formatShortDate, percentLeft, type CategoryFigure, type Period } from "@/lib/calc";
+import { formatDaysLeft, formatPeriodRange, formatShortDate, percentLeft, type CategoryFigure, type Period } from "@/lib/calc";
 import type { CategoryUse } from "@/lib/data/budgetEdit";
 import type { CategoryTxn } from "@/lib/data/category";
 import type { CategoryRow } from "@/lib/data/types";
@@ -31,7 +31,7 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
           Budget
         </ButtonLink>
         <span className="text-body text-muted">
-          {formatDayMonth(period.start)} – {formatDayMonth(period.end)}
+          {formatPeriodRange(period.start, period.end)}
         </span>
         <CategoryMenu categoryId={category.id} name={category.name} inUse={inUse} inBudget={pct !== null} />
       </div>
@@ -90,7 +90,7 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
               </div>
               <ProgressBar percent={pct} state={over ? "over" : "normal"} label={`${category.name} budget left`} />
               <p className="text-caption text-muted">
-                {daysLeft} {daysLeft === 1 ? "day" : "days"} left
+                {formatDaysLeft(daysLeft)}
               </p>
             </div>
           )}

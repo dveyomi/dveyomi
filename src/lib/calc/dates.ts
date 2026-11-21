@@ -59,3 +59,13 @@ export function formatDayMonth(d: IsoDate): string {
 export function formatShortDate(d: IsoDate): string {
   return shortDate.format(toUtcMs(d)).replace(",", "");
 }
+
+/** 1 -> "1 day left", otherwise "N days left". */
+export function formatDaysLeft(n: number): string {
+  return `${n} ${n === 1 ? "day" : "days"} left`;
+}
+
+/** ("2026-11-01", "2026-11-30") -> "1 Nov – 30 Nov". */
+export function formatPeriodRange(start: IsoDate, end: IsoDate): string {
+  return `${formatDayMonth(start)} – ${formatDayMonth(end)}`;
+}

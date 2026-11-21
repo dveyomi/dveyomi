@@ -125,4 +125,42 @@ describe("summarise", () => {
     expect(s.safeToSpendPerDayPence).toBeLessThan(0);
     expect(s.status).toBe("out_of_budget");
   });
+
+  describe("stricter status rule", () => {
+    const needBudget = (over: Partial<PeriodBudget> = {}) =>
+      budget({ allocations: [{ categoryId: "rent", kind: "need", amountPence: 50000 }], ...over });
+
+    it("is spending fast when a need is overspent but safe to spend is still positive", () => {
+      const s = summarise(needBudget(), [txn({ categoryId: "rent", amountPence: 70000 })], period, "2026-11-21")!;
+      expect(s.safeToSpendPerDayPence).toBeGreaterThan(0);
+      expect(s.categories[0].overPence).toBe(20000);
+      expect(s.status).toBe("spending_fast");
+    });
+
+    it("is spending fast when a want is overspent", () => {
+      const b = budget({ allocations: [{ categoryId: "fun", kind: "want", amountPence: 10000 }] });
+      const s = summarise(b, [txn({ categoryId: "fun", amountPence: 10100, date: "2026-11-20" })], period, "2026-11-21")!;
+      expect(s.status).toBe("spending_fast");
+    });
+
+    it("is spending fast when allocations exceed the spending money, with no spending", () => {
+      const b = budget({ incomePence: 100000, allocations: [{ categoryId: "fun", kind: "want", amountPence: 120000 }] });
+      const s = summarise(b, [], period, "2026-11-21")!;
+      expect(s.overAllocatedPence).toBeGreaterThan(0);
+      expect(s.status).toBe("spending_fast");
+    });
+
+    it("stays on track when only unallocated (no budget yet) spending exists", () => {
+      const s = summarise(needBudget(), [txn({ categoryId: "mystery", amountPence: 700 })], period, "2026-11-21")!;
+      expect(s.categories.find((c) => c.categoryId === "mystery")!.overPence).toBe(700);
+      expect(s.status).toBe("on_track");
+    });
+
+    it("is out of budget, not spending fast, when safe to spend is negative with an overspent category", () => {
+      const b = budget({ incomePence: 10000, allocations: [{ categoryId: "rent", kind: "need", amountPence: 5000 }] });
+      const s = summarise(b, [txn({ categoryId: "rent", amountPence: 20000 })], period, "2026-11-21")!;
+      expect(s.safeToSpendPerDayPence).toBeLessThan(0);
+      expect(s.status).toBe("out_of_budget");
+    });
+  });
 });

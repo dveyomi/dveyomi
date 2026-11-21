@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { ButtonLink } from "@/components/ui";
-import { addDays, formatDayMonth } from "@/lib/calc";
+import { addDays, formatPeriodRange } from "@/lib/calc";
 import { loadBudgetEditor } from "@/lib/data/budgetEdit";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
@@ -27,7 +27,7 @@ export async function EditContent({ searchParams }: EditContentProps) {
         </div>
         <h1 className="text-title font-semibold text-text md:text-display">Edit budget</h1>
         <p className="text-body text-muted">
-          This period: {formatDayMonth(period.start)} – {formatDayMonth(period.end)}
+          This period: {formatPeriodRange(period.start, period.end)}
         </p>
       </div>
       <BudgetEditor
