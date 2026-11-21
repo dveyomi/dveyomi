@@ -98,6 +98,7 @@ describe("createTransaction", () => {
       notes: "Lisbon",
       recurringRuleId: null,
       unchecked: false,
+      trip: "auto",
     });
   });
 

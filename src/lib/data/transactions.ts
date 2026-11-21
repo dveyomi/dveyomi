@@ -3,6 +3,7 @@ import { isId, type Kind } from "@/lib/validation/budgetEdit";
 import type { ExpenseInput } from "@/lib/validation/expense";
 import { NameTakenError } from "./budgetEdit";
 import { laterPaymentAmounts, RecurringChangedError } from "./recurring";
+import type { TripChoice } from "./trips";
 import type { Db } from "./types";
 
 /** An expense's stored values, as the edit form starts from them. */
@@ -19,6 +20,8 @@ export type ExpenseRecord = {
   recurringRuleId: string | null;
   /** Auto-added by a recurring rule and not yet checked. */
   unchecked: boolean;
+  /** Its trip: automatic (by date), not in a trip, or added to a trip by hand. */
+  trip: TripChoice;
 };
 
 /** What the expense form offers: the user's categories and funds, by name. */
@@ -36,12 +39,14 @@ export type TransactionInput = {
   fundId?: string | null;
   accountLabel?: string;
   notes?: string;
+  /** Left out: a new expense is automatic and an edit keeps what it had. */
+  trip?: TripChoice;
 };
 
 /** The category or fund isn't one of the user's (or no longer exists). */
 export class MissingReferenceError extends Error {
   constructor() {
-    super("That category or fund no longer exists. Reload and try again.");
+    super("That category, fund or trip no longer exists. Reload and try again.");
     this.name = "MissingReferenceError";
   }
 }
@@ -77,7 +82,12 @@ const columns = (input: TransactionInput) => ({
   fund_id: input.fundId ?? null,
   account_label: input.accountLabel ?? null,
   notes: input.notes ?? null,
+  ...(input.trip === undefined ? {} : tripColumns(input.trip)),
 });
+
+/** The stored override for a Trip choice (see src/lib/data/trips.ts). */
+const tripColumns = (trip: TripChoice) =>
+  trip === "auto" ? { trip_override: false, trip_id: null } : { trip_override: true, trip_id: trip === "none" ? null : trip };
 
 /** The user's categories and funds, by name, for the expense form. */
 export async function loadExpenseOptions(supabase: Db): Promise<ExpenseOptions> {
@@ -98,7 +108,7 @@ export async function loadTransaction(supabase: Db, id: string): Promise<Expense
   if (!isId(id)) return null;
   const { data, error } = await supabase
     .from("transactions")
-    .select("id, name, amount_pence, date, category_id, fund_id, account_label, notes, recurring_rule_id, unchecked")
+    .select("id, name, amount_pence, date, category_id, fund_id, account_label, notes, recurring_rule_id, unchecked, trip_override, trip_id")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
@@ -114,6 +124,7 @@ export async function loadTransaction(supabase: Db, id: string): Promise<Expense
     notes: data.notes,
     recurringRuleId: data.recurring_rule_id,
     unchecked: data.unchecked,
+    trip: !data.trip_override ? "auto" : (data.trip_id ?? "none"),
   };
 }
 
@@ -166,6 +177,8 @@ export async function deleteTransaction(supabase: Db, id: string): Promise<void>
  * - "This and future payments" (`amountScope`) on a recurring payment: the
  *   rule's price from its date and the amounts of its later unchecked
  *   payments (worked out here with calc), with the expense itself.
+ * The Trip choice (`trip`) is saved with the expense either way; left out,
+ * a new expense is automatic and an edit keeps its trip.
  */
 export async function saveExpense(supabase: Db, id: string | null, input: ExpenseInput): Promise<string> {
   const { category, repeat: asked, amountScope, ...rest } = input;
@@ -192,6 +205,7 @@ export async function saveExpense(supabase: Db, id: string | null, input: Expens
     ...(rest.notes ? { p_notes: rest.notes } : {}),
     ...(repeat ? { p_repeat: repeat } : {}),
     ...(thisAndFuture ? { p_amount_scope: "this_and_future", p_price_updates: priceUpdates } : {}),
+    ...(rest.trip ? { p_trip: rest.trip } : {}),
   });
   if (isDuplicateOccurrence(error)) throw new DuplicateOccurrenceError();
   if (error?.code === "23505" && !("id" in category)) throw new NameTakenError(category.name);

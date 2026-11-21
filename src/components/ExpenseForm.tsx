@@ -12,7 +12,7 @@ import {
   Select,
   TextField,
 } from "@/components/ui";
-import { formatRelativeDay, parsePence, type Frequency, type IsoDate } from "@/lib/calc";
+import { formatRelativeDay, parsePence, tripOn, type Frequency, type IsoDate } from "@/lib/calc";
 import type { Kind } from "@/lib/validation/budgetEdit";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
 import {
@@ -35,6 +35,8 @@ type ExpenseFormProps = {
   categories: { id: string; name: string; kind: Kind }[];
   /** The user's funds; with none, the "Paid from fund" row is left out. */
   funds: { id: string; name: string }[];
+  /** The user's trips, latest first; with none, the "Trip" row is left out (and no trip choice is sent). */
+  trips?: { id: string; name: string; startDate: IsoDate; endDate: IsoDate }[];
   today: IsoDate;
   initial: ExpenseFormValues;
   /** Where Close goes (and where saving returns to). */
@@ -58,6 +60,13 @@ const KINDS = [
   { value: "want" as const, label: "Want" },
 ];
 const FUND_HINT = "Pay with money you saved in a fund. It won't count toward your budget.";
+const TRIP_HINT = "Automatic puts it in the trip its date falls in. A trip is a label: your budget stays the same.";
+
+/** "Automatic (Taiwan)" when the date falls in a trip, else "Automatic (no trip)". */
+function autoTripLabel(trips: NonNullable<ExpenseFormProps["trips"]>, date: string): string {
+  const trip = isIsoDate(date) ? tripOn(trips.map((t) => ({ ...t, start: t.startDate, end: t.endDate })), date) : null;
+  return `Automatic (${trip ? trip.name : "no trip"})`;
+}
 
 /**
  * Add or edit an expense (§5.7): a large amount at the top, then name,
@@ -65,11 +74,13 @@ const FUND_HINT = "Pay with money you saved in a fund. It won't count toward you
  * notes. Close and save sit at the top; editing adds a red Delete Expense at
  * the bottom. A fund-paid expense keeps its category. Adding offers Repeat
  * (§5.8); editing a recurring payment's amount asks "Just this payment" or
- * "This and future payments" before saving.
+ * "This and future payments" before saving. With trips, a Trip row sets
+ * which trip it belongs to (§5.12): automatic by date, a trip, or none.
  */
 export function ExpenseForm({
   categories,
   funds,
+  trips = [],
   today,
   initial,
   returnTo,
@@ -128,6 +139,7 @@ export function ExpenseForm({
       accountLabel: values.accountLabel,
       notes: values.notes,
       ...(repeat && !editing ? { repeat } : {}),
+      ...(trips.length > 0 ? { trip: values.trip ?? "auto" } : {}),
     };
     const checked = validateExpense(raw, today);
     if (!checked.ok) return setError({ message: checked.error, field: checked.field });
@@ -284,6 +296,21 @@ export function ExpenseForm({
             options={[{ value: "", label: "None" }, ...funds.map((f) => ({ value: f.id, label: f.name }))]}
             hint={FUND_HINT}
             error={fieldError("fund")}
+          />
+        ) : null}
+
+        {trips.length > 0 ? (
+          <Select
+            label="Trip"
+            value={values.trip ?? "auto"}
+            onChange={(e) => update({ trip: e.target.value }, "trip")}
+            options={[
+              { value: "auto", label: autoTripLabel(trips, values.date) },
+              ...trips.map((t) => ({ value: t.id, label: t.name })),
+              { value: "none", label: "Not in a trip" },
+            ]}
+            hint={TRIP_HINT}
+            error={fieldError("trip")}
           />
         ) : null}
 

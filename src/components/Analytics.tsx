@@ -11,7 +11,8 @@ const SLICES = 5;
 
 
 type CategoryBreakdownProps = {
-  summary: ExpensesSummary;
+  /** The Expenses tab's or a trip's figures. */
+  summary: Pick<ExpensesSummary, "totalPence" | "categories">;
   names: Map<string, string>;
   /** Under the total in the ring, e.g. "Spent in November". */
   caption: string;

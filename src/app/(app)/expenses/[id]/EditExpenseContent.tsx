@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { ExpenseForm } from "@/components/ExpenseForm";
 import { penceToInputText } from "@/lib/calc";
 import { loadExpenseOptions, loadTransaction } from "@/lib/data/transactions";
+import { listTrips } from "@/lib/data/trips";
 import { safeNext } from "@/lib/safeNext";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
@@ -17,7 +18,11 @@ type EditExpenseContentProps = {
 export async function EditExpenseContent({ params, searchParams }: EditExpenseContentProps) {
   if (!(await getUserId())) redirect("/login");
   const [supabase, today, { id }, query] = await Promise.all([createClient(), getToday(), params, searchParams]);
-  const [txn, { categories, funds }] = await Promise.all([loadTransaction(supabase, id), loadExpenseOptions(supabase)]);
+  const [txn, { categories, funds }, trips] = await Promise.all([
+    loadTransaction(supabase, id),
+    loadExpenseOptions(supabase),
+    listTrips(supabase),
+  ]);
   if (!txn) notFound();
   const returnTo = safeNext(typeof query.returnTo === "string" ? query.returnTo : null, "/expenses");
 
@@ -25,6 +30,7 @@ export async function EditExpenseContent({ params, searchParams }: EditExpenseCo
     <ExpenseForm
       categories={categories}
       funds={funds}
+      trips={trips}
       today={today}
       initial={{
         name: txn.name,
@@ -34,6 +40,7 @@ export async function EditExpenseContent({ params, searchParams }: EditExpenseCo
         fundId: txn.fundId,
         accountLabel: txn.accountLabel ?? "",
         notes: txn.notes ?? "",
+        trip: txn.trip,
       }}
       returnTo={returnTo}
       save={saveExpenseAction.bind(null, { id: txn.id, returnTo })}

@@ -138,7 +138,9 @@ describe("composite foreign keys", () => {
     ["trip_id", () => tripA.id],
     ["recurring_rule_id", () => ruleA.id],
   ])("B inserting a transaction with A's %s errors", async (column, id) => {
-    const { error } = await b.client.from("transactions").insert({ ...base(), [column]: id() });
+    // A trip_id needs trip_override (0009's check), so the foreign key is what refuses it.
+    const extra = column === "trip_id" ? { trip_override: true } : {};
+    const { error } = await b.client.from("transactions").insert({ ...base(), ...extra, [column]: id() });
     expect(error?.code).toBe("23503");
   });
 

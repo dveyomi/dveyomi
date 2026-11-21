@@ -5,8 +5,12 @@ import { SignedInSync } from "./SignedInSync";
 const server = vi.hoisted(() => ({
   getUserId: vi.fn<() => Promise<string | null>>(),
   getProfile: vi.fn<() => Promise<{ timezone: string; timezoneDetected: boolean } | null>>(),
+  createClient: vi.fn(async () => ({})),
 }));
 vi.mock("@/lib/supabase/server", () => server);
+vi.mock("@/lib/today", () => ({ getToday: async () => "2026-12-03" }));
+const trips = vi.hoisted(() => ({ tripCovering: vi.fn() }));
+vi.mock("@/lib/data/trips", () => trips);
 vi.mock("@/components/TimezoneSync", () => ({ TimezoneSync: () => null }));
 
 /** redirect() throws an error whose digest carries the target URL. */
@@ -25,6 +29,7 @@ describe("SignedInSync", () => {
   beforeEach(() => {
     server.getUserId.mockReset();
     server.getProfile.mockReset();
+    trips.tripCovering.mockReset().mockResolvedValue(null);
   });
 
   it("sends a signed-out visitor to /login", async () => {
@@ -44,5 +49,19 @@ describe("SignedInSync", () => {
     server.getProfile.mockResolvedValue({ timezone: "Asia/Taipei", timezoneDetected: true });
     const el = await SignedInSync();
     expect(isValidElement(el) && (el.props as { homeDetected: boolean }).homeDetected).toBe(true);
+  });
+
+  it("gives TimezoneSync the home zone, today and the trip covering today, for the travelling prompt", async () => {
+    server.getUserId.mockResolvedValue("user-1");
+    server.getProfile.mockResolvedValue({ timezone: "Europe/London", timezoneDetected: true });
+    trips.tripCovering.mockResolvedValue({ id: "t1", name: "Taiwan", place: "Taipei", startDate: "2026-12-01", endDate: "2026-12-15" });
+    const el = await SignedInSync();
+    expect(isValidElement(el) && el.props).toEqual({
+      homeDetected: true,
+      homeZone: "Europe/London",
+      today: "2026-12-03",
+      currentTrip: { id: "t1", name: "Taiwan", end: "2026-12-15" },
+    });
+    expect(trips.tripCovering).toHaveBeenCalledWith(expect.anything(), "2026-12-03");
   });
 });

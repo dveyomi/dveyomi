@@ -421,3 +421,19 @@ describe("Comparison", () => {
     expect(line).not.toHaveClass("text-positive-fg");
   });
 });
+
+describe("Trips panel", () => {
+  const taiwan = { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "Taiwan", place: "Taipei", startDate: "2026-12-01", endDate: "2026-12-15" };
+
+  it("lists the latest trips with a link to all of them", () => {
+    render(<ExpensesOverview data={view(standard)} today={TODAY} initialView="calendar" trips={[taiwan]} />);
+    const panel = screen.getByRole("region", { name: "Trips" });
+    expect(within(panel).getByRole("link", { name: /Taiwan/ })).toHaveAttribute("href", `/expenses/trips/${taiwan.id}`);
+    expect(within(panel).getByRole("link", { name: "All trips" })).toHaveAttribute("href", "/expenses/trips");
+  });
+
+  it("is left out with no trips", () => {
+    renderOverview();
+    expect(screen.queryByRole("region", { name: "Trips" })).not.toBeInTheDocument();
+  });
+});

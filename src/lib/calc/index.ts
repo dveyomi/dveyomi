@@ -60,3 +60,5 @@ export {
   summariseExpenses,
 } from "./expenses";
 export type { CategoryShare, CategorySlice, ExpenseRange, ExpensesSummary, ExpenseWindow, YearMonth } from "./expenses";
+export { formatTripRange, summariseTrip, tripLength, tripOn } from "./trips";
+export type { TripRange, TripSummary } from "./trips";

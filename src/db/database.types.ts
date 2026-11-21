@@ -653,6 +653,7 @@ export type Database = {
           p_notes?: string;
           p_price_updates?: Json;
           p_repeat?: string;
+          p_trip?: string;
         };
         Returns: string;
       };

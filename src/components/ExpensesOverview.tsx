@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ButtonLink, Card, EmptyState, Money, RadioSegments, SegmentedTabs, Button } from "@/components/ui";
 import {
   formatMonth,
@@ -14,15 +14,19 @@ import {
   type YearMonth,
 } from "@/lib/calc";
 import type { ExpensesView } from "@/lib/data/expenses";
+import type { Trip } from "@/lib/data/trips";
 import { CategoryBreakdown, ComparisonCard, TransactionsPanel } from "./Analytics";
 import { Calendar } from "./Calendar";
 import { DaySheet } from "./DaySheet";
 import { LatestList } from "./TransactionList";
+import { TripList } from "./TripList";
 
 export type ExpensesTab = "calendar" | "analytics";
 
 /** How many expenses the "latest" list shows under the calendar. */
 const LATEST = 5;
+/** How many trips the desktop Trips panel lists. */
+const LATEST_TRIPS = 3;
 
 /** The Expenses tab's URL: ?range=period, ?month=YYYY-MM and ?view=analytics, each left out at its default. */
 export function expensesHref({ range, month, view }: { range: ExpenseRange; month: YearMonth | null; view: ExpensesTab }) {
@@ -43,15 +47,22 @@ const rangeOptions = [
   { value: "period" as const, label: "Budget period" },
 ];
 
-type ExpensesOverviewProps = { data: ExpensesView; today: IsoDate; initialView: ExpensesTab };
+type ExpensesOverviewProps = {
+  data: ExpensesView;
+  today: IsoDate;
+  initialView: ExpensesTab;
+  /** The user's trips, latest first: the desktop calendar view lists a few (phones use the header's Trips link). */
+  trips?: Trip[];
+};
 
 /**
  * The Expenses tab (§5.6): calendar ⇄ analytics for a calendar month (or a
  * budget period). Every total includes fund-paid expenses and comes from
  * calc's summariseExpenses.
  */
-export function ExpensesOverview({ data, today, initialView }: ExpensesOverviewProps) {
+export function ExpensesOverview({ data, today, initialView, trips = [] }: ExpensesOverviewProps) {
   const router = useRouter();
+  const tripsHeadingId = useId();
   const [view, setView] = useState(initialView);
   const [openDay, setOpenDay] = useState<IsoDate | null>(null);
   const { range, window: win, categories } = data;
@@ -158,6 +169,21 @@ export function ExpensesOverview({ data, today, initialView }: ExpensesOverviewP
               ) : null}
               {breakdown}
               {comparisonCard}
+              {trips.length > 0 ? (
+                <Card as="section" className="hidden flex-col gap-2 px-2 lg:flex">
+                  <div role="region" aria-labelledby={tripsHeadingId} className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-3 px-2">
+                      <h2 id={tripsHeadingId} className="text-caption font-semibold text-muted">
+                        Trips
+                      </h2>
+                      <ButtonLink href="/expenses/trips" variant="ghost">
+                        All trips
+                      </ButtonLink>
+                    </div>
+                    <TripList trips={trips.slice(0, LATEST_TRIPS)} today={today} label="Latest trips" />
+                  </div>
+                </Card>
+              ) : null}
             </div>
           </div>
         ) : (

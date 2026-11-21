@@ -4,6 +4,7 @@ import { RecurringSuggestions } from "@/components/RecurringSuggestions";
 import { isYearMonth } from "@/lib/calc";
 import { loadExpensesView } from "@/lib/data/expenses";
 import { loadDetections } from "@/lib/data/recurring";
+import { listTrips } from "@/lib/data/trips";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
 
@@ -20,14 +21,20 @@ export async function ExpensesContent({ searchParams }: ExpensesContentProps) {
   const [supabase, today, params] = await Promise.all([createClient(), getToday(), searchParams]);
   const range = params.range === "period" ? "period" : "month";
   const month = isYearMonth(params.month) ? params.month : null;
-  const [data, suggestions] = await Promise.all([
+  const [data, suggestions, trips] = await Promise.all([
     loadExpensesView(supabase, today, { range, month }),
     loadDetections(supabase, today),
+    listTrips(supabase),
   ]);
   return (
     <>
       <RecurringSuggestions suggestions={suggestions} />
-      <ExpensesOverview data={data} today={today} initialView={params.view === "analytics" ? "analytics" : "calendar"} />
+      <ExpensesOverview
+        data={data}
+        today={today}
+        initialView={params.view === "analytics" ? "analytics" : "calendar"}
+        trips={trips}
+      />
     </>
   );
 }

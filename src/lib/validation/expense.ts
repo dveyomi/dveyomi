@@ -28,6 +28,8 @@ export type ExpenseInput = {
   repeat?: Frequency;
   /** Editing a recurring payment's amount: just this payment, or this and later unchecked ones (the price from its date). */
   amountScope?: AmountScope;
+  /** The Trip row: "auto" (by date), "none" (not in a trip) or a trip's id. Left out when the form has no Trip row. */
+  trip?: string;
 };
 
 export type AmountScope = "this" | "this_and_future";
@@ -46,7 +48,8 @@ export type ExpenseField =
   | "fund"
   | "accountLabel"
   | "notes"
-  | "repeat";
+  | "repeat"
+  | "trip";
 
 export type ExpenseValidation = { ok: true; input: ExpenseInput } | { ok: false; error: string; field?: ExpenseField };
 
@@ -127,6 +130,8 @@ export function validateExpense(raw: unknown, today: IsoDate): ExpenseValidation
   const notes = optionalText(raw.notes, MAX_NOTES_LENGTH);
   if (!notes.ok) return fail(`Notes can be up to ${MAX_NOTES_LENGTH} characters.`, "notes");
   if (raw.repeat !== undefined && raw.repeat !== null && !isFrequency(raw.repeat)) return fail("Choose how often it repeats.", "repeat");
+  const trip = raw.trip;
+  if (trip !== undefined && trip !== null && trip !== "auto" && trip !== "none" && !isId(trip)) return fail("That trip wasn't recognised.", "trip");
 
   return {
     ok: true,
@@ -140,6 +145,7 @@ export function validateExpense(raw: unknown, today: IsoDate): ExpenseValidation
       ...(notes.value ? { notes: notes.value } : {}),
       ...(isFrequency(raw.repeat) ? { repeat: raw.repeat } : {}),
       ...(raw.amountScope === "this" || raw.amountScope === "this_and_future" ? { amountScope: raw.amountScope } : {}),
+      ...(typeof trip === "string" ? { trip } : {}),
     },
   };
 }
@@ -153,6 +159,8 @@ export type ExpenseFormValues = {
   fundId: string | null;
   accountLabel: string;
   notes: string;
+  /** The Trip row: "auto", "none" or a trip's id. Left out means automatic. */
+  trip?: string;
 };
 
 /**
