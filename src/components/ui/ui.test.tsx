@@ -138,6 +138,21 @@ describe("AmountInput", () => {
   });
 });
 
+describe("AmountInput allowZero", () => {
+  it("accepts 0 (and empty) without an error and reports 0 pence", () => {
+    const onValueChange = vi.fn();
+    render(<AmountInput label="Saved each month" allowZero name="saved" onValueChange={onValueChange} />);
+    const input = screen.getByLabelText("Saved each month");
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.blur(input);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(onValueChange).toHaveBeenLastCalledWith(0);
+    expect(document.querySelector('input[name="saved"]')).toHaveValue("0");
+    fireEvent.change(input, { target: { value: "x" } });
+    expect(screen.getByRole("alert")).toHaveTextContent(/0\.00 or more/i);
+  });
+});
+
 describe("BottomSheet", () => {
   function Harness() {
     const [open, setOpen] = useState(false);

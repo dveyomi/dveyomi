@@ -28,3 +28,9 @@ export function divRound(pence: number, divisor: number): number {
   }
   return Math.floor((2 * pence + divisor) / (2 * divisor));
 }
+
+/** Like parsePence for an optional amount: empty or zero ("0", "£0.00") is 0; invalid text is null. */
+export function parseOptionalPence(input: string): number | null {
+  const t = input.trim();
+  return t === "" || /^£?0+(\.0{1,2})?$/.test(t) ? 0 : parsePence(t);
+}

@@ -2,6 +2,7 @@
 
 import { AmountInput, Button, Card, IconButton, Money, TextField, Toggle } from "@/components/ui";
 import { formatGBP, splitRemainder } from "@/lib/calc";
+import { MAX_FUNDS, MAX_NAME_LENGTH } from "@/lib/data/onboarding";
 import { livePence, type FundDraft } from "./draft";
 import { StepHeading } from "./StepHeading";
 
@@ -49,6 +50,7 @@ export function Savings({
           label="Pay yourself first"
           value={savingsText}
           onChange={onSavings}
+          allowZero
           hint="Saved each month. Leave empty to skip."
           error={savingsError}
         />
@@ -86,9 +88,16 @@ export function Savings({
                 onChange={(e) => onFund(f.id, { name: e.target.value })}
                 placeholder="e.g. Holiday…"
                 autoComplete="off"
+                maxLength={MAX_NAME_LENGTH}
               />
               {saving ? (
-                <AmountInput label="Each month" value={f.amountText} onChange={(text) => onFund(f.id, { amountText: text })} />
+                <AmountInput
+                  label="Each month"
+                  value={f.amountText}
+                  onChange={(text) => onFund(f.id, { amountText: text })}
+                  allowZero
+                  hint="Leave empty if this fund only holds money already saved."
+                />
               ) : null}
               <Toggle
                 label="Already saved"
@@ -119,9 +128,13 @@ export function Savings({
           </p>
         ) : null}
 
-        <Button variant="secondary" onClick={onAddFund}>
-          Add a fund
-        </Button>
+        {funds.length < MAX_FUNDS ? (
+          <Button variant="secondary" onClick={onAddFund}>
+            Add a fund
+          </Button>
+        ) : (
+          <p className="text-caption text-muted">You can add up to {MAX_FUNDS} funds.</p>
+        )}
       </div>
     </section>
   );

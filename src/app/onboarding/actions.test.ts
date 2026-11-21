@@ -56,8 +56,15 @@ describe("completeOnboardingAction", () => {
     await expect(completeOnboardingAction(valid)).rejects.toThrow("NEXT_REDIRECT:/budget");
   });
 
-  it("any other failure returns a retryable error", async () => {
-    completeOnboarding.mockRejectedValue(new Error("network"));
-    expect(await completeOnboardingAction(valid)).toEqual({ error: expect.stringMatching(/try again/i) });
+  it("any other failure is logged and returns a retryable error", async () => {
+    const failure = new Error("network");
+    completeOnboarding.mockRejectedValue(failure);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(await completeOnboardingAction(valid)).toEqual({ error: expect.stringMatching(/try again/i) });
+      expect(log).toHaveBeenCalledWith(expect.any(String), failure);
+    } finally {
+      log.mockRestore();
+    }
   });
 });

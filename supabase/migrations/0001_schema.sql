@@ -8,7 +8,9 @@
 -- with user_id, so a cross-user insert fails on the foreign key rather than
 -- revealing that another user's row exists.
 --
--- Money is integer pence (bigint). Calendar dates are `date`.
+-- Money is integer pence (bigint), at most 1,000,000,000 (£10m) where a person
+-- enters it. Names are 1-50 characters (transaction names 1-100). Calendar
+-- dates are `date`.
 
 -- profiles -------------------------------------------------------------------
 
@@ -46,7 +48,7 @@ create trigger on_auth_user_created
 create table public.categories (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  name text not null,
+  name text not null check (char_length(name) between 1 and 50),
   kind text not null check (kind in ('need', 'want')),
   icon text,
   colour text,
@@ -61,8 +63,8 @@ create table public.budget_periods (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   start_date date not null,
   end_date date not null,
-  income_pence bigint not null check (income_pence >= 0),
-  savings_pence bigint not null check (savings_pence >= 0),
+  income_pence bigint not null check (income_pence between 0 and 1000000000),
+  savings_pence bigint not null check (savings_pence between 0 and 1000000000),
   unassigned_carry_pence bigint not null default 0,
   check (end_date >= start_date),
   unique (id, user_id),
@@ -74,7 +76,7 @@ create table public.allocations (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   period_id uuid not null,
   category_id uuid not null,
-  amount_pence bigint not null check (amount_pence >= 0),
+  amount_pence bigint not null check (amount_pence between 0 and 1000000000),
   unique (id, user_id),
   unique (user_id, period_id, category_id),
   foreign key (period_id, user_id) references public.budget_periods (id, user_id) on delete cascade,
@@ -86,9 +88,9 @@ create table public.allocations (
 create table public.funds (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  name text not null,
-  opening_pence bigint not null default 0 check (opening_pence >= 0),
-  target_pence bigint check (target_pence >= 0),
+  name text not null check (char_length(name) between 1 and 50),
+  opening_pence bigint not null default 0 check (opening_pence between 0 and 1000000000),
+  target_pence bigint check (target_pence between 0 and 1000000000),
   target_date date,
   unique (id, user_id)
 );
@@ -99,7 +101,7 @@ create table public.fund_movements (
   fund_id uuid not null,
   date date not null,
   kind text not null check (kind in ('contribution', 'withdrawal')),
-  amount_pence bigint not null check (amount_pence > 0),
+  amount_pence bigint not null check (amount_pence between 1 and 1000000000),
   note text,
   unique (id, user_id),
   foreign key (fund_id, user_id) references public.funds (id, user_id) on delete cascade
@@ -122,7 +124,7 @@ create table public.leftover_movements (
   period_id uuid not null,
   destination text not null check (destination in ('fund', 'next_period', 'unassigned')),
   fund_id uuid,
-  amount_pence bigint not null check (amount_pence > 0),
+  amount_pence bigint not null check (amount_pence between 1 and 1000000000),
   check ((destination = 'fund') = (fund_id is not null)),
   unique (id, user_id),
   unique (user_id, period_id),
@@ -135,8 +137,8 @@ create table public.leftover_movements (
 create table public.trips (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  name text not null,
-  place text,
+  name text not null check (char_length(name) between 1 and 50),
+  place text check (char_length(place) <= 100),
   start_date date not null,
   end_date date not null,
   check (end_date >= start_date),
@@ -148,7 +150,7 @@ create table public.trips (
 create table public.recurring_rules (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  name text not null,
+  name text not null check (char_length(name) between 1 and 50),
   category_id uuid not null,
   fund_id uuid,
   frequency text not null check (frequency in ('weekly', 'fortnightly', 'monthly', 'quarterly', 'annually')),
@@ -166,7 +168,7 @@ create table public.recurring_prices (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   rule_id uuid not null,
   effective_from date not null,
-  amount_pence bigint not null check (amount_pence >= 0),
+  amount_pence bigint not null check (amount_pence between 0 and 1000000000),
   unique (id, user_id),
   unique (user_id, rule_id, effective_from),
   foreign key (rule_id, user_id) references public.recurring_rules (id, user_id) on delete cascade
@@ -185,13 +187,13 @@ create table public.import_batches (
 create table public.transactions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  name text not null,
-  amount_pence bigint not null check (amount_pence > 0),
+  name text not null check (char_length(name) between 1 and 100),
+  amount_pence bigint not null check (amount_pence between 1 and 1000000000),
   date date not null,
   category_id uuid not null,
   fund_id uuid,
-  account_label text,
-  notes text,
+  account_label text check (char_length(account_label) <= 50),
+  notes text check (char_length(notes) <= 500),
   trip_id uuid,
   trip_override boolean not null default false,
   recurring_rule_id uuid,

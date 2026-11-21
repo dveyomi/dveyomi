@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button, Card, Icon, IconButton, Money, ProgressBar } from "@/components/ui";
-import { allocationTotals, parsePence, type IsoDate } from "@/lib/calc";
-import { validateOnboarding } from "@/lib/data/onboarding";
+import { allocationTotals, type IsoDate } from "@/lib/calc";
+import { checkBasics, checkCategories, checkSavings, validateOnboarding } from "@/lib/data/onboarding";
 import { completeOnboardingAction } from "./actions";
-import { livePence, optionalPence, toInput, type CategoryDraft, type Draft, type FundDraft } from "./draft";
+import { livePence, toInput, type CategoryDraft, type Draft, type FundDraft } from "./draft";
 import { Income } from "./Income";
 import { Live } from "./Live";
 import { Savings } from "./Savings";
@@ -64,26 +64,21 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
   );
   const input = toInput(draft);
 
+  // Each step runs the same check the server runs on the whole input.
   function next() {
     setStepError(null);
-    if (step === 0) {
-      if (parsePence(draft.incomeText) === null) {
-        return setIncomeError("Enter your monthly income, e.g. 2,500.00");
-      }
-      setIncomeError(null);
-    }
-    if (step === 1) {
-      if (draft.categories.length === 0) return setStepError("Add at least one category to continue.");
-      const bad = draft.categories.find((c) => parsePence(c.amountText) === null);
-      if (bad) return setStepError(`Enter an amount greater than £0.00 for ${bad.name}.`);
-    }
-    if (step === 2) {
-      const savings = optionalPence(draft.savingsText);
-      if (savings === null) return setSavingsError("Enter an amount, e.g. 250.00, or leave it empty to skip.");
-      if (savings > incomePence) return setSavingsError("Your savings can't be more than your income.");
-      setSavingsError(null);
-      const checked = validateOnboarding(input);
-      if (!checked.ok) return setStepError(checked.error);
+    setIncomeError(null);
+    setSavingsError(null);
+    const check =
+      step === 0
+        ? checkBasics(input.incomePence, input.startDay)
+        : step === 1
+          ? checkCategories(input.categories)
+          : checkSavings(input.incomePence, input.savingsPence, input.funds);
+    if (!check.ok) {
+      if (check.field === "income") return setIncomeError(check.error);
+      if (check.field === "savings") return setSavingsError(check.error);
+      return setStepError(check.error);
     }
     go(step + 1);
   }
@@ -155,6 +150,7 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
             <Spending
               incomePence={incomePence}
               savingsPence={savingsPence}
+              savingsEntered={draft.savingsText.trim() !== ""}
               categories={draft.categories}
               tab={tab}
               onTab={setTab}

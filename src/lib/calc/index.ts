@@ -1,4 +1,4 @@
-export { parsePence, formatGBP, divRound } from "./money";
+export { parsePence, parseOptionalPence, formatGBP, divRound } from "./money";
 export { addDays, daysBetween, formatWeekdayDate, lastDayOfMonth, todayIn } from "./dates";
 export type { IsoDate } from "./dates";
 export { periodContaining, daysLeft, previousPeriod } from "./periods";

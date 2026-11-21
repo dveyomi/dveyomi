@@ -318,6 +318,7 @@ export function DesignGallery() {
             </Button>
           </div>
           <AmountInput label="Amount (with error)" error="Enter an amount greater than £0.00" />
+          <AmountInput label="Amount (optional, 0 allowed)" allowZero hint="Leave empty or enter 0 to skip" />
           <TextField label="Note" placeholder="What was it for?" />
           <TextField label="Note (with error)" defaultValue="" error="Add a note" />
           <Select label="Category" options={categories} placeholder="Choose a category" defaultValue="" />

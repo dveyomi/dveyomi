@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { AmountInput, Button, Card, EmptyState, IconButton, Money, SegmentedTabs, TextField } from "@/components/ui";
 import { AMOUNT_ERROR } from "@/components/ui/AmountInput";
 import { allocationTotals, formatGBP, parsePence } from "@/lib/calc";
+import { MAX_CATEGORIES, MAX_NAME_LENGTH } from "@/lib/data/onboarding";
 import { livePence, type CategoryDraft } from "./draft";
 import { StepHeading } from "./StepHeading";
 
@@ -16,6 +17,8 @@ const tabs = [
 type SpendingProps = {
   incomePence: number;
   savingsPence: number;
+  /** Until savings are entered (step 3), the amount to spend is the whole income. */
+  savingsEntered: boolean;
   categories: CategoryDraft[];
   tab: Kind;
   onTab: (kind: Kind) => void;
@@ -25,7 +28,7 @@ type SpendingProps = {
 };
 
 /** Step 2: categories with an amount each, on Needs and Wants tabs, against what there is to spend. */
-export function Spending({ incomePence, savingsPence, categories, tab, onTab, onAdd, onAmount, onRemove }: SpendingProps) {
+export function Spending({ incomePence, savingsPence, savingsEntered, categories, tab, onTab, onAdd, onAmount, onRemove }: SpendingProps) {
   const totals = allocationTotals(
     incomePence,
     savingsPence,
@@ -41,7 +44,11 @@ export function Spending({ incomePence, savingsPence, categories, tab, onTab, on
       />
 
       <Card className="grid grid-cols-2 gap-4" as="div">
-        <Figure label="To spend each month" pence={totals.poolPence} />
+        <Figure
+          label="To spend each month"
+          pence={totals.poolPence}
+          caption={savingsEntered ? undefined : "Before savings"}
+        />
         <Figure label="Allocated" pence={totals.allocatedPence} />
         <p aria-live="polite" className="col-span-2 text-body font-semibold">
           {totals.overAllocatedPence > 0 ? (
@@ -88,11 +95,12 @@ export function Spending({ incomePence, savingsPence, categories, tab, onTab, on
   );
 }
 
-function Figure({ label, pence }: { label: string; pence: number }) {
+function Figure({ label, pence, caption }: { label: string; pence: number; caption?: string }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-caption text-muted">{label}</span>
       <Money pence={pence} size="title" />
+      {caption ? <span className="text-caption text-muted">{caption}</span> : null}
     </div>
   );
 }
@@ -119,6 +127,8 @@ function AddCategory({
     setAmountError(null);
     if (!trimmed) return setNameError("Enter a name for the category.");
     if (clash) return setNameError(`You already have a category called ${clash}.`);
+    if (trimmed.length > MAX_NAME_LENGTH) return setNameError(`Use up to ${MAX_NAME_LENGTH} characters.`);
+    if (taken.length >= MAX_CATEGORIES) return setNameError(`You can add up to ${MAX_CATEGORIES} categories.`);
     setNameError(null);
     if (parsePence(amount) === null) return setAmountError(AMOUNT_ERROR);
     onAdd(trimmed, amount);
@@ -134,6 +144,7 @@ function AddCategory({
         onChange={(e) => setName(e.target.value)}
         placeholder={kind === "need" ? "e.g. Rent…" : "e.g. Eating out…"}
         autoComplete="off"
+        maxLength={MAX_NAME_LENGTH}
         error={nameError}
       />
       <AmountInput label="Amount" value={amount} onChange={setAmount} error={amountError} />

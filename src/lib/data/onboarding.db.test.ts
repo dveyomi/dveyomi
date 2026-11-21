@@ -55,6 +55,65 @@ describe("complete_onboarding", () => {
   });
 });
 
+// Valid arguments for calling the function directly, bypassing the TS layer.
+const rpcArgs = {
+  p_start_day: 25,
+  p_start: "2026-10-25",
+  p_end: "2026-11-24",
+  p_income_pence: 600000,
+  p_savings_pence: 0,
+  p_categories: [{ name: "Rent", kind: "need", amount_pence: 150000 }],
+  p_funds: [] as unknown[],
+};
+
+describe("complete_onboarding called directly", () => {
+  const cases: [string, Partial<typeof rpcArgs> | Record<string, unknown>][] = [
+    ["null categories", { p_categories: null }],
+    ["categories not an array", { p_categories: { name: "Rent" } }],
+    ["null funds", { p_funds: null }],
+    ["no categories", { p_categories: [] }],
+    [
+      "51 categories",
+      { p_categories: Array.from({ length: 51 }, (_, i) => ({ name: `C${i}`, kind: "need", amount_pence: 1 })) },
+    ],
+    ["21 funds", { p_funds: Array.from({ length: 21 }, (_, i) => ({ name: `F${i}`, amount_pence: 0, already_saved_pence: 0 })) }],
+    ["a null category amount", { p_categories: [{ name: "Rent", kind: "need", amount_pence: null }] }],
+    ["a zero category amount", { p_categories: [{ name: "Rent", kind: "need", amount_pence: 0 }] }],
+    [
+      "a negative fund amount",
+      { p_savings_pence: 0, p_funds: [{ name: "A", amount_pence: -5, already_saved_pence: 0 }, { name: "B", amount_pence: 5, already_saved_pence: 0 }] },
+    ],
+    ["a null already-saved amount", { p_funds: [{ name: "A", amount_pence: 0, already_saved_pence: null }] }],
+    ["an end before the start", { p_end: "2026-10-24" }],
+    ["a start that is not the start day", { p_start: "2026-10-24" }],
+    ["a category name over 50 characters", { p_categories: [{ name: "x".repeat(51), kind: "need", amount_pence: 1 }] }],
+    ["a fund name over 50 characters", { p_funds: [{ name: "x".repeat(51), amount_pence: 0, already_saved_pence: 0 }] }],
+    ["income over £10m", { p_income_pence: 1_000_000_001 }],
+    ["an allocation over £10m", { p_categories: [{ name: "Rent", kind: "need", amount_pence: 1_000_000_001 }] }],
+  ];
+
+  it.each(cases)("refuses %s and writes nothing", async (_, override) => {
+    user = await createSignedInUser("onboard");
+    const { error } = await user.client.rpc("complete_onboarding", { ...rpcArgs, ...override });
+    expect(error).not.toBeNull();
+    const r = await rows(user);
+    expect(r.startDay).toBe(1);
+    expect(r.periods).toEqual([]);
+    expect(r.categories).toEqual([]);
+  });
+
+  it("accepts a start day of 31 in a 30-day month as the month's last day", async () => {
+    user = await createSignedInUser("onboard");
+    const { error } = await user.client.rpc("complete_onboarding", {
+      ...rpcArgs,
+      p_start_day: 31,
+      p_start: "2026-11-30",
+      p_end: "2026-12-30",
+    });
+    expect(error).toBeNull();
+  });
+});
+
 describe("completeOnboarding", () => {
   it("creates the start day, period, categories, allocations, funds and a waiting savings split", async () => {
     user = await createSignedInUser("onboard");
@@ -140,17 +199,25 @@ describe("completeOnboarding", () => {
     expect(r.funds).toHaveLength(2);
   });
 
-  it("is all or nothing: a failure part-way leaves no rows", async () => {
+  it("is all or nothing: a failure after the start day and period are written leaves nothing", async () => {
     user = await createSignedInUser("onboard");
-    // Fund amounts that do not add up to the savings are refused by the function itself.
-    await expect(
-      completeOnboarding(user.client, { ...setup, funds: [{ name: "Holiday", amountPence: 1, alreadySavedPence: 0 }] }, "2026-11-21"),
-    ).rejects.toThrow();
+    // A duplicate category name passes the function's pre-checks and fails on
+    // the categories insert, after the profile update and the period insert.
+    const { error } = await user.client.rpc("complete_onboarding", {
+      ...rpcArgs,
+      p_categories: [
+        { name: "Rent", kind: "need", amount_pence: 100 },
+        { name: "Rent", kind: "want", amount_pence: 100 },
+      ],
+    });
+    expect(error?.code).toBe("23505");
     const r = await rows(user);
     expect(r.startDay).toBe(1);
     expect(r.periods).toEqual([]);
     expect(r.categories).toEqual([]);
+    expect(r.allocations).toEqual([]);
     expect(r.funds).toEqual([]);
+    expect(r.prompts).toEqual([]);
   });
 
   it("does not touch another user's data", async () => {

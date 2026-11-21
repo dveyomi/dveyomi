@@ -1,10 +1,11 @@
 "use client";
 
 import { useId, useState } from "react";
-import { parsePence } from "@/lib/calc";
+import { parseOptionalPence, parsePence } from "@/lib/calc";
 import { borderFor, describedBy, FieldShell } from "./field";
 
 export const AMOUNT_ERROR = "Enter an amount greater than £0.00, e.g. 12.50";
+export const OPTIONAL_AMOUNT_ERROR = "Enter £0.00 or more, e.g. 12.50";
 
 type AmountInputProps = {
   label: string;
@@ -22,6 +23,8 @@ type AmountInputProps = {
   /** An error from outside (e.g. the server); shown in place of the local one. */
   error?: string | null;
   required?: boolean;
+  /** An optional amount: empty or 0 is valid and reads as 0 pence. */
+  allowZero?: boolean;
 };
 
 function initialText(pence?: number) {
@@ -38,13 +41,16 @@ export function AmountInput({
   hint,
   error,
   required,
+  allowZero = false,
 }: AmountInputProps) {
+  const parse = allowZero ? parseOptionalPence : parsePence;
   const id = useId();
   const [ownText, setOwnText] = useState(() => initialText(defaultPence));
   const text = value ?? ownText;
   const [touched, setTouched] = useState(false);
-  const pence = parsePence(text);
-  const localError = touched && text.trim() !== "" && pence === null ? AMOUNT_ERROR : null;
+  const pence = parse(text);
+  const localError =
+    touched && text.trim() !== "" && pence === null ? (allowZero ? OPTIONAL_AMOUNT_ERROR : AMOUNT_ERROR) : null;
   const shown = error ?? localError;
 
   return (
@@ -67,7 +73,7 @@ export function AmountInput({
           onChange={(e) => {
             if (value === undefined) setOwnText(e.target.value);
             onChange?.(e.target.value);
-            onValueChange?.(parsePence(e.target.value));
+            onValueChange?.(parse(e.target.value));
           }}
           onBlur={() => setTouched(true)}
           className="w-full min-w-0 bg-transparent text-title font-semibold tabular-nums text-text placeholder:text-muted outline-none"

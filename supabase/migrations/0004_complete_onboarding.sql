@@ -6,8 +6,10 @@
 -- when the period saves anything, a 'waiting' savings prompt whose split maps
 -- each fund's id to its amount in pence. The period's dates are worked out by
 -- the caller (src/lib/data/onboarding.ts, from src/lib/calc), not here, and
--- the caller validates the input first; this re-checks only what keeps the
--- data consistent.
+-- the caller validates the input first; this re-checks what keeps the data
+-- consistent when the function is called directly (array shapes and sizes,
+-- amounts, period dates matching the start day, the savings split). Name
+-- lengths and money bounds are table check constraints (0001).
 --
 -- Refuses (SQLSTATE PT409, HTTP 409) when the user already has a budget
 -- period, so a repeated or concurrent submit creates nothing more: the profile
@@ -51,13 +53,32 @@ begin
     raise exception 'complete_onboarding: already has a budget' using errcode = 'PT409';
   end if;
 
-  if jsonb_typeof(p_categories) <> 'array' or jsonb_array_length(p_categories) = 0
-     or jsonb_typeof(p_funds) <> 'array' then
-    raise exception 'complete_onboarding: categories and funds must be arrays, with at least one category'
+  if coalesce(jsonb_typeof(p_categories), '') <> 'array' or coalesce(jsonb_typeof(p_funds), '') <> 'array'
+     or jsonb_array_length(p_categories) not between 1 and 50 or jsonb_array_length(p_funds) > 20 then
+    raise exception 'complete_onboarding: 1 to 50 categories and at most 20 funds, as arrays'
       using errcode = '22023';
   end if;
 
-  if p_savings_pence <> coalesce(
+  if exists (select 1 from jsonb_to_recordset(p_categories) as c (amount_pence bigint)
+             where c.amount_pence is null or c.amount_pence <= 0)
+     or exists (select 1 from jsonb_to_recordset(p_funds) as f (amount_pence bigint, already_saved_pence bigint)
+                where f.amount_pence is null or f.amount_pence < 0
+                   or f.already_saved_pence is null or f.already_saved_pence < 0) then
+    raise exception 'complete_onboarding: category amounts must be positive, fund amounts zero or more'
+      using errcode = '22023';
+  end if;
+
+  -- The period must be the one the start day gives: it starts on that day
+  -- (or the month's last day, for 29-31 in a shorter month).
+  if p_start is null or p_end is null or p_end < p_start
+     or extract(day from p_start) <> least(
+          p_start_day,
+          extract(day from (date_trunc('month', p_start) + interval '1 month - 1 day'))::int) then
+    raise exception 'complete_onboarding: % to % is not a period for start day %', p_start, p_end, p_start_day
+      using errcode = '22023';
+  end if;
+
+  if p_savings_pence is distinct from coalesce(
        (select sum(f.amount_pence) from jsonb_to_recordset(p_funds) as f (amount_pence bigint)), 0) then
     raise exception 'complete_onboarding: fund amounts must add up to the savings' using errcode = '22023';
   end if;

@@ -69,6 +69,12 @@ describe("OnboardingWizard: spending budget", () => {
     expect(screen.getByRole("heading", { name: "Savings" })).toBeInTheDocument();
   });
 
+  it("says the amount to spend is before savings until savings are entered", () => {
+    render(<OnboardingWizard today={TODAY} />);
+    finishIncome("1000");
+    expect(screen.getByText("Before savings")).toBeInTheDocument();
+  });
+
   it("keeps Needs and Wants on separate tabs", () => {
     render(<OnboardingWizard today={TODAY} />);
     finishIncome();
@@ -165,6 +171,41 @@ describe("OnboardingWizard: savings and going live", () => {
       ],
       funds: [{ name: "Holiday", amountPence: 50000, alreadySavedPence: 20000 }],
     });
+  });
+
+  it("typing 0 in 'Pay yourself first' counts as skipping savings", () => {
+    toSavings();
+    type("Pay yourself first", "0");
+    click("Continue");
+    expect(screen.getByRole("heading", { name: "You're live" })).toBeInTheDocument();
+    click("Go to my budget");
+    expect(completeOnboardingAction).toHaveBeenCalledWith(expect.objectContaining({ savingsPence: 0, funds: [] }));
+  });
+
+  it("a fund with no monthly amount can hold only money already saved, next to one that saves", () => {
+    toSavings();
+    type("Pay yourself first", "500");
+    click("Add a fund");
+    const holiday = within(screen.getByRole("group", { name: "Fund 1" }));
+    type("Fund name", "Holiday", holiday);
+    type("Each month", "500", holiday);
+    click("Add a fund");
+    const pot = within(screen.getByRole("group", { name: "Fund 2" }));
+    type("Fund name", "Old pot", pot);
+    fireEvent.click(pot.getByRole("switch", { name: "Already saved" }));
+    type("Amount already saved", "300", pot);
+    click("Continue");
+    expect(screen.getByRole("heading", { name: "You're live" })).toBeInTheDocument();
+    click("Go to my budget");
+    expect(completeOnboardingAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        savingsPence: 50000,
+        funds: [
+          { name: "Holiday", amountPence: 50000, alreadySavedPence: 0 },
+          { name: "Old pot", amountPence: 0, alreadySavedPence: 30000 },
+        ],
+      }),
+    );
   });
 
   it("shows the server's error and stays on the last step", async () => {
