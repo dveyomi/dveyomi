@@ -137,6 +137,20 @@ function frequencyOfGap(days: number): Frequency | null {
   return null;
 }
 
+/**
+ * How far back detection looks for each frequency: far enough to see three
+ * payments even when the latest was nearly a full interval ago (three
+ * intervals and a little slack). Weekly to monthly: 120 days; quarterly:
+ * 300; annually: 1,100.
+ */
+export const DETECTION_WINDOW_DAYS: Record<Frequency, number> = {
+  weekly: 120,
+  fortnightly: 120,
+  monthly: 120,
+  quarterly: 300,
+  annually: 1100,
+};
+
 export type Detection<T> = { name: string; nameKey: string; frequency: Frequency; payments: T[] };
 
 /**

@@ -26,7 +26,11 @@ export type ExpenseInput = {
   notes?: string;
   /** Repeat (new expenses only): make it the first payment of a recurring rule. */
   repeat?: Frequency;
+  /** Editing a recurring payment's amount: just this payment, or this and later unchecked ones (the price from its date). */
+  amountScope?: AmountScope;
 };
+
+export type AmountScope = "this" | "this_and_future";
 
 /** The frequencies a recurring payment can have (§5.8), in the order the form lists them. */
 export const FREQUENCIES: readonly Frequency[] = ["weekly", "fortnightly", "monthly", "quarterly", "annually"];
@@ -135,6 +139,7 @@ export function validateExpense(raw: unknown, today: IsoDate): ExpenseValidation
       ...(accountLabel.value ? { accountLabel: accountLabel.value } : {}),
       ...(notes.value ? { notes: notes.value } : {}),
       ...(isFrequency(raw.repeat) ? { repeat: raw.repeat } : {}),
+      ...(raw.amountScope === "this" || raw.amountScope === "this_and_future" ? { amountScope: raw.amountScope } : {}),
     },
   };
 }

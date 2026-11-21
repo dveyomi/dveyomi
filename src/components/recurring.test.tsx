@@ -232,6 +232,20 @@ describe("RecurringList", () => {
     expect(actions.changeAmountAction).toHaveBeenCalledWith("rule-1", "2026-12-01", 1299);
   });
 
+  it("Change amount starts no earlier than today, and shows a refused date on the From field", async () => {
+    actions.changeAmountAction.mockResolvedValue({ error: "Choose today or a later date. Past payments keep their amounts.", field: "from" });
+    render(<RecurringList today={TODAY} period={PERIOD} rules={[item()]} />);
+    open();
+    fireEvent.click(screen.getByRole("button", { name: "Change amount" }));
+    expect(screen.getByLabelText("From")).toHaveAttribute("min", TODAY);
+    fireEvent.change(screen.getByLabelText("New amount"), { target: { value: "12.99" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save amount" }));
+    });
+    expect(screen.getByLabelText("From")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Choose today or a later date. Past payments keep their amounts.")).toBeInTheDocument();
+  });
+
   it("Cancel asks first, then ends it today", async () => {
     render(<RecurringList today={TODAY} period={PERIOD} rules={[item()]} />);
     open();

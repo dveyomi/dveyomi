@@ -544,7 +544,7 @@ export type Database = {
     };
     Functions: {
       apply_recurring_price: {
-        Args: { p_amount_pence: number; p_from: string; p_rule_id: string; p_updates: Json };
+        Args: { p_amount_pence: number; p_checked_id?: string; p_from: string; p_rule_id: string; p_updates: Json };
         Returns: undefined;
       };
       complete_onboarding: {
@@ -610,6 +610,7 @@ export type Database = {
         Args: {
           p_account_label?: string;
           p_amount_pence: number;
+          p_amount_scope?: string;
           p_category_id?: string;
           p_date: string;
           p_fund_id?: string;
@@ -618,6 +619,7 @@ export type Database = {
           p_new_category_kind?: string;
           p_new_category_name?: string;
           p_notes?: string;
+          p_price_updates?: Json;
           p_repeat?: string;
         };
         Returns: string;

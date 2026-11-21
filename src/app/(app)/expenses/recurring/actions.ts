@@ -18,7 +18,7 @@ import {
 } from "@/lib/data/recurring";
 import type { Db } from "@/lib/data/types";
 import { createClient, getUserId } from "@/lib/supabase/server";
-import { getToday } from "@/lib/today";
+import { getTimeZone, getToday } from "@/lib/today";
 import { isId } from "@/lib/validation/budgetEdit";
 import { isPence } from "@/lib/validation/common";
 import { AMOUNT_ERROR, isIsoDate } from "@/lib/validation/expense";
@@ -30,8 +30,9 @@ import { AMOUNT_ERROR, isIsoDate } from "@/lib/validation/expense";
  * caller stays where it is.
  */
 
-export type RecurringActionResult = { error?: string };
+export type RecurringActionResult = { error?: string; field?: "amount" | "from" };
 
+const CHANGE_FROM_PAST = "Choose today or a later date. Past payments keep their amounts.";
 const NOT_RECOGNISED = { error: "This recurring payment wasn't recognised." };
 const known = (e: unknown) =>
   e instanceof RuleNotFoundError || e instanceof RecurringChangedError || e instanceof NotRecurringError ? e.message : null;
@@ -55,13 +56,14 @@ async function signedIn() {
   if (!(await getUserId())) redirect("/login");
 }
 
-/** Pause until `until` (a date after today): nothing is added before it. */
+/** Pause until `until` (a date after today): payments already due are added first, then nothing before `until`. */
 export async function pauseAction(id: unknown, until: unknown): Promise<RecurringActionResult> {
   await signedIn();
   if (!isId(id)) return NOT_RECOGNISED;
   const today = await getToday();
   if (!isIsoDate(until) || until <= today) return { error: "Choose a date after today." };
-  return run("pause this payment", (db) => pauseRule(db, id, until));
+  const zone = await getTimeZone();
+  return run("pause this payment", (db) => pauseRule(db, id, until, zone, new Date()));
 }
 
 export async function resumeAction(id: unknown): Promise<RecurringActionResult> {
@@ -73,7 +75,8 @@ export async function resumeAction(id: unknown): Promise<RecurringActionResult> 
 export async function skipNextAction(id: unknown): Promise<RecurringActionResult> {
   await signedIn();
   if (!isId(id)) return NOT_RECOGNISED;
-  return run("skip the next payment", (db, today) => skipNext(db, id, today));
+  const zone = await getTimeZone();
+  return run("skip the next payment", (db) => skipNext(db, id, zone, new Date()));
 }
 
 /** Cancel: it ends today; payments already added stay. */
@@ -83,12 +86,13 @@ export async function cancelAction(id: unknown): Promise<RecurringActionResult> 
   return run("cancel this payment", (db, today) => cancelRule(db, id, today));
 }
 
-/** Change amount: `amountPence` (1p to £10m) from `from` on. */
+/** Change amount: `amountPence` (1p to £10m) from `from` (today or later; past payments keep theirs) on. */
 export async function changeAmountAction(id: unknown, from: unknown, amountPence: unknown): Promise<RecurringActionResult> {
   await signedIn();
   if (!isId(id)) return NOT_RECOGNISED;
-  if (!isPence(amountPence, 1)) return { error: AMOUNT_ERROR };
-  if (!isIsoDate(from)) return { error: "Enter the date it changes from, e.g. 1/12/2026." };
+  if (!isPence(amountPence, 1)) return { error: AMOUNT_ERROR, field: "amount" };
+  if (!isIsoDate(from)) return { error: "Enter the date it changes from, e.g. 1/12/2026.", field: "from" };
+  if (from < (await getToday())) return { error: CHANGE_FROM_PAST, field: "from" };
   return run("change the amount", (db) => changePrice(db, id, from, amountPence));
 }
 

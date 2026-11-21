@@ -21,7 +21,7 @@ const db = { tag: "db" };
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db, getUserId }));
 vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("next/cache", () => ({ revalidatePath }));
-vi.mock("@/lib/today", () => ({ getToday: async () => "2026-11-21" }));
+vi.mock("@/lib/today", () => ({ getToday: async () => "2026-11-21", getTimeZone: async () => "Europe/London" }));
 vi.mock("@/lib/data/recurring", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/data/recurring")>()),
   ...data,
@@ -65,22 +65,29 @@ describe("recurring actions", () => {
     expect(await pauseAction(RULE, "2026-11-21")).toEqual({ error: "Choose a date after today." });
     expect(await pauseAction(RULE, "2026-02-30")).toEqual({ error: "Choose a date after today." });
     expect(await pauseAction(RULE, "2026-12-01")).toEqual({});
-    expect(data.pauseRule).toHaveBeenCalledWith(db, RULE, "2026-12-01");
+    // Payments already due are added first (in the user's zone, now), then it pauses.
+    expect(data.pauseRule).toHaveBeenCalledWith(db, RULE, "2026-12-01", "Europe/London", expect.any(Date));
     expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
   });
 
   it("skip next, resume and cancel (ends it today)", async () => {
     await skipNextAction(RULE);
-    expect(data.skipNext).toHaveBeenCalledWith(db, RULE, "2026-11-21");
+    expect(data.skipNext).toHaveBeenCalledWith(db, RULE, "Europe/London", expect.any(Date));
     await resumeAction(RULE);
     expect(data.resumeRule).toHaveBeenCalledWith(db, RULE);
     await cancelAction(RULE);
     expect(data.cancelRule).toHaveBeenCalledWith(db, RULE, "2026-11-21");
   });
 
-  it("change amount: 1p to £10m from a real date", async () => {
-    expect(await changeAmountAction(RULE, "2026-12-01", 0)).toEqual({ error: expect.stringContaining("amount") });
-    expect(await changeAmountAction(RULE, "nope", 100)).toEqual({ error: expect.stringContaining("date") });
+  it("change amount: 1p to £10m from a real date, today or later", async () => {
+    expect(await changeAmountAction(RULE, "2026-12-01", 0)).toEqual({ error: expect.stringContaining("amount"), field: "amount" });
+    expect(await changeAmountAction(RULE, "nope", 100)).toEqual({ error: expect.stringContaining("date"), field: "from" });
+    expect(await changeAmountAction(RULE, "2026-11-20", 100)).toEqual({
+      error: "Choose today or a later date. Past payments keep their amounts.",
+      field: "from",
+    });
+    expect(data.changePrice).not.toHaveBeenCalled();
+    expect(await changeAmountAction(RULE, "2026-11-21", 100)).toEqual({});
     expect(await changeAmountAction(RULE, "2026-12-01", 1299)).toEqual({});
     expect(data.changePrice).toHaveBeenCalledWith(db, RULE, "2026-12-01", 1299);
   });

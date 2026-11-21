@@ -3,8 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NameTakenError } from "@/lib/data/budgetEdit";
-import { editOccurrence, NotRecurringError, RecurringChangedError, RuleNotFoundError } from "@/lib/data/recurring";
-import { deleteTransaction, MissingReferenceError, saveExpense, TransactionNotFoundError } from "@/lib/data/transactions";
+import { NotRecurringError, RecurringChangedError, RuleNotFoundError } from "@/lib/data/recurring";
+import {
+  deleteTransaction,
+  DuplicateOccurrenceError,
+  MissingReferenceError,
+  saveExpense,
+  TransactionNotFoundError,
+} from "@/lib/data/transactions";
 import { safeNext } from "@/lib/safeNext";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
@@ -37,8 +43,9 @@ const knownError = (e: unknown): string | null =>
  * and RLS and the composite foreign keys keep the expense, its category and
  * its fund to the signed-in user. Editing a recurring payment's amount with
  * `amountScope: "this_and_future"` (the form's "This and future payments")
- * then also moves the rule's price from this payment's date and the later
- * payments still unchecked; "this" changes only this expense.
+ * also moves the rule's price from this payment's date and the later
+ * payments still unchecked, in the same save; "this" changes only this
+ * expense. Repeat applies to new expenses only and is dropped when editing.
  */
 export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promise<ExpenseActionResult> {
   if (!(await getUserId())) redirect("/login");
@@ -49,13 +56,12 @@ export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promis
   const checked = validateExpense(raw, await getToday());
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
 
-  const thisAndFuture = id !== undefined && isRecord(raw) && raw.amountScope === "this_and_future";
+  const { repeat, ...edit } = checked.input;
   try {
-    const supabase = await createClient();
-    await saveExpense(supabase, id ?? null, checked.input);
-    if (thisAndFuture && id) await editOccurrence(supabase, id, "this_and_future", checked.input.amountPence);
+    await saveExpense(await createClient(), id ?? null, id ? edit : { ...edit, ...(repeat ? { repeat } : {}) });
   } catch (e) {
     if (e instanceof NameTakenError) return { error: e.message, field: "newCategory" };
+    if (e instanceof DuplicateOccurrenceError) return { error: e.message, field: "date" };
     const known = knownError(e);
     if (known) return { error: known };
     console.error("saveExpense failed", e);

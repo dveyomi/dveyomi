@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { admin, createSignedInUser, deleteUser, queryAsPostgres, type TestUser } from "@/db/testClients";
 import type { IsoDate } from "@/lib/calc";
 import { loadBudgetView } from "./budget";
@@ -18,7 +18,7 @@ import {
   resumeRule,
   skipNext,
 } from "./recurring";
-import { createTransaction, MissingReferenceError, saveExpense } from "./transactions";
+import { createTransaction, DuplicateOccurrenceError, MissingReferenceError, saveExpense } from "./transactions";
 
 const users: TestUser[] = [];
 afterEach(async () => {
@@ -102,7 +102,7 @@ describe("generateDue", () => {
 
   it("generates nothing while paused, then resumes on the pause's end date", async () => {
     const { u, ruleId } = await withRule();
-    await pauseRule(u.client, ruleId, "2026-11-16");
+    await pauseRule(u.client, ruleId, "2026-11-16", LONDON, noon("2026-11-01"));
     await generateDue(u.client, u.id, LONDON, noon("2026-11-15"));
     expect(await rows(u, ruleId)).toEqual([]);
     await generateDue(u.client, u.id, LONDON, noon("2026-11-16"));
@@ -116,6 +116,24 @@ describe("generateDue", () => {
     await u.client.from("transactions").delete().eq("id", first.id);
     await generateDue(u.client, u.id, LONDON, noon("2026-11-11"));
     expect((await rows(u, ruleId)).map((r) => r.date)).toEqual(["2026-11-09"]);
+  });
+
+  it("stops at a due date with no price, without passing it, and logs it", async () => {
+    const u = await signIn();
+    const categoryId = await createCategory(u.client, { name: "Subscriptions", kind: "want" });
+    const { data: rule } = await u.client
+      .from("recurring_rules")
+      .insert({ name: "Odd", category_id: categoryId, frequency: "weekly", anchor_date: "2026-11-02" })
+      .select("id")
+      .single();
+    await u.client.from("recurring_prices").insert({ rule_id: rule!.id, effective_from: "2026-11-09", amount_pence: 500 });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await generateDue(u.client, u.id, LONDON, noon("2026-11-20"))).toBe(0);
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
+    // Once a price covers 2 Nov, nothing has been passed over.
+    await u.client.from("recurring_prices").insert({ rule_id: rule!.id, effective_from: "2026-11-02", amount_pence: 400 });
+    expect(await generateDue(u.client, u.id, LONDON, noon("2026-11-20"))).toBe(3);
   });
 
   it("with the service role, adds payments only for the user named", async () => {
@@ -138,7 +156,7 @@ describe("skipNext / cancelRule / resumeRule", () => {
   it("skipNext skips exactly the next date", async () => {
     const { u, ruleId } = await withRule();
     await generateDue(u.client, u.id, LONDON, noon("2026-11-02"));
-    expect(await skipNext(u.client, ruleId, "2026-11-02")).toBe("2026-11-09");
+    expect(await skipNext(u.client, ruleId, LONDON, noon("2026-11-02"))).toBe("2026-11-09");
     await generateDue(u.client, u.id, LONDON, noon("2026-11-20"));
     expect((await rows(u, ruleId)).map((r) => r.date)).toEqual(["2026-11-02", "2026-11-16"]);
   });
@@ -151,9 +169,24 @@ describe("skipNext / cancelRule / resumeRule", () => {
     expect((await rows(u, ruleId)).map((r) => r.date)).toEqual(["2026-11-02", "2026-11-09"]);
   });
 
+  it("pausing first adds the payments already due (they were paid), then pauses", async () => {
+    const { u, ruleId } = await withRule();
+    // Nothing generated yet; on 20 Nov, 2, 9 and 16 Nov are due.
+    await pauseRule(u.client, ruleId, "2027-01-01", LONDON, noon("2026-11-20"));
+    await generateDue(u.client, u.id, LONDON, noon("2026-12-31"));
+    expect((await rows(u, ruleId)).map((r) => r.date)).toEqual(["2026-11-02", "2026-11-09", "2026-11-16"]);
+  });
+
+  it("skipping first adds the payments already due, then skips the next one after today", async () => {
+    const { u, ruleId } = await withRule();
+    expect(await skipNext(u.client, ruleId, LONDON, noon("2026-11-20"))).toBe("2026-11-23");
+    await generateDue(u.client, u.id, LONDON, noon("2026-12-01"));
+    expect((await rows(u, ruleId)).map((r) => r.date)).toEqual(["2026-11-02", "2026-11-09", "2026-11-16", "2026-11-30"]);
+  });
+
   it("resumeRule clears a pause", async () => {
     const { u, ruleId } = await withRule();
-    await pauseRule(u.client, ruleId, "2027-01-01");
+    await pauseRule(u.client, ruleId, "2027-01-01", LONDON, noon("2026-11-01"));
     await resumeRule(u.client, ruleId);
     await generateDue(u.client, u.id, LONDON, noon("2026-11-02"));
     expect(await rows(u, ruleId)).toHaveLength(1);
@@ -173,12 +206,12 @@ describe("editOccurrence", () => {
   it("'this and future' from March sets March and later unchecked payments to £12; February stays £8", async () => {
     const { u, ruleId, all } = await spotify();
     await editOccurrence(u.client, all[2].id, "this_and_future", 1200);
-    expect((await rows(u, ruleId)).map((r) => [r.date, r.amount_pence])).toEqual([
-      ["2026-01-10", 800],
-      ["2026-02-10", 800],
-      ["2026-03-10", 1200],
-      ["2026-04-10", 1200],
-      ["2026-05-10", 1200],
+    expect((await rows(u, ruleId)).map((r) => [r.date, r.amount_pence, r.unchecked])).toEqual([
+      ["2026-01-10", 800, true],
+      ["2026-02-10", 800, false],
+      ["2026-03-10", 1200, false], // edited, so checked
+      ["2026-04-10", 1200, true],
+      ["2026-05-10", 1200, true],
     ]);
     // Later payments use the new price too.
     await generateDue(u.client, u.id, LONDON, noon("2026-06-10"));
@@ -196,6 +229,7 @@ describe("editOccurrence", () => {
     const { u, ruleId, all } = await spotify();
     await editOccurrence(u.client, all[2].id, "this", 1200);
     expect((await rows(u, ruleId)).map((r) => r.amount_pence)).toEqual([800, 800, 1200, 800, 800]);
+    expect((await rows(u, ruleId))[2].unchecked).toBe(false);
     await generateDue(u.client, u.id, LONDON, noon("2026-06-10"));
     expect((await rows(u, ruleId)).at(-1)).toMatchObject({ amount_pence: 800 });
   });
@@ -210,6 +244,67 @@ describe("editOccurrence", () => {
     const { all } = await spotify();
     const other = await signIn();
     await expect(editOccurrence(other.client, all[2].id, "this_and_future", 1)).rejects.toThrow();
+  });
+});
+
+describe("saveExpense on a recurring payment", () => {
+  async function spotify() {
+    const ctx = await withRule({ name: "Spotify", frequency: "monthly", anchorDate: "2026-01-10", amountPence: 800 });
+    await generateDue(ctx.u.client, ctx.u.id, LONDON, noon("2026-05-15"));
+    return { ...ctx, all: await rows(ctx.u, ctx.ruleId) };
+  }
+  const input = (categoryId: string, over: Record<string, unknown> = {}) => ({
+    name: "Spotify", amountPence: 800, date: "2026-03-10", category: { id: categoryId }, fundId: null, ...over,
+  });
+
+  it("any edit checks the payment", async () => {
+    const { u, ruleId, all, categoryId } = await spotify();
+    await saveExpense(u.client, all[2].id, input(categoryId, { notes: "family plan" }));
+    expect((await rows(u, ruleId)).map((r) => r.unchecked)).toEqual([true, true, false, true, true]);
+  });
+
+  it("'This and future payments' sets this payment, the price and later unchecked payments together", async () => {
+    const { u, ruleId, all, categoryId } = await spotify();
+    await saveExpense(u.client, all[2].id, input(categoryId, { amountPence: 1200, amountScope: "this_and_future" }));
+    expect((await rows(u, ruleId)).map((r) => [r.amount_pence, r.unchecked])).toEqual([
+      [800, true], [800, true], [1200, false], [1200, true], [1200, true],
+    ]);
+    const { data: prices } = await u.client.from("recurring_prices").select("effective_from, amount_pence").eq("rule_id", ruleId).order("effective_from");
+    expect(prices).toEqual([
+      { effective_from: "2026-01-10", amount_pence: 800 },
+      { effective_from: "2026-03-10", amount_pence: 1200 },
+    ]);
+  });
+
+  it("'This and future payments' changes nothing when any part fails", async () => {
+    const { u, ruleId, all, categoryId } = await spotify();
+    const owner = await signIn();
+    const { data: theirFund } = await owner.client.from("funds").insert({ name: "Theirs" }).select("id").single();
+    await expect(
+      saveExpense(u.client, all[2].id, input(categoryId, { amountPence: 1200, amountScope: "this_and_future", fundId: theirFund!.id })),
+    ).rejects.toBeInstanceOf(MissingReferenceError);
+    expect((await rows(u, ruleId)).map((r) => [r.amount_pence, r.unchecked])).toEqual([
+      [800, true], [800, true], [800, true], [800, true], [800, true],
+    ]);
+    expect((await u.client.from("recurring_prices").select("id").eq("rule_id", ruleId)).data).toHaveLength(1);
+  });
+
+  it("moving a payment onto a date that already has one is refused in words", async () => {
+    const { u, all, categoryId } = await spotify();
+    await expect(saveExpense(u.client, all[2].id, input(categoryId, { date: "2026-04-10" }))).rejects.toBeInstanceOf(
+      DuplicateOccurrenceError,
+    );
+    await expect(
+      saveExpense(u.client, all[2].id, input(categoryId, { date: "2026-04-10", amountPence: 900, amountScope: "this_and_future" })),
+    ).rejects.toBeInstanceOf(DuplicateOccurrenceError);
+  });
+
+  it("ignores Repeat when editing", async () => {
+    const u = await signIn();
+    const cat = await createCategory(u.client, { name: "Music", kind: "want" });
+    const id = await createTransaction(u.client, { name: "Gig", amountPence: 2000, date: "2026-11-01", categoryId: cat });
+    await saveExpense(u.client, id, { name: "Gig", amountPence: 2000, date: "2026-11-01", category: { id: cat }, fundId: null, repeat: "monthly" });
+    expect((await u.client.from("recurring_rules").select("id")).data).toEqual([]);
   });
 });
 
@@ -297,6 +392,25 @@ describe("detection", () => {
     expect(rule).toEqual({ frequency: "monthly", anchor_date: "2026-11-03", category_id: cat });
     expect(await loadDetections(u.client, "2026-11-21")).toEqual([]);
     expect(await generateDue(u.client, u.id, LONDON, noon("2026-12-03"))).toBe(1);
+  });
+
+  it("sees three quarterly or annual payments, further back than 120 days", async () => {
+    const u = await signIn();
+    const cat = await createCategory(u.client, { name: "Bills", kind: "need" });
+    for (const date of ["2026-05-01", "2026-08-01", "2026-11-01"]) {
+      await createTransaction(u.client, { name: "Water", amountPence: 9000, date, categoryId: cat });
+    }
+    for (const date of ["2024-11-10", "2025-11-10", "2026-11-10"]) {
+      await createTransaction(u.client, { name: "TV licence", amountPence: 17450, date, categoryId: cat });
+    }
+    // Monthly payments that stopped months ago are not suggested.
+    for (const date of ["2026-03-05", "2026-04-05", "2026-05-05"]) {
+      await createTransaction(u.client, { name: "Old gym", amountPence: 3000, date, categoryId: cat });
+    }
+    expect(await loadDetections(u.client, "2026-11-21")).toEqual([
+      { name: "TV licence", nameKey: "tv licence", frequency: "annually" },
+      { name: "Water", nameKey: "water", frequency: "quarterly" },
+    ]);
   });
 
   it("dismissals are private to each user", async () => {

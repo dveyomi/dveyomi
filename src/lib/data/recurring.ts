@@ -1,6 +1,7 @@
 import {
   addDays,
   amountOn,
+  DETECTION_WINDOW_DAYS,
   currentAmount,
   detectRecurring,
   dueOccurrences,
@@ -67,11 +68,17 @@ export class RecurringChangedError extends Error {
   }
 }
 
-/** How many days of manual expenses detection looks back over. */
-export const DETECTION_DAYS = 120;
+/** The expense isn't one of the user's recurring payments. */
+export class NotRecurringError extends Error {
+  constructor() {
+    super("This expense isn't a recurring payment any more. Reload and try again.");
+    this.name = "NotRecurringError";
+  }
+}
 
 type RuleRow = {
   id: string;
+  user_id: string;
   name: string;
   category_id: string;
   fund_id: string | null;
@@ -85,7 +92,7 @@ type RuleRow = {
 };
 
 const RULE_COLUMNS =
-  "id, name, category_id, fund_id, frequency, anchor_date, end_date, paused_until, skipped_dates, generated_through, recurring_prices(effective_from, amount_pence)";
+  "id, user_id, name, category_id, fund_id, frequency, anchor_date, end_date, paused_until, skipped_dates, generated_through, recurring_prices(effective_from, amount_pence)";
 
 const toRule = (r: RuleRow): Rule => ({
   frequency: r.frequency as Frequency,
@@ -130,8 +137,20 @@ async function updateRule(
  * left off (its anchor at first) up to the user's local today in `timezone`
  * at `now`. Paused, skipped and post-end dates are left out; amounts come
  * from the price history via amountOn. Payments are added unchecked, source
- * 'recurring', and `on conflict do nothing` means none is added twice, even
- * when two runs overlap. Returns how many were added.
+ * 'recurring', and `on conflict do nothing` means none is added twice.
+ * Each rule's generated_through then moves to today, so a payment the user
+ * deleted is not added again. A due date with no price yet (which the RPCs
+ * never create) stops that rule there: it is logged, nothing from it on is
+ * added, and generated_through stays before it, so it is added once priced.
+ * Returns how many were added.
+ *
+ * Concurrency: the rules are read, then payments inserted, then the
+ * watermarks moved, in three statements. Two overlapping runs (the hourly
+ * job and a catch-up) compute the same dates; the unique key drops the
+ * duplicates, and the watermark update only ever moves forward. A pause,
+ * skip or price change written between the read and the insert can't affect
+ * dates already computed, all of them on or before today; pauseRule and
+ * skipNext run this first, so they only ever change dates after today.
  *
  * `supabase` is the user's own client (RLS) or the service role (the hourly
  * job); either way only `userId`'s rules and rows are touched.
@@ -147,11 +166,17 @@ export async function generateDue(supabase: Db, userId: string, timezone: string
   const rules = data as RuleRow[];
   if (rules.length === 0) return 0;
 
-  const inserts = rules.flatMap((r) => {
+  const inserts = [];
+  /** How far each rule is now generated: rule ids by date. */
+  const marks = new Map<IsoDate, string[]>();
+  for (const r of rules) {
     const prices = toPrices(r);
-    return dueOccurrences(toRule(r), firstUngenerated(r), today)
-      .filter((date) => prices.some((p) => p.effectiveFrom <= date))
-      .map((date) => ({
+    const due = dueOccurrences(toRule(r), firstUngenerated(r), today);
+    const unpriced = due.findIndex((date) => !prices.some((p) => p.effectiveFrom <= date));
+    if (unpriced >= 0) console.error("generateDue: no price for a due payment", r.id, due[unpriced]);
+    const ready = unpriced >= 0 ? due.slice(0, unpriced) : due;
+    for (const date of ready) {
+      inserts.push({
         user_id: userId,
         recurring_rule_id: r.id,
         name: r.name,
@@ -161,8 +186,14 @@ export async function generateDue(supabase: Db, userId: string, timezone: string
         amount_pence: amountOn(prices, date),
         unchecked: true,
         source: "recurring",
-      }));
-  });
+      });
+    }
+    const markTo = unpriced >= 0 ? addDays(due[unpriced], -1) : today;
+    // A rule whose anchor hasn't come (or whose first date has no price) stays unmarked.
+    if (markTo >= r.anchor_date && (r.generated_through === null || markTo > r.generated_through)) {
+      marks.set(markTo, [...(marks.get(markTo) ?? []), r.id]);
+    }
+  }
 
   let added = 0;
   if (inserts.length > 0) {
@@ -174,15 +205,13 @@ export async function generateDue(supabase: Db, userId: string, timezone: string
     added = rows.length;
   }
 
-  // Only rules whose anchor has been reached count as generated through today.
-  const reached = rules.filter((r) => r.anchor_date <= today).map((r) => r.id);
-  if (reached.length > 0) {
+  for (const [markTo, ids] of marks) {
     const { error: markError } = await supabase
       .from("recurring_rules")
-      .update({ generated_through: today })
+      .update({ generated_through: markTo })
       .eq("user_id", userId)
-      .in("id", reached)
-      .or(`generated_through.is.null,generated_through.lt.${today}`);
+      .in("id", ids)
+      .or(`generated_through.is.null,generated_through.lt.${markTo}`);
     if (markError) throw markError;
   }
   return added;
@@ -215,8 +244,20 @@ export async function createRule(supabase: Db, input: NewRule): Promise<string> 
   return data;
 }
 
-/** Pauses a rule: nothing is added before `until`; payments start again that day. */
-export async function pauseRule(supabase: Db, id: string, until: IsoDate): Promise<void> {
+/** Adds the rule's owner's payments due up to their today first, so a change applies only after today. */
+async function catchUp(supabase: Db, id: string, timezone: string, now: Date): Promise<RuleRow> {
+  const row = await loadRule(supabase, id);
+  await generateDue(supabase, row.user_id, timezone, now);
+  return loadRule(supabase, id);
+}
+
+/**
+ * Pauses a rule: nothing is added before `until`; payments start again that
+ * day. Payments already due up to today (in `timezone` at `now`) are added
+ * first: they were paid, so the pause doesn't skip them.
+ */
+export async function pauseRule(supabase: Db, id: string, until: IsoDate, timezone: string, now: Date): Promise<void> {
+  await catchUp(supabase, id, timezone, now);
   await updateRule(supabase, id, { paused_until: until });
 }
 
@@ -225,10 +266,14 @@ export async function resumeRule(supabase: Db, id: string): Promise<void> {
   await updateRule(supabase, id, { paused_until: null });
 }
 
-/** Skips the next payment not yet added (from `today`). Returns that date, or null if none is left. */
-export async function skipNext(supabase: Db, id: string, today: IsoDate): Promise<IsoDate | null> {
-  const row = await loadRule(supabase, id);
-  const date = nextDue(toRule(row), upcomingFrom(row, today));
+/**
+ * Skips the next payment after the ones already due: payments due up to
+ * today (in `timezone` at `now`) are added first, then the next one is
+ * skipped. Returns that date, or null if none is left.
+ */
+export async function skipNext(supabase: Db, id: string, timezone: string, now: Date): Promise<IsoDate | null> {
+  const row = await catchUp(supabase, id, timezone, now);
+  const date = nextDue(toRule(row), upcomingFrom(row, todayIn(timezone, now)));
   if (date === null) return null;
   await updateRule(supabase, id, { skipped_dates: [...row.skipped_dates, date] });
   return date;
@@ -241,28 +286,51 @@ export async function cancelRule(supabase: Db, id: string, endDate: IsoDate): Pr
   await updateRule(supabase, id, { end_date: endDate < row.anchor_date ? row.anchor_date : endDate });
 }
 
-/**
- * Changes a rule's price from `from` on (withPriceChange), and moves every
- * payment already added on or after `from` that is still unchecked to its
- * new amount (amountOn), plus `alsoTxnId` (the payment being edited) even if
- * checked. Earlier payments keep their amounts. All in one RPC.
- */
-async function applyPrice(supabase: Db, row: RuleRow, from: IsoDate, amountPence: number, alsoTxnId?: string) {
-  const prices = withPriceChange(toPrices(row), from, amountPence);
+/** The amounts (amountOn under `prices`) for the rule's unchecked payments matching `include`. */
+async function repriced(supabase: Db, ruleId: string, prices: Price[], from: IsoDate, include: (t: { id: string; date: IsoDate; unchecked: boolean }) => boolean) {
   const { data, error } = await supabase
     .from("transactions")
     .select("id, date, unchecked")
-    .eq("recurring_rule_id", row.id)
+    .eq("recurring_rule_id", ruleId)
     .gte("date", from);
   if (error) throw error;
-  const updates = data
-    .filter((t) => t.unchecked || t.id === alsoTxnId)
-    .map((t) => ({ id: t.id, amount_pence: amountOn(prices, t.date) }));
+  return data.filter(include).map((t) => ({ id: t.id, amount_pence: amountOn(prices, t.date) }));
+}
+
+/**
+ * For "This and future payments" on expense `txnId` (save_expense): the new
+ * amounts of its rule's later payments still unchecked, once the price from
+ * `date` is `amountPence` (withPriceChange, then amountOn per payment).
+ */
+export async function laterPaymentAmounts(
+  supabase: Db,
+  txnId: string,
+  date: IsoDate,
+  amountPence: number,
+): Promise<{ id: string; amount_pence: number }[]> {
+  const { data: txn, error } = await supabase.from("transactions").select("recurring_rule_id").eq("id", txnId).maybeSingle();
+  if (error) throw error;
+  if (!txn?.recurring_rule_id) throw new NotRecurringError();
+  const row = await loadRule(supabase, txn.recurring_rule_id);
+  const prices = withPriceChange(toPrices(row), date, amountPence);
+  return repriced(supabase, row.id, prices, date, (t) => t.unchecked && t.date > date && t.id !== txnId);
+}
+
+/**
+ * Changes a rule's price from `from` on (withPriceChange), and moves every
+ * payment already added on or after `from` that is still unchecked to its
+ * new amount (amountOn), plus `editedTxnId` (the payment being edited), which
+ * is also marked checked. Earlier payments keep their amounts. All in one RPC.
+ */
+async function applyPrice(supabase: Db, row: RuleRow, from: IsoDate, amountPence: number, editedTxnId?: string) {
+  const prices = withPriceChange(toPrices(row), from, amountPence);
+  const updates = await repriced(supabase, row.id, prices, from, (t) => t.unchecked || t.id === editedTxnId);
   const { error: rpcError } = await supabase.rpc("apply_recurring_price", {
     p_rule_id: row.id,
     p_from: from,
     p_amount_pence: amountPence,
     p_updates: updates,
+    ...(editedTxnId ? { p_checked_id: editedTxnId } : {}),
   });
   if (rpcError?.code === "P0002") throw new RuleNotFoundError();
   if (rpcError?.code === "PT409") throw new RecurringChangedError();
@@ -274,17 +342,10 @@ export async function changePrice(supabase: Db, ruleId: string, from: IsoDate, a
   await applyPrice(supabase, await loadRule(supabase, ruleId), from, amountPence);
 }
 
-/** The expense isn't one of the user's recurring payments. */
-export class NotRecurringError extends Error {
-  constructor() {
-    super("This expense isn't a recurring payment any more. Reload and try again.");
-    this.name = "NotRecurringError";
-  }
-}
-
 /**
  * Changes a recurring payment's amount. "this": only that payment. "this_and_future":
  * that payment, the rule's price from its date, and later payments still unchecked.
+ * Either way the edited payment is now checked (§5.8: unchecked until confirmed or edited).
  */
 export async function editOccurrence(
   supabase: Db,
@@ -300,7 +361,7 @@ export async function editOccurrence(
   if (error) throw error;
   if (!txn?.recurring_rule_id) throw new NotRecurringError();
   if (scope === "this") {
-    const { error: updateError } = await supabase.from("transactions").update({ amount_pence: amountPence }).eq("id", txnId);
+    const { error: updateError } = await supabase.from("transactions").update({ amount_pence: amountPence, unchecked: false }).eq("id", txnId);
     if (updateError) throw updateError;
     return;
   }
@@ -350,17 +411,23 @@ export async function loadRecurringView(supabase: Db, today: IsoDate): Promise<R
 
 type DetectionTxn = { id: string; name: string; date: IsoDate; amount_pence: number; category_id: string; fund_id: string | null };
 
-/** Detection over the last DETECTION_DAYS of manual expenses with no rule, less dismissed names and names of existing rules. */
+/**
+ * Detection over the user's manual expenses with no rule, read once over the
+ * widest window (annual payments), then each hit kept only if its three
+ * payments fall inside its own frequency's window (detectionWindowDays), less
+ * dismissed names and names of existing rules. The most recent 1,000 are read.
+ */
 async function detect(supabase: Db, today: IsoDate) {
+  const widest = Math.max(...Object.values(DETECTION_WINDOW_DAYS));
   const [txns, dismissals, rules] = await Promise.all([
     supabase
       .from("transactions")
       .select("id, name, date, amount_pence, category_id, fund_id")
       .is("recurring_rule_id", null)
       .eq("source", "manual")
-      .gte("date", addDays(today, -DETECTION_DAYS))
+      .gte("date", addDays(today, -widest))
       .lte("date", today)
-      .order("date")
+      .order("date", { ascending: false })
       .limit(1000),
     supabase.from("recurring_dismissals").select("name_key"),
     supabase.from("recurring_rules").select("name"),
@@ -372,7 +439,10 @@ async function detect(supabase: Db, today: IsoDate) {
     ...dismissals.data.map((d) => d.name_key),
     ...rules.data.map((r) => nameKey(r.name)),
   ]);
-  return detectRecurring(txns.data as DetectionTxn[]).filter((hit) => !known.has(hit.nameKey));
+  return detectRecurring(txns.data as DetectionTxn[])
+    .filter((hit) => !known.has(hit.nameKey))
+    .filter((hit) => hit.payments[0].date >= addDays(today, -DETECTION_WINDOW_DAYS[hit.frequency]))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Payments that look recurring and the user hasn't answered yet, for the Expenses tab's cards. */

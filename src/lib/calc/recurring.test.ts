@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   amountOn,
   currentAmount,
+  DETECTION_WINDOW_DAYS,
   detectRecurring,
   dueOccurrences,
   freedByPause,
@@ -192,6 +193,16 @@ describe("detectRecurring", () => {
     expect(freq(["2024-11-01", "2025-11-01", "2026-11-01"])).toBe("annually");
     // An old, irregular payment before the latest three doesn't matter.
     expect(freq(["2026-06-03", "2026-11-01", "2026-11-08", "2026-11-15"])).toBe("weekly");
+  });
+});
+
+describe("DETECTION_WINDOW_DAYS", () => {
+  it("reaches back far enough to see three payments of each frequency", () => {
+    expect(DETECTION_WINDOW_DAYS).toEqual({ weekly: 120, fortnightly: 120, monthly: 120, quarterly: 300, annually: 1100 });
+    // Three payments, the latest up to an interval ago.
+    expect(DETECTION_WINDOW_DAYS.monthly).toBeGreaterThanOrEqual(3 * 31);
+    expect(DETECTION_WINDOW_DAYS.quarterly).toBeGreaterThanOrEqual(3 * 92);
+    expect(DETECTION_WINDOW_DAYS.annually).toBeGreaterThanOrEqual(3 * 366);
   });
 });
 

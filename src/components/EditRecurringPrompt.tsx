@@ -1,8 +1,9 @@
 "use client";
 
 import { BottomSheet, Button } from "@/components/ui";
+import type { AmountScope } from "@/lib/validation/expense";
 
-export type AmountScope = "this" | "this_and_future";
+export type { AmountScope } from "@/lib/validation/expense";
 
 type EditRecurringPromptProps = {
   open: boolean;

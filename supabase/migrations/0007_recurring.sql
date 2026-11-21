@@ -59,7 +59,16 @@ create policy "recurring_dismissals: owner delete" on public.recurring_dismissal
 -- creates that category (no allocation); with p_repeat (new expenses only) it
 -- creates a rule from the expense (anchor = its date, first price = its
 -- amount, its category and fund) and links the expense as the first,
--- checked payment. All or nothing. Returns the expense's id.
+-- checked payment. Returns the expense's id.
+--
+-- Updating an expense checks it (unchecked = false): an auto-added payment
+-- stays unchecked only until it is confirmed or edited (§5.8). With
+-- p_amount_scope 'this_and_future' (a payment of a rule) it also sets the
+-- rule's price from p_date to p_amount_pence (replacing one from that day)
+-- and writes p_price_updates = [{"id": uuid, "amount_pence": int}], the
+-- amounts calc's amountOn gives the rule's later payments still unchecked
+-- (PT409 if one isn't there any more). 'this' (or none) changes only the
+-- expense. Everything is one transaction: all or nothing.
 create function public.save_expense(
   p_name text,
   p_amount_pence bigint,
@@ -71,7 +80,9 @@ create function public.save_expense(
   p_fund_id uuid default null,
   p_account_label text default null,
   p_notes text default null,
-  p_repeat text default null
+  p_repeat text default null,
+  p_amount_scope text default null,
+  p_price_updates jsonb default '[]'
 )
 returns uuid
 language plpgsql
@@ -84,6 +95,7 @@ declare
   v_category_id uuid := p_category_id;
   v_rule_id uuid;
   v_id uuid;
+  v_updated int;
 begin
   if uid is null then
     raise exception 'save_expense: not signed in' using errcode = '42501';
@@ -109,6 +121,27 @@ begin
     raise exception 'save_expense: repeat is weekly, fortnightly, monthly, quarterly or annually, on a new expense'
       using errcode = '22023';
   end if;
+  if (p_amount_scope is not null and (p_amount_scope not in ('this', 'this_and_future') or p_id is null))
+     or coalesce(jsonb_typeof(p_price_updates), '') <> 'array' or jsonb_array_length(p_price_updates) > 1000
+     or (jsonb_array_length(p_price_updates) > 0 and p_amount_scope is distinct from 'this_and_future')
+     or exists (select 1 from jsonb_array_elements(p_price_updates) as e (value)
+                where jsonb_typeof(e.value) <> 'object'
+                   or jsonb_typeof(e.value -> 'id') <> 'string'
+                   or not private.is_whole_pence(e.value -> 'amount_pence', 1)) then
+    raise exception 'save_expense: an amount scope of this or this_and_future, on an existing expense' using errcode = '22023';
+  end if;
+
+  if p_amount_scope = 'this_and_future' then
+    select recurring_rule_id into v_rule_id from public.transactions where id = p_id and user_id = uid;
+    if not found then
+      raise exception 'save_expense: no such expense' using errcode = 'P0002';
+    end if;
+    if v_rule_id is null then
+      raise exception 'save_expense: this expense is not a recurring payment' using errcode = 'PT409';
+    end if;
+    -- Hold the rule while its price and payments change.
+    perform 1 from public.recurring_rules where id = v_rule_id and user_id = uid for update;
+  end if;
 
   if p_new_category_name is not null then
     insert into public.categories (user_id, name, kind)
@@ -119,11 +152,27 @@ begin
   if p_id is not null then
     update public.transactions
     set name = v_name, amount_pence = p_amount_pence, date = p_date, category_id = v_category_id,
-        fund_id = p_fund_id, account_label = p_account_label, notes = p_notes
+        fund_id = p_fund_id, account_label = p_account_label, notes = p_notes, unchecked = false
     where id = p_id and user_id = uid
     returning id into v_id;
     if v_id is null then
       raise exception 'save_expense: no such expense' using errcode = 'P0002';
+    end if;
+
+    if p_amount_scope = 'this_and_future' then
+      insert into public.recurring_prices (user_id, rule_id, effective_from, amount_pence)
+      values (uid, v_rule_id, p_date, p_amount_pence)
+      on conflict (user_id, rule_id, effective_from) do update set amount_pence = excluded.amount_pence;
+
+      update public.transactions t
+      set amount_pence = u.amount_pence
+      from jsonb_to_recordset(p_price_updates) as u (id uuid, amount_pence bigint)
+      where t.id = u.id and t.user_id = uid and t.recurring_rule_id = v_rule_id
+        and t.date > p_date and t.id <> p_id and t.unchecked;
+      get diagnostics v_updated = row_count;
+      if v_updated <> jsonb_array_length(p_price_updates) then
+        raise exception 'save_expense: a later payment changed meanwhile' using errcode = 'PT409';
+      end if;
     end if;
     return v_id;
   end if;
@@ -144,9 +193,9 @@ begin
 end;
 $$;
 
-revoke execute on function public.save_expense(text, bigint, date, uuid, uuid, text, text, uuid, text, text, text)
+revoke execute on function public.save_expense(text, bigint, date, uuid, uuid, text, text, uuid, text, text, text, text, jsonb)
   from public, anon;
-grant execute on function public.save_expense(text, bigint, date, uuid, uuid, text, text, uuid, text, text, text)
+grant execute on function public.save_expense(text, bigint, date, uuid, uuid, text, text, uuid, text, text, text, text, jsonb)
   to authenticated;
 
 -- create_recurring_rule ------------------------------------------------------
@@ -218,12 +267,15 @@ grant execute on function public.create_recurring_rule(text, uuid, text, date, b
 -- writes the amounts the caller worked out with calc's amountOn for the
 -- payments it moves: p_updates = [{"id": uuid, "amount_pence": int}], each a
 -- payment of this rule dated on or after p_from. Earlier payments never
--- change. All or nothing; PT409 if a listed payment isn't there any more.
+-- change. p_checked_id (the payment being edited, if any) is also marked
+-- checked: editing confirms it. All or nothing; PT409 if a listed payment
+-- isn't there any more.
 create function public.apply_recurring_price(
   p_rule_id uuid,
   p_from date,
   p_amount_pence bigint,
-  p_updates jsonb
+  p_updates jsonb,
+  p_checked_id uuid default null
 )
 returns void
 language plpgsql
@@ -266,11 +318,19 @@ begin
   if v_updated <> v_count then
     raise exception 'apply_recurring_price: a payment changed meanwhile' using errcode = 'PT409';
   end if;
+
+  if p_checked_id is not null then
+    update public.transactions set unchecked = false
+    where id = p_checked_id and user_id = uid and recurring_rule_id = p_rule_id;
+    if not found then
+      raise exception 'apply_recurring_price: a payment changed meanwhile' using errcode = 'PT409';
+    end if;
+  end if;
 end;
 $$;
 
-revoke execute on function public.apply_recurring_price(uuid, date, bigint, jsonb) from public, anon;
-grant execute on function public.apply_recurring_price(uuid, date, bigint, jsonb) to authenticated;
+revoke execute on function public.apply_recurring_price(uuid, date, bigint, jsonb, uuid) from public, anon;
+grant execute on function public.apply_recurring_price(uuid, date, bigint, jsonb, uuid) to authenticated;
 
 -- hourly job -----------------------------------------------------------------
 -- pg_cron runs private.request_recurring_run() every hour. It POSTs to

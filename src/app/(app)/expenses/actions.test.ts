@@ -13,11 +13,6 @@ vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/lib/today", () => ({ getToday: async () => "2026-11-21" }));
 const { revalidatePath } = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath }));
-const { editOccurrence } = vi.hoisted(() => ({ editOccurrence: vi.fn() }));
-vi.mock("@/lib/data/recurring", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/data/recurring")>()),
-  editOccurrence,
-}));
 vi.mock("@/lib/data/transactions", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/data/transactions")>()),
   saveExpense,
@@ -25,7 +20,7 @@ vi.mock("@/lib/data/transactions", async (importOriginal) => ({
 }));
 
 import { NameTakenError } from "@/lib/data/budgetEdit";
-import { MissingReferenceError, TransactionNotFoundError } from "@/lib/data/transactions";
+import { DuplicateOccurrenceError, MissingReferenceError, TransactionNotFoundError } from "@/lib/data/transactions";
 import { deleteExpenseAction, removeExpenseAction, saveExpenseAction } from "./actions";
 
 const GROCERIES = "11111111-1111-4111-8111-111111111111";
@@ -106,17 +101,20 @@ describe("saveExpenseAction", () => {
     expect(saveExpense).toHaveBeenCalledWith({}, null, { ...checked, repeat: "monthly" });
   });
 
-  it('"This and future payments" also moves the rule\'s price and later unchecked payments', async () => {
-    editOccurrence.mockReset().mockResolvedValue(undefined);
+  it('"This and future payments" is one save: the scope goes to saveExpense with the expense', async () => {
     await expect(saveExpenseAction({ id: TXN }, { ...valid, amountScope: "this_and_future" })).rejects.toThrow("NEXT_REDIRECT");
-    expect(saveExpense).toHaveBeenCalledWith({}, TXN, checked);
-    expect(editOccurrence).toHaveBeenCalledWith({}, TXN, "this_and_future", 1250);
+    expect(saveExpense).toHaveBeenCalledTimes(1);
+    expect(saveExpense).toHaveBeenCalledWith({}, TXN, { ...checked, amountScope: "this_and_future" });
   });
 
-  it('"Just this payment" changes only the expense', async () => {
-    editOccurrence.mockReset();
-    await expect(saveExpenseAction({ id: TXN }, { ...valid, amountScope: "this" })).rejects.toThrow("NEXT_REDIRECT");
-    expect(editOccurrence).not.toHaveBeenCalled();
+  it("drops Repeat when editing", async () => {
+    await expect(saveExpenseAction({ id: TXN }, { ...valid, repeat: "monthly" })).rejects.toThrow("NEXT_REDIRECT");
+    expect(saveExpense).toHaveBeenCalledWith({}, TXN, checked);
+  });
+
+  it("puts a clash with another payment of the same recurring payment on the date", async () => {
+    saveExpense.mockRejectedValue(new DuplicateOccurrenceError());
+    expect(await saveExpenseAction({ id: TXN }, valid)).toEqual({ error: new DuplicateOccurrenceError().message, field: "date" });
   });
 
   it("explains an unexpected failure without losing the form", async () => {

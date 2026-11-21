@@ -41,6 +41,7 @@ export {
   freedByPause,
   nameKey,
   detectRecurring,
+  DETECTION_WINDOW_DAYS,
 } from "./recurring";
 export type { Detection, Frequency, Price, RecurringStatus, Rule } from "./recurring";
 export { leftoverBreakdown, categoriesOverTwiceInThree, suggestedBudget } from "./leftover";

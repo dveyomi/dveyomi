@@ -2,6 +2,7 @@ import type { IsoDate } from "@/lib/calc";
 import { isId, type Kind } from "@/lib/validation/budgetEdit";
 import type { ExpenseInput } from "@/lib/validation/expense";
 import { NameTakenError } from "./budgetEdit";
+import { laterPaymentAmounts, RecurringChangedError } from "./recurring";
 import type { Db } from "./types";
 
 /** An expense's stored values, as the edit form starts from them. */
@@ -52,6 +53,18 @@ export class TransactionNotFoundError extends Error {
     this.name = "TransactionNotFoundError";
   }
 }
+
+/** A recurring payment moved onto a date its rule already has a payment on. */
+export class DuplicateOccurrenceError extends Error {
+  constructor() {
+    super("There's already a payment for this on that date. Choose another date.");
+    this.name = "DuplicateOccurrenceError";
+  }
+}
+
+/** The (user, recurring rule, date) key: one payment per rule per date. */
+const isDuplicateOccurrence = (e: { code?: string; message?: string } | null) =>
+  e?.code === "23505" && (e.message ?? "").includes("transactions_user_rule_date_key");
 
 /** A composite foreign key (category or fund, with user_id) found no row of the user's. */
 const isForeignKeyViolation = (e: { code?: string } | null) => e?.code === "23503";
@@ -118,12 +131,20 @@ export async function createTransaction(supabase: Db, input: TransactionInput): 
 
 /**
  * Replaces an expense's entered values; optional ones left out are cleared.
- * Throws TransactionNotFoundError for an unknown id or another user's
- * expense, and MissingReferenceError for a category or fund that isn't theirs.
+ * Editing checks it: an auto-added payment is unchecked only until confirmed
+ * or edited (§5.8). Throws TransactionNotFoundError for an unknown id or
+ * another user's expense, MissingReferenceError for a category or fund that
+ * isn't theirs, and DuplicateOccurrenceError for a recurring payment moved
+ * onto a date its rule already has a payment on.
  */
 export async function updateTransaction(supabase: Db, id: string, input: TransactionInput): Promise<void> {
-  const { data, error } = await supabase.from("transactions").update(columns(input)).eq("id", id).select("id");
+  const { data, error } = await supabase
+    .from("transactions")
+    .update({ ...columns(input), unchecked: false })
+    .eq("id", id)
+    .select("id");
   if (isForeignKeyViolation(error)) throw new MissingReferenceError();
+  if (isDuplicateOccurrence(error)) throw new DuplicateOccurrenceError();
   if (error) throw error;
   if (data.length === 0) throw new TransactionNotFoundError();
 }
@@ -137,20 +158,27 @@ export async function deleteTransaction(supabase: Db, id: string): Promise<void>
 
 /**
  * Saves the expense form: creates the expense (`id` null) or updates it, and
- * returns its id. A new category in the input (created with no allocation,
- * so it shows "no budget yet") or Repeat (a recurring rule made from the
- * expense, which becomes its first payment) goes through the save_expense
- * RPC, so the category, rule and expense are saved together or not at all.
+ * returns its id. Editing an expense checks it. These go through the
+ * save_expense RPC, so everything is saved together or not at all:
+ * - a new category (created with no allocation, so it shows "no budget yet");
+ * - Repeat on a new expense (a recurring rule made from it, which becomes its
+ *   first payment). Repeat is ignored when editing;
+ * - "This and future payments" (`amountScope`) on a recurring payment: the
+ *   rule's price from its date and the amounts of its later unchecked
+ *   payments (worked out here with calc), with the expense itself.
  */
 export async function saveExpense(supabase: Db, id: string | null, input: ExpenseInput): Promise<string> {
-  const { category, repeat, ...rest } = input;
-  if ("id" in category && !repeat) {
+  const { category, repeat: asked, amountScope, ...rest } = input;
+  const repeat = id === null ? asked : undefined;
+  const thisAndFuture = id !== null && amountScope === "this_and_future";
+  if ("id" in category && !repeat && !thisAndFuture) {
     const txn: TransactionInput = { ...rest, categoryId: category.id };
     if (id === null) return createTransaction(supabase, txn);
     await updateTransaction(supabase, id, txn);
     return id;
   }
 
+  const priceUpdates = thisAndFuture ? await laterPaymentAmounts(supabase, id, rest.date, rest.amountPence) : [];
   const { data, error } = await supabase.rpc("save_expense", {
     p_name: rest.name,
     p_amount_pence: rest.amountPence,
@@ -163,10 +191,14 @@ export async function saveExpense(supabase: Db, id: string | null, input: Expens
     ...(rest.accountLabel ? { p_account_label: rest.accountLabel } : {}),
     ...(rest.notes ? { p_notes: rest.notes } : {}),
     ...(repeat ? { p_repeat: repeat } : {}),
+    ...(thisAndFuture ? { p_amount_scope: "this_and_future", p_price_updates: priceUpdates } : {}),
   });
+  if (isDuplicateOccurrence(error)) throw new DuplicateOccurrenceError();
   if (error?.code === "23505" && !("id" in category)) throw new NameTakenError(category.name);
   if (isForeignKeyViolation(error)) throw new MissingReferenceError();
   if (error?.code === "P0002") throw new TransactionNotFoundError();
+  if (error?.code === "PT409") throw new RecurringChangedError();
   if (error) throw error;
   return data;
 }
+

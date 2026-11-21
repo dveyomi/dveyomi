@@ -80,6 +80,8 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
   const [amountFrom, setAmountFrom] = useState<IsoDate>(today);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** A refusal that belongs to one field of the Change amount step. */
+  const [fieldError, setFieldError] = useState<{ field: "amount" | "from"; message: string } | null>(null);
   const [status, setStatus] = useState("");
   const [busy, startBusy] = useTransition();
   const open = rules.find((r) => r.id === openId) ?? null;
@@ -89,9 +91,10 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
     setOpenId(rule.id);
     setMode("menu");
     setError(null);
+    setFieldError(null);
     setPauseUntil(period.nextStart);
     setAmountText("");
-    setAmountFrom(rule.nextDue ?? today);
+    setAmountFrom(rule.nextDue && rule.nextDue > today ? rule.nextDue : today);
   }
 
   function close() {
@@ -99,11 +102,13 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
     setError(null);
   }
 
-  function act(done: string, run: () => Promise<{ error?: string }>) {
+  function act(done: string, run: () => Promise<{ error?: string; field?: "amount" | "from" }>) {
     setError(null);
+    setFieldError(null);
     startBusy(async () => {
       try {
         const result = await run();
+        if (result.error && result.field) return setFieldError({ field: result.field, message: result.error });
         if (result.error) return setError(result.error);
       } catch {
         return setError("We couldn't save that. Check your connection and try again.");
@@ -275,12 +280,26 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
 
             {mode === "amount" ? (
               <>
-                <AmountInput label="New amount" value={amountText} onChange={setAmountText} autoFocus />
+                <AmountInput
+                  label="New amount"
+                  value={amountText}
+                  onChange={(text) => {
+                    setAmountText(text);
+                    if (fieldError?.field === "amount") setFieldError(null);
+                  }}
+                  error={fieldError?.field === "amount" ? fieldError.message : null}
+                  autoFocus
+                />
                 <TextField
                   label="From"
                   type="date"
                   value={amountFrom}
-                  onChange={(e) => setAmountFrom(e.target.value)}
+                  min={today}
+                  error={fieldError?.field === "from" ? fieldError.message : null}
+                  onChange={(e) => {
+                    setAmountFrom(e.target.value);
+                    if (fieldError?.field === "from") setFieldError(null);
+                  }}
                   hint="Payments on and after this date use the new amount. Ones you've checked keep theirs."
                   required
                 />
