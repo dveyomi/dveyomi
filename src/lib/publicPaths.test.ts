@@ -6,8 +6,12 @@ describe("isPublic", () => {
     for (const p of ["/login", "/auth/callback", "/auth/no-profile", "/privacy"]) expect(isPublic(p), p).toBe(true);
   });
 
+  it("lets the hourly job reach the recurring-payments route (it checks its own secret)", () => {
+    expect(isPublic("/api/cron/recurring")).toBe(true);
+  });
+
   it("protects everything else, including look-alikes and image-like paths", () => {
-    for (const p of ["/", "/budget", "/design", "/expenses/new", "/x.png", "/loginx", "/authx", "/privacy/x"]) {
+    for (const p of ["/", "/budget", "/design", "/expenses/new", "/x.png", "/loginx", "/authx", "/privacy/x", "/api/cron", "/api/cron/recurringx", "/api/cron/recurring/x"]) {
       expect(isPublic(p), p).toBe(false);
     }
   });

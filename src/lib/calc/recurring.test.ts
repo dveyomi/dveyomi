@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   amountOn,
+  currentAmount,
+  detectRecurring,
   dueOccurrences,
+  freedByPause,
+  nameKey,
+  nextDue,
+  recurringStatus,
   scheduleBetween,
   withPriceChange,
   type Rule,
@@ -97,5 +103,100 @@ describe("prices", () => {
       { effectiveFrom: "2023-01-01", amountPence: 800 },
       { effectiveFrom: "2026-03-01", amountPence: 999 },
     ]);
+  });
+});
+
+describe("nextDue", () => {
+  it("is the first due date on or after `from`", () => {
+    expect(nextDue(rule({}), "2026-11-10")).toBe("2026-11-16");
+    expect(nextDue(rule({}), "2026-11-16")).toBe("2026-11-16");
+  });
+  it("is the anchor when `from` is before it", () => {
+    expect(nextDue(rule({}), "2026-10-01")).toBe("2026-11-02");
+  });
+  it("passes over paused and skipped dates", () => {
+    expect(nextDue(rule({ pausedUntil: "2026-11-20", skippedDates: ["2026-11-23"] }), "2026-11-03")).toBe("2026-11-30");
+  });
+  it("is null once the rule has ended", () => {
+    expect(nextDue(rule({ endDate: "2026-11-10" }), "2026-11-10")).toBeNull();
+  });
+});
+
+describe("currentAmount", () => {
+  it("is the price on the day, or the first price when every price starts later", () => {
+    const prices = [
+      { effectiveFrom: "2026-12-01", amountPence: 1200 },
+      { effectiveFrom: "2026-11-25", amountPence: 800 },
+    ];
+    expect(currentAmount(prices, "2026-11-30")).toBe(800);
+    expect(currentAmount(prices, "2026-12-01")).toBe(1200);
+    expect(currentAmount(prices, "2026-11-01")).toBe(800);
+  });
+});
+
+describe("recurringStatus", () => {
+  it("active, paused until a later date, or ending on its end date", () => {
+    expect(recurringStatus(rule({}), "2026-11-21")).toEqual({ kind: "active" });
+    expect(recurringStatus(rule({ pausedUntil: "2026-12-01" }), "2026-11-21")).toEqual({ kind: "paused", until: "2026-12-01" });
+    expect(recurringStatus(rule({ pausedUntil: "2026-11-21" }), "2026-11-21")).toEqual({ kind: "active" });
+    expect(recurringStatus(rule({ endDate: "2026-11-21" }), "2026-11-21")).toEqual({ kind: "ends", on: "2026-11-21" });
+  });
+});
+
+describe("freedByPause", () => {
+  const period = { start: "2026-11-01", end: "2026-11-30", nextStart: "2026-12-01" };
+  const prices = [{ effectiveFrom: "2026-11-02", amountPence: 1000 }];
+  it("adds up the payments the pause skips from tomorrow to the period's end", () => {
+    // Weekly from 2 Nov; today 21 Nov; paused until 1 Mar: 23 and 30 Nov are freed.
+    expect(freedByPause(rule({}), prices, "2027-03-01", period, "2026-11-21")).toBe(2000);
+  });
+  it("stops at the pause's end date (it is due again that day)", () => {
+    expect(freedByPause(rule({}), prices, "2026-11-30", period, "2026-11-21")).toBe(1000);
+  });
+  it("leaves out payments already skipped or already past", () => {
+    expect(freedByPause(rule({ skippedDates: ["2026-11-23"] }), prices, "2027-03-01", period, "2026-11-21")).toBe(1000);
+    expect(freedByPause(rule({}), prices, "2027-03-01", period, "2026-11-30")).toBe(0);
+  });
+  it("uses each date's price", () => {
+    const changing = [...prices, { effectiveFrom: "2026-11-30", amountPence: 1500 }];
+    expect(freedByPause(rule({}), changing, "2027-03-01", period, "2026-11-21")).toBe(2500);
+  });
+});
+
+describe("detectRecurring", () => {
+  const pay = (id: string, name: string, date: string) => ({ id, name, date });
+  it("flags three monthly payments with the same name", () => {
+    const hits = detectRecurring([
+      pay("1", "Spotify", "2026-09-15"),
+      pay("2", "spotify ", "2026-10-15"),
+      pay("3", "Spotify", "2026-11-15"),
+      pay("4", "Tesco", "2026-11-02"),
+    ]);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ name: "Spotify", frequency: "monthly", nameKey: "spotify" });
+    expect(hits[0].payments.map((p) => p.id)).toEqual(["1", "2", "3"]);
+  });
+  it("does not flag two", () => {
+    expect(detectRecurring([pay("1", "Spotify", "2026-10-15"), pay("2", "Spotify", "2026-11-15")])).toEqual([]);
+  });
+  it("needs an even interval", () => {
+    expect(
+      detectRecurring([pay("1", "Gym", "2026-11-01"), pay("2", "Gym", "2026-11-08"), pay("3", "Gym", "2026-11-22")]),
+    ).toEqual([]);
+  });
+  it("recognises weekly, fortnightly, quarterly and annual intervals from the latest three", () => {
+    const freq = (dates: string[]) => detectRecurring(dates.map((d, i) => pay(String(i), "X", d)))[0]?.frequency;
+    expect(freq(["2026-11-01", "2026-11-08", "2026-11-15"])).toBe("weekly");
+    expect(freq(["2026-10-18", "2026-11-01", "2026-11-15"])).toBe("fortnightly");
+    expect(freq(["2026-05-01", "2026-08-01", "2026-11-01"])).toBe("quarterly");
+    expect(freq(["2024-11-01", "2025-11-01", "2026-11-01"])).toBe("annually");
+    // An old, irregular payment before the latest three doesn't matter.
+    expect(freq(["2026-06-03", "2026-11-01", "2026-11-08", "2026-11-15"])).toBe("weekly");
+  });
+});
+
+describe("nameKey", () => {
+  it("ignores case and extra spaces", () => {
+    expect(nameKey("  Spotify   Premium ")).toBe("spotify premium");
   });
 });

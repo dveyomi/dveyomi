@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NameTakenError } from "@/lib/data/budgetEdit";
+import { editOccurrence, NotRecurringError, RecurringChangedError, RuleNotFoundError } from "@/lib/data/recurring";
 import { deleteTransaction, MissingReferenceError, saveExpense, TransactionNotFoundError } from "@/lib/data/transactions";
 import { safeNext } from "@/lib/safeNext";
 import { createClient, getUserId } from "@/lib/supabase/server";
@@ -21,14 +22,23 @@ const targetOf = (t: unknown): Target => (isRecord(t) ? t : {});
 const DEFAULT_RETURN = "/expenses";
 
 const knownError = (e: unknown): string | null =>
-  e instanceof MissingReferenceError || e instanceof TransactionNotFoundError ? e.message : null;
+  e instanceof MissingReferenceError ||
+  e instanceof TransactionNotFoundError ||
+  e instanceof NotRecurringError ||
+  e instanceof RuleNotFoundError ||
+  e instanceof RecurringChangedError
+    ? e.message
+    : null;
 
 /**
  * Saves the add/edit expense form, then returns to `returnTo` (an in-app path
  * only; /expenses otherwise). The date range is checked against the
  * server's today for the user. The input is untrusted: it is validated here,
  * and RLS and the composite foreign keys keep the expense, its category and
- * its fund to the signed-in user.
+ * its fund to the signed-in user. Editing a recurring payment's amount with
+ * `amountScope: "this_and_future"` (the form's "This and future payments")
+ * then also moves the rule's price from this payment's date and the later
+ * payments still unchecked; "this" changes only this expense.
  */
 export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promise<ExpenseActionResult> {
   if (!(await getUserId())) redirect("/login");
@@ -39,8 +49,11 @@ export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promis
   const checked = validateExpense(raw, await getToday());
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
 
+  const thisAndFuture = id !== undefined && isRecord(raw) && raw.amountScope === "this_and_future";
   try {
-    await saveExpense(await createClient(), id ?? null, checked.input);
+    const supabase = await createClient();
+    await saveExpense(supabase, id ?? null, checked.input);
+    if (thisAndFuture && id) await editOccurrence(supabase, id, "this_and_future", checked.input.amountPence);
   } catch (e) {
     if (e instanceof NameTakenError) return { error: e.message, field: "newCategory" };
     const known = knownError(e);

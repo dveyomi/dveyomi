@@ -13,6 +13,11 @@ vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/lib/today", () => ({ getToday: async () => "2026-11-21" }));
 const { revalidatePath } = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath }));
+const { editOccurrence } = vi.hoisted(() => ({ editOccurrence: vi.fn() }));
+vi.mock("@/lib/data/recurring", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/data/recurring")>()),
+  editOccurrence,
+}));
 vi.mock("@/lib/data/transactions", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/data/transactions")>()),
   saveExpense,
@@ -94,6 +99,24 @@ describe("saveExpenseAction", () => {
     expect(await saveExpenseAction({}, valid)).toEqual({ error: new MissingReferenceError().message });
     saveExpense.mockRejectedValue(new TransactionNotFoundError());
     expect(await saveExpenseAction({ id: TXN }, valid)).toEqual({ error: new TransactionNotFoundError().message });
+  });
+
+  it("saves Repeat with a new expense", async () => {
+    await expect(saveExpenseAction({}, { ...valid, repeat: "monthly" })).rejects.toThrow("NEXT_REDIRECT:/expenses");
+    expect(saveExpense).toHaveBeenCalledWith({}, null, { ...checked, repeat: "monthly" });
+  });
+
+  it('"This and future payments" also moves the rule\'s price and later unchecked payments', async () => {
+    editOccurrence.mockReset().mockResolvedValue(undefined);
+    await expect(saveExpenseAction({ id: TXN }, { ...valid, amountScope: "this_and_future" })).rejects.toThrow("NEXT_REDIRECT");
+    expect(saveExpense).toHaveBeenCalledWith({}, TXN, checked);
+    expect(editOccurrence).toHaveBeenCalledWith({}, TXN, "this_and_future", 1250);
+  });
+
+  it('"Just this payment" changes only the expense', async () => {
+    editOccurrence.mockReset();
+    await expect(saveExpenseAction({ id: TXN }, { ...valid, amountScope: "this" })).rejects.toThrow("NEXT_REDIRECT");
+    expect(editOccurrence).not.toHaveBeenCalled();
   });
 
   it("explains an unexpected failure without losing the form", async () => {

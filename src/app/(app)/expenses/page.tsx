@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Skeleton } from "@/components/ui";
+import { ButtonLink, Skeleton } from "@/components/ui";
 import { ExpensesContent } from "./ExpensesContent";
 
 export const metadata: Metadata = { title: "Expenses · Personal Finance OS" };
@@ -8,7 +8,12 @@ export const metadata: Metadata = { title: "Expenses · Personal Finance OS" };
 export default function Page({ searchParams }: PageProps<"/expenses">) {
   return (
     <div className="mx-auto flex w-full max-w-phone flex-col gap-4 px-4 py-6 md:mx-0 md:max-w-none md:p-8">
-      <h1 className="text-title font-semibold text-text">Expenses</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-title font-semibold text-text">Expenses</h1>
+        <ButtonLink href="/expenses/recurring" variant="secondary" icon="repeat">
+          Recurring
+        </ButtonLink>
+      </div>
       <Suspense fallback={<ExpensesSkeleton />}>
         <ExpensesContent searchParams={searchParams} />
       </Suspense>

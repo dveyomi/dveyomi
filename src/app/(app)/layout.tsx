@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { Nav, NavBar } from "@/components/Nav";
 import { focusRing } from "@/components/ui/focus";
+import { RecurringCatchUp } from "./RecurringCatchUp";
 import { SignedInSync } from "./SignedInSync";
 
 /** Signed-in app shell: floating bottom nav on a phone, left rail from 768px. */
@@ -24,6 +25,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Reads the session, so it streams in rather than holding up the shell. */}
       <Suspense fallback={null}>
         <SignedInSync />
+      </Suspense>
+      {/* Adds recurring payments due since the last run; never blocks rendering. */}
+      <Suspense fallback={null}>
+        <RecurringCatchUp />
       </Suspense>
     </>
   );

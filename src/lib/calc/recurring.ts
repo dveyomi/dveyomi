@@ -1,4 +1,5 @@
-import { addDays, lastDayOfMonth, type IsoDate } from "./dates";
+import { addDays, daysBetween, lastDayOfMonth, type IsoDate } from "./dates";
+import type { Period } from "./periods";
 
 export type Frequency = "weekly" | "fortnightly" | "monthly" | "quarterly" | "annually";
 export type Price = { effectiveFrom: IsoDate; amountPence: number };
@@ -72,4 +73,93 @@ export function withPriceChange(
   return [...prices.filter((p) => p.effectiveFrom !== effectiveFrom), { effectiveFrom, amountPence }].sort(
     (a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : a.effectiveFrom > b.effectiveFrom ? 1 : 0),
   );
+}
+
+/** The first due (not paused or skipped) date on or after `from`, or null when the rule has ended. */
+export function nextDue(rule: Rule, from: IsoDate): IsoDate | null {
+  // Search a year (and a bit) at a time: a long pause or several skips push it further out.
+  let start = from < rule.anchorDate ? rule.anchorDate : from;
+  for (let i = 0; i < 20; i++) {
+    if (rule.endDate !== null && start > rule.endDate) return null;
+    const end = addDays(start, 400);
+    const due = dueOccurrences(rule, start, end);
+    if (due.length > 0) return due[0];
+    start = addDays(end, 1);
+  }
+  return null;
+}
+
+/** The amount on `date`; before the first price takes effect (a rule that starts later), the first price. */
+export function currentAmount(prices: Price[], date: IsoDate): number {
+  if (prices.length === 0) throw new Error("A recurring payment needs a price");
+  const first = prices.reduce((a, b) => (b.effectiveFrom < a.effectiveFrom ? b : a));
+  return amountOn(prices, date < first.effectiveFrom ? first.effectiveFrom : date);
+}
+
+export type RecurringStatus =
+  | { kind: "active" }
+  | { kind: "paused"; until: IsoDate }
+  | { kind: "ends"; on: IsoDate };
+
+/** How a rule stands on `today`: ending (it has an end date), paused until a later date, or active. */
+export function recurringStatus(rule: Rule, today: IsoDate): RecurringStatus {
+  if (rule.endDate !== null) return { kind: "ends", on: rule.endDate };
+  if (rule.pausedUntil !== null && rule.pausedUntil > today) return { kind: "paused", until: rule.pausedUntil };
+  return { kind: "active" };
+}
+
+/**
+ * What pausing until `until` frees in `period`: the payments still to come
+ * (from tomorrow; today's has already been added) up to the day before
+ * `until`, within the period, each at its own date's price. Payments already
+ * skipped or paused don't count.
+ */
+export function freedByPause(rule: Rule, prices: Price[], until: IsoDate, period: Period, today: IsoDate): number {
+  const tomorrow = addDays(today, 1);
+  const from = tomorrow > period.start ? tomorrow : period.start;
+  const dayBefore = addDays(until, -1);
+  const to = dayBefore < period.end ? dayBefore : period.end;
+  return dueOccurrences(rule, from, to).reduce((sum, d) => sum + amountOn(prices, d), 0);
+}
+
+/** A payment name compared loosely: trimmed, lower case, single spaces. */
+export function nameKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** The frequency a gap in days fits, allowing for months of 28–31 days, or null. */
+function frequencyOfGap(days: number): Frequency | null {
+  if (days >= 6 && days <= 8) return "weekly";
+  if (days >= 13 && days <= 15) return "fortnightly";
+  if (days >= 28 && days <= 31) return "monthly";
+  if (days >= 89 && days <= 92) return "quarterly";
+  if (days >= 364 && days <= 366) return "annually";
+  return null;
+}
+
+export type Detection<T> = { name: string; nameKey: string; frequency: Frequency; payments: T[] };
+
+/**
+ * Payments that look recurring (§5.8): at least three with the same name
+ * (ignoring case and spacing) whose latest three are an even interval apart
+ * (weekly, fortnightly, monthly, quarterly or annually). Each hit names the
+ * latest payment's spelling and lists those three payments, oldest first.
+ */
+export function detectRecurring<T extends { name: string; date: IsoDate }>(txns: T[]): Detection<T>[] {
+  const groups = new Map<string, T[]>();
+  for (const t of txns) {
+    const key = nameKey(t.name);
+    if (!key) continue;
+    groups.set(key, [...(groups.get(key) ?? []), t]);
+  }
+  const hits: Detection<T>[] = [];
+  for (const [key, group] of groups) {
+    const latest = group.toSorted((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).slice(-3);
+    if (latest.length < 3) continue;
+    const first = frequencyOfGap(daysBetween(latest[0].date, latest[1].date));
+    const second = frequencyOfGap(daysBetween(latest[1].date, latest[2].date));
+    if (first === null || first !== second) continue;
+    hits.push({ name: latest[2].name.trim(), nameKey: key, frequency: first, payments: latest });
+  }
+  return hits;
 }

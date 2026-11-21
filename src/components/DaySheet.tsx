@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { removeExpenseAction } from "@/app/(app)/expenses/actions";
+import { confirmOccurrenceAction } from "@/app/(app)/expenses/recurring/actions";
 import { BottomSheet, ButtonLink, ConfirmDialog, IconButton, Money, Notice } from "@/components/ui";
 import { formatGBP, formatWeekdayDate, totalsByDay, type IsoDate } from "@/lib/calc";
 import type { ExpenseTxn } from "@/lib/data/expenses";
@@ -18,7 +19,7 @@ type DaySheetProps = {
   onClose: () => void;
 };
 
-/** A calendar day's expenses (§5.6): add one on that day, tap one to edit it, or delete it. */
+/** A calendar day's expenses (§5.6): add one on that day, tap one to edit it, delete it, or mark an auto-added one as checked (§5.8). */
 export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProps) {
   const router = useRouter();
   const [confirming, setConfirming] = useState<ExpenseTxn | null>(null);
@@ -31,7 +32,11 @@ export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProp
   /** Where focus goes after a delete: a row's delete button (by expense id), or "add". */
   const focusAfter = useRef<string | null>(null);
   const body = useRef<HTMLDivElement>(null);
-  const txns = allTxns.filter((t) => !removed.has(t.id));
+  /** Marked as checked here: shown checked at once, before the refreshed page data arrives. */
+  const [checked, setChecked] = useState<ReadonlySet<string>>(new Set());
+  const txns = allTxns
+    .filter((t) => !removed.has(t.id))
+    .map((t) => (checked.has(t.id) ? { ...t, unchecked: false } : t));
 
   // After a delete hides its row: focus stays in the sheet, on a neighbour or on "Add expense".
   useEffect(() => {
@@ -76,6 +81,19 @@ export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProp
     }
   }
 
+  async function markChecked(txn: ExpenseTxn) {
+    try {
+      const result = await confirmOccurrenceAction(txn.id);
+      if (result.error) return setError(result.error);
+      setError(null);
+      setChecked((c) => new Set(c).add(txn.id));
+      setStatus(`${txn.name} marked as checked`);
+      router.refresh();
+    } catch {
+      setError("We couldn't mark this as checked. Check your connection and try again.");
+    }
+  }
+
   if (!day) return null;
   const addHref = `/expenses/new?date=${day}&returnTo=${encodeURIComponent(returnTo)}`;
 
@@ -109,6 +127,9 @@ export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProp
                     <div className="min-w-0 flex-1">
                       <ExpenseRow txn={t} returnTo={returnTo} />
                     </div>
+                    {t.unchecked ? (
+                      <IconButton icon="check" label={`Mark ${t.name} as checked`} onClick={() => void markChecked(t)} />
+                    ) : null}
                     <IconButton
                       icon="trash"
                       label={`Delete ${t.name}`}

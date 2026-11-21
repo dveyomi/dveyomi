@@ -112,6 +112,8 @@ describe("createTransaction", () => {
       fundId: fund!.id,
       accountLabel: "Amex",
       notes: "Lisbon",
+      recurringRuleId: null,
+      unchecked: false,
     });
   });
 

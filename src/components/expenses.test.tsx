@@ -4,6 +4,8 @@ import type { ExpenseTxn, ExpensesView } from "@/lib/data/expenses";
 
 const actions = vi.hoisted(() => ({ removeExpenseAction: vi.fn() }));
 vi.mock("@/app/(app)/expenses/actions", () => actions);
+const recurringActions = vi.hoisted(() => ({ confirmOccurrenceAction: vi.fn() }));
+vi.mock("@/app/(app)/expenses/recurring/actions", () => recurringActions);
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
@@ -256,6 +258,20 @@ describe("Day sheet", () => {
     fireEvent.click(dayCell(/^Tuesday 10 November/));
     const sheet = screen.getByRole("dialog", { name: "Tuesday 10 November" });
     expect(within(sheet).getByText("unchecked")).toBeInTheDocument();
+  });
+
+  it('"Mark as checked" on an unchecked expense confirms it and refreshes', async () => {
+    recurringActions.confirmOccurrenceAction.mockReset().mockResolvedValue({});
+    router.refresh.mockReset();
+    renderOverview();
+    fireEvent.click(dayCell(/^Tuesday 10 November/));
+    const sheet = screen.getByRole("dialog", { name: "Tuesday 10 November" });
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole("button", { name: "Mark Spotify as checked" }));
+    });
+    expect(recurringActions.confirmOccurrenceAction).toHaveBeenCalledWith("t3");
+    expect(router.refresh).toHaveBeenCalled();
+    expect(within(sheet).queryByText("unchecked")).not.toBeInTheDocument();
   });
 
   it("an empty day offers to add one", () => {

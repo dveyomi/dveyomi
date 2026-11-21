@@ -1,4 +1,4 @@
-import type { IsoDate } from "@/lib/calc";
+import type { Frequency, IsoDate } from "@/lib/calc";
 import { checkCategoryName, isId, type Kind } from "./budgetEdit";
 import { isPence, isRecord } from "./common";
 
@@ -24,10 +24,25 @@ export type ExpenseInput = {
   fundId: string | null;
   accountLabel?: string;
   notes?: string;
+  /** Repeat (new expenses only): make it the first payment of a recurring rule. */
+  repeat?: Frequency;
 };
 
+/** The frequencies a recurring payment can have (§5.8), in the order the form lists them. */
+export const FREQUENCIES: readonly Frequency[] = ["weekly", "fortnightly", "monthly", "quarterly", "annually"];
+export const isFrequency = (v: unknown): v is Frequency => FREQUENCIES.includes(v as Frequency);
+
 /** The form field a problem belongs to. */
-export type ExpenseField = "amount" | "name" | "category" | "newCategory" | "date" | "fund" | "accountLabel" | "notes";
+export type ExpenseField =
+  | "amount"
+  | "name"
+  | "category"
+  | "newCategory"
+  | "date"
+  | "fund"
+  | "accountLabel"
+  | "notes"
+  | "repeat";
 
 export type ExpenseValidation = { ok: true; input: ExpenseInput } | { ok: false; error: string; field?: ExpenseField };
 
@@ -69,7 +84,7 @@ function optionalText(raw: unknown, max: number): { ok: true; value?: string } |
  * `expenseDateRange(today)` (`today` comes from the server, or the page it
  * rendered), an existing category id
  * or a new category's name and kind, an optional fund id, and optional
- * account label (≤50) and notes (≤500). Returns the input cleaned, or the
+ * account label (≤50) and notes (≤500), and an optional repeat frequency. Returns the input cleaned, or the
  * first problem in words a person can act on, with its field.
  */
 export function validateExpense(raw: unknown, today: IsoDate): ExpenseValidation {
@@ -107,6 +122,7 @@ export function validateExpense(raw: unknown, today: IsoDate): ExpenseValidation
   if (!accountLabel.ok) return fail(`Account names can be up to ${MAX_ACCOUNT_LABEL_LENGTH} characters.`, "accountLabel");
   const notes = optionalText(raw.notes, MAX_NOTES_LENGTH);
   if (!notes.ok) return fail(`Notes can be up to ${MAX_NOTES_LENGTH} characters.`, "notes");
+  if (raw.repeat !== undefined && raw.repeat !== null && !isFrequency(raw.repeat)) return fail("Choose how often it repeats.", "repeat");
 
   return {
     ok: true,
@@ -118,6 +134,7 @@ export function validateExpense(raw: unknown, today: IsoDate): ExpenseValidation
       fundId: (raw.fundId as string | null | undefined) ?? null,
       ...(accountLabel.value ? { accountLabel: accountLabel.value } : {}),
       ...(notes.value ? { notes: notes.value } : {}),
+      ...(isFrequency(raw.repeat) ? { repeat: raw.repeat } : {}),
     },
   };
 }

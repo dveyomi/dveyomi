@@ -279,6 +279,22 @@ export type Database = {
         };
         Relationships: [];
       };
+      recurring_dismissals: {
+        Row: {
+          name_key: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          name_key: string;
+          user_id?: string;
+        };
+        Update: {
+          name_key?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       recurring_prices: {
         Row: {
           amount_pence: number;
@@ -319,6 +335,7 @@ export type Database = {
           end_date: string | null;
           frequency: string;
           fund_id: string | null;
+          generated_through: string | null;
           id: string;
           name: string;
           paused_until: string | null;
@@ -332,6 +349,7 @@ export type Database = {
           end_date?: string | null;
           frequency: string;
           fund_id?: string | null;
+          generated_through?: string | null;
           id?: string;
           name: string;
           paused_until?: string | null;
@@ -344,6 +362,7 @@ export type Database = {
           end_date?: string | null;
           frequency?: string;
           fund_id?: string | null;
+          generated_through?: string | null;
           id?: string;
           name?: string;
           paused_until?: string | null;
@@ -524,6 +543,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      apply_recurring_price: {
+        Args: { p_amount_pence: number; p_from: string; p_rule_id: string; p_updates: Json };
+        Returns: undefined;
+      };
       complete_onboarding: {
         Args: {
           p_categories: Json;
@@ -537,6 +560,18 @@ export type Database = {
         Returns: string;
       };
       confirm_savings_split: { Args: { p_date: string; p_period_id: string; p_split: Json }; Returns: undefined };
+      create_recurring_rule: {
+        Args: {
+          p_amount_pence: number;
+          p_anchor_date: string;
+          p_category_id: string;
+          p_frequency: string;
+          p_fund_id?: string;
+          p_link_ids?: string[];
+          p_name: string;
+        };
+        Returns: string;
+      };
       delete_category: { Args: { p_category_id: string; p_period_id: string }; Returns: undefined };
       remove_from_budget: {
         Args: { p_category_id: string; p_next_end: string; p_period_id: string; p_scope: string };
@@ -571,6 +606,22 @@ export type Database = {
         };
         Returns: undefined;
       };
+      save_expense: {
+        Args: {
+          p_account_label?: string;
+          p_amount_pence: number;
+          p_category_id?: string;
+          p_date: string;
+          p_fund_id?: string;
+          p_id?: string;
+          p_name: string;
+          p_new_category_kind?: string;
+          p_new_category_name?: string;
+          p_notes?: string;
+          p_repeat?: string;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       [_ in never]: never;
@@ -589,12 +640,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
@@ -611,14 +662,12 @@ export type Tables<
     : never;
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I;
@@ -634,14 +683,12 @@ export type TablesInsert<
     : never;
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U;
@@ -657,14 +704,12 @@ export type TablesUpdate<
     : never;
 
 export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
@@ -675,11 +720,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]

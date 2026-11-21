@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Skeleton } from "@/components/ui";
+import { Card, ListRow, Skeleton } from "@/components/ui";
 import { AccountSection } from "./AccountSection";
 import { SavedThemeChooser, ThemeCard } from "./ThemeSection";
 
@@ -15,6 +15,14 @@ export default function Page() {
           <SavedThemeChooser />
         </Suspense>
       </ThemeCard>
+      <Card as="section" className="px-2">
+        <ListRow
+          href="/expenses/recurring"
+          icon="repeat"
+          title="Recurring payments"
+          subtitle="Pause, skip, change or cancel subscriptions and bills"
+        />
+      </Card>
       <Suspense fallback={<Skeleton shape="card" />}>
         <AccountSection />
       </Suspense>

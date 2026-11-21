@@ -1,7 +1,7 @@
 import type { IsoDate } from "@/lib/calc";
 import { isId, type Kind } from "@/lib/validation/budgetEdit";
 import type { ExpenseInput } from "@/lib/validation/expense";
-import { createCategory } from "./category";
+import { NameTakenError } from "./budgetEdit";
 import type { Db } from "./types";
 
 /** An expense's stored values, as the edit form starts from them. */
@@ -14,6 +14,10 @@ export type ExpenseRecord = {
   fundId: string | null;
   accountLabel: string | null;
   notes: string | null;
+  /** Set when it is a payment of a recurring rule. */
+  recurringRuleId: string | null;
+  /** Auto-added by a recurring rule and not yet checked. */
+  unchecked: boolean;
 };
 
 /** What the expense form offers: the user's categories and funds, by name. */
@@ -81,7 +85,7 @@ export async function loadTransaction(supabase: Db, id: string): Promise<Expense
   if (!isId(id)) return null;
   const { data, error } = await supabase
     .from("transactions")
-    .select("id, name, amount_pence, date, category_id, fund_id, account_label, notes")
+    .select("id, name, amount_pence, date, category_id, fund_id, account_label, notes, recurring_rule_id, unchecked")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
@@ -95,6 +99,8 @@ export async function loadTransaction(supabase: Db, id: string): Promise<Expense
     fundId: data.fund_id,
     accountLabel: data.account_label,
     notes: data.notes,
+    recurringRuleId: data.recurring_rule_id,
+    unchecked: data.unchecked,
   };
 }
 
@@ -131,24 +137,36 @@ export async function deleteTransaction(supabase: Db, id: string): Promise<void>
 
 /**
  * Saves the expense form: creates the expense (`id` null) or updates it, and
- * returns its id. A new category in the input is created first (with no
- * allocation, so it shows "no budget yet"); if the expense then can't be
- * saved, that category is removed again so nothing is left half-saved.
+ * returns its id. A new category in the input (created with no allocation,
+ * so it shows "no budget yet") or Repeat (a recurring rule made from the
+ * expense, which becomes its first payment) goes through the save_expense
+ * RPC, so the category, rule and expense are saved together or not at all.
  */
 export async function saveExpense(supabase: Db, id: string | null, input: ExpenseInput): Promise<string> {
-  const { category, ...rest } = input;
-  const created = "id" in category ? null : await createCategory(supabase, category);
-  const txn: TransactionInput = { ...rest, categoryId: created ?? (category as { id: string }).id };
-  try {
-    if (id === null) return await createTransaction(supabase, txn);
+  const { category, repeat, ...rest } = input;
+  if ("id" in category && !repeat) {
+    const txn: TransactionInput = { ...rest, categoryId: category.id };
+    if (id === null) return createTransaction(supabase, txn);
     await updateTransaction(supabase, id, txn);
     return id;
-  } catch (e) {
-    if (created) {
-      const { error: undo } = await supabase.from("categories").delete().eq("id", created);
-      // Visible in the logs: an empty category may now be left behind.
-      if (undo) console.error("saveExpense: couldn't remove the new category after a failed save", created, undo);
-    }
-    throw e;
   }
+
+  const { data, error } = await supabase.rpc("save_expense", {
+    p_name: rest.name,
+    p_amount_pence: rest.amountPence,
+    p_date: rest.date,
+    ...(id ? { p_id: id } : {}),
+    ...("id" in category
+      ? { p_category_id: category.id }
+      : { p_new_category_name: category.name, p_new_category_kind: category.kind }),
+    ...(rest.fundId ? { p_fund_id: rest.fundId } : {}),
+    ...(rest.accountLabel ? { p_account_label: rest.accountLabel } : {}),
+    ...(rest.notes ? { p_notes: rest.notes } : {}),
+    ...(repeat ? { p_repeat: repeat } : {}),
+  });
+  if (error?.code === "23505" && !("id" in category)) throw new NameTakenError(category.name);
+  if (isForeignKeyViolation(error)) throw new MissingReferenceError();
+  if (error?.code === "P0002") throw new TransactionNotFoundError();
+  if (error) throw error;
+  return data;
 }

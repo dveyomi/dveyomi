@@ -12,7 +12,7 @@ import {
   Select,
   TextField,
 } from "@/components/ui";
-import { formatRelativeDay, parsePence, type IsoDate } from "@/lib/calc";
+import { formatRelativeDay, parsePence, type Frequency, type IsoDate } from "@/lib/calc";
 import type { Kind } from "@/lib/validation/budgetEdit";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
 import {
@@ -25,6 +25,8 @@ import {
   type ExpenseField,
   type ExpenseFormValues,
 } from "@/lib/validation/expense";
+import { EditRecurringPrompt, type AmountScope } from "./EditRecurringPrompt";
+import { RepeatFields } from "./RepeatFields";
 
 /** What saving or deleting returns when it fails; on success it navigates away instead. */
 type ActionResult = { error: string; field?: ExpenseField } | void;
@@ -41,6 +43,12 @@ type ExpenseFormProps = {
   save: (input: unknown) => Promise<ActionResult>;
   /** Given when editing: deletes the expense, after confirming. */
   remove?: () => Promise<ActionResult>;
+  /** Editing a payment of a recurring rule: a changed amount asks which payments it applies to. */
+  recurring?: boolean;
+  /** Auto-added by a recurring payment and not yet checked: offers "Mark as checked". */
+  unchecked?: boolean;
+  /** Clears "unchecked" (given with `unchecked`). */
+  markChecked?: () => Promise<{ error?: string }>;
 };
 
 /** The Category select's value for "New category". Category ids are UUIDs, so it can't clash. */
@@ -55,18 +63,35 @@ const FUND_HINT = "Pay with money you saved in a fund. It won't count toward you
  * Add or edit an expense (§5.7): a large amount at the top, then name,
  * category (or a new one), date, the fund it was paid from, account and
  * notes. Close and save sit at the top; editing adds a red Delete Expense at
- * the bottom. A fund-paid expense keeps its category.
+ * the bottom. A fund-paid expense keeps its category. Adding offers Repeat
+ * (§5.8); editing a recurring payment's amount asks "Just this payment" or
+ * "This and future payments" before saving.
  */
-export function ExpenseForm({ categories, funds, today, initial, returnTo, save, remove }: ExpenseFormProps) {
+export function ExpenseForm({
+  categories,
+  funds,
+  today,
+  initial,
+  returnTo,
+  save,
+  remove,
+  recurring = false,
+  unchecked = false,
+  markChecked,
+}: ExpenseFormProps) {
   const router = useRouter();
   const editing = remove !== undefined;
   const [values, setValues] = useState(initial);
   const [newCategory, setNewCategory] = useState<{ name: string; kind: Kind } | null>(null);
   const [error, setError] = useState<{ message: string; field?: ExpenseField } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [repeat, setRepeat] = useState<Frequency | null>(null);
+  /** A checked save waiting for "Just this payment" / "This and future payments". */
+  const [askingScope, setAskingScope] = useState<Record<string, unknown> | null>(null);
+  const [checking, startChecking] = useTransition();
   const [saving, startSaving] = useTransition();
   const [deleting, startDeleting] = useTransition();
-  const busy = saving || deleting;
+  const busy = saving || deleting || checking;
   const formRef = useRef<HTMLFormElement>(null);
 
   // Move focus to the field a failed save points at.
@@ -102,13 +127,34 @@ export function ExpenseForm({ categories, funds, today, initial, returnTo, save,
       fundId: values.fundId,
       accountLabel: values.accountLabel,
       notes: values.notes,
+      ...(repeat && !editing ? { repeat } : {}),
     };
     const checked = validateExpense(raw, today);
     if (!checked.ok) return setError({ message: checked.error, field: checked.field });
     setError(null);
+    if (recurring && checked.input.amountPence !== parsePence(initial.amountText)) return setAskingScope(raw);
+    send(raw);
+  }
+
+  function send(raw: Record<string, unknown>) {
     startSaving(async () => {
       const result = await save(raw);
       if (result) setError({ message: result.error, field: result.field });
+    });
+  }
+
+  function chooseScope(amountScope: AmountScope) {
+    const raw = askingScope;
+    setAskingScope(null);
+    if (raw) send({ ...raw, amountScope });
+  }
+
+  function confirmChecked() {
+    if (!markChecked) return;
+    startChecking(async () => {
+      const result = await markChecked();
+      if (result.error) setError({ message: result.error });
+      else router.refresh();
     });
   }
 
@@ -146,6 +192,17 @@ export function ExpenseForm({ categories, funds, today, initial, returnTo, save,
       {error && !error.field ? (
         <div role="alert">
           <Notice tone="danger">{error.message}</Notice>
+        </div>
+      ) : null}
+
+      {unchecked && markChecked ? (
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="flex-1">
+            <Notice tone="warning">Added automatically by a recurring payment. Check it matches what you paid.</Notice>
+          </div>
+          <Button variant="secondary" onClick={confirmChecked} disabled={busy}>
+            {checking ? "Marking…" : "Mark as checked"}
+          </Button>
         </div>
       ) : null}
 
@@ -230,6 +287,8 @@ export function ExpenseForm({ categories, funds, today, initial, returnTo, save,
           />
         ) : null}
 
+        {editing ? null : <RepeatFields value={repeat} onChange={setRepeat} />}
+
         <TextField
           label="Account (optional)"
           value={values.accountLabel}
@@ -266,6 +325,13 @@ export function ExpenseForm({ categories, funds, today, initial, returnTo, save,
           </Button>
         </div>
       </div>
+
+      <EditRecurringPrompt
+        open={askingScope !== null}
+        name={values.name.trim() || initial.name}
+        onChoose={chooseScope}
+        onCancel={() => setAskingScope(null)}
+      />
 
       {editing ? (
         <ConfirmDialog

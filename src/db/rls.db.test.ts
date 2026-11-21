@@ -184,7 +184,7 @@ describe("table privileges", () => {
       from information_schema.tables t
       where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
       order by t.table_name`);
-    expect(rows).toHaveLength(13);
+    expect(rows).toHaveLength(14);
     for (const row of rows) {
       const expected = row.table_name === "profiles" ? "INSERT,SELECT,UPDATE" : "DELETE,INSERT,SELECT,UPDATE";
       expect(row).toEqual({ table_name: row.table_name, anon: null, authenticated: expected });

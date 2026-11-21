@@ -30,8 +30,19 @@ export { compareToPrevious } from "./comparison";
 export type { Comparison } from "./comparison";
 export { fundBalance, fundHistory, fundProgressPercent, splitDifference } from "./funds";
 export type { FundMovement, FundEntry, SplitDifference } from "./funds";
-export { scheduleBetween, dueOccurrences, amountOn, withPriceChange } from "./recurring";
-export type { Frequency, Price, Rule } from "./recurring";
+export {
+  scheduleBetween,
+  dueOccurrences,
+  amountOn,
+  withPriceChange,
+  nextDue,
+  currentAmount,
+  recurringStatus,
+  freedByPause,
+  nameKey,
+  detectRecurring,
+} from "./recurring";
+export type { Detection, Frequency, Price, RecurringStatus, Rule } from "./recurring";
 export { leftoverBreakdown, categoriesOverTwiceInThree, suggestedBudget } from "./leftover";
 export type { LeftoverSource } from "./leftover";
 export { allocationTotals, splitRemainder } from "./setup";

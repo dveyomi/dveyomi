@@ -87,3 +87,13 @@ describe("validateExpense", () => {
     });
   });
 });
+
+describe("validateExpense: repeat", () => {
+  it("keeps one of the five frequencies, leaves it out when absent, and refuses anything else", () => {
+    const ok = validateExpense({ ...valid, repeat: "fortnightly" }, TODAY);
+    expect(ok.ok && ok.input.repeat).toBe("fortnightly");
+    const none = validateExpense({ ...valid, repeat: null }, TODAY);
+    expect(none.ok && "repeat" in none.input).toBe(false);
+    expect(validateExpense({ ...valid, repeat: "daily" }, TODAY)).toEqual({ ok: false, error: "Choose how often it repeats.", field: "repeat" });
+  });
+});
