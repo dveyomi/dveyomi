@@ -39,6 +39,7 @@ export {
   calendarWeeks,
   expenseWindow,
   foldCategories,
+  formatMonth,
   formatMonthYear,
   isYearMonth,
   shiftYearMonth,

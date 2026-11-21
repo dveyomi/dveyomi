@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { removeExpenseAction } from "@/app/(app)/expenses/actions";
 import { BottomSheet, ButtonLink, ConfirmDialog, IconButton, Money, Notice } from "@/components/ui";
-import { formatGBP, formatWeekdayDate, type IsoDate } from "@/lib/calc";
+import { formatGBP, formatWeekdayDate, totalsByDay, type IsoDate } from "@/lib/calc";
 import type { ExpenseTxn } from "@/lib/data/expenses";
 import { ExpenseRow } from "./TransactionList";
 
@@ -13,21 +13,37 @@ type DaySheetProps = {
   day: IsoDate | null;
   /** That day's expenses. */
   txns: ExpenseTxn[];
-  /** The day's total, from calc's totalsByDay. */
-  totalPence: number;
   /** This view's URL, to come back to after adding or editing. */
   returnTo: string;
   onClose: () => void;
 };
 
 /** A calendar day's expenses (§5.6): add one on that day, tap one to edit it, or delete it. */
-export function DaySheet({ day, txns, totalPence, returnTo, onClose }: DaySheetProps) {
+export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProps) {
   const router = useRouter();
   const [confirming, setConfirming] = useState<ExpenseTxn | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Announced politely after a delete, since the row simply disappears. */
   const [status, setStatus] = useState("");
+  /** Deleted here: hidden at once, before the refreshed page data arrives. */
+  const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
+  /** Where focus goes after a delete: a row's delete button (by expense id), or "add". */
+  const focusAfter = useRef<string | null>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const txns = allTxns.filter((t) => !removed.has(t.id));
+
+  // After a delete hides its row: focus stays in the sheet, on a neighbour or on "Add expense".
+  useEffect(() => {
+    const id = focusAfter.current;
+    if (!id) return;
+    focusAfter.current = null;
+    const target =
+      id === "add"
+        ? body.current?.querySelector<HTMLElement>("[data-add-expense] a")
+        : body.current?.querySelector<HTMLElement>(`[data-delete-for="${id}"]`);
+    target?.focus();
+  }, [removed]);
 
   function close() {
     setError(null);
@@ -37,17 +53,27 @@ export function DaySheet({ day, txns, totalPence, returnTo, onClose }: DaySheetP
 
   async function remove() {
     if (!confirming || deleting) return;
+    const txn = confirming;
+    const at = txns.findIndex((t) => t.id === txn.id);
+    const next = txns[at + 1] ?? txns[at - 1] ?? null;
     setDeleting(true);
-    const result = await removeExpenseAction(confirming.id);
-    setDeleting(false);
-    setConfirming(null);
-    if (result.error) {
-      setError(result.error);
-      return;
+    try {
+      const result = await removeExpenseAction(txn.id);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setError(null);
+      setRemoved((r) => new Set(r).add(txn.id));
+      setStatus(`${txn.name} deleted`);
+      focusAfter.current = next ? next.id : "add";
+      router.refresh();
+    } catch {
+      setError("We couldn't delete this expense. Check your connection and try again.");
+    } finally {
+      setDeleting(false);
+      setConfirming(null);
     }
-    setError(null);
-    setStatus(`${confirming.name} deleted`);
-    router.refresh();
   }
 
   if (!day) return null;
@@ -56,7 +82,7 @@ export function DaySheet({ day, txns, totalPence, returnTo, onClose }: DaySheetP
   return (
     <>
       <BottomSheet open onClose={close} title={formatWeekdayDate(day)}>
-        <div className="flex flex-col gap-4">
+        <div ref={body} className="flex flex-col gap-4">
           <p role="status" className="sr-only">
             {status}
           </p>
@@ -74,7 +100,7 @@ export function DaySheet({ day, txns, totalPence, returnTo, onClose }: DaySheetP
                   {txns.length} {txns.length === 1 ? "expense" : "expenses"}
                 </span>
                 <span className="text-title font-semibold text-text">
-                  <Money pence={totalPence} />
+                  <Money pence={totalsByDay(txns).get(day) ?? 0} />
                 </span>
               </div>
               <ul aria-label="Expenses on this day" className="flex flex-col divide-y divide-border">
@@ -83,15 +109,22 @@ export function DaySheet({ day, txns, totalPence, returnTo, onClose }: DaySheetP
                     <div className="min-w-0 flex-1">
                       <ExpenseRow txn={t} returnTo={returnTo} />
                     </div>
-                    <IconButton icon="trash" label={`Delete ${t.name}`} onClick={() => setConfirming(t)} />
+                    <IconButton
+                      icon="trash"
+                      label={`Delete ${t.name}`}
+                      data-delete-for={t.id}
+                      onClick={() => setConfirming(t)}
+                    />
                   </li>
                 ))}
               </ul>
             </>
           )}
-          <ButtonLink href={addHref} variant="primary" icon="plus" fullWidth>
-            Add expense
-          </ButtonLink>
+          <div data-add-expense>
+            <ButtonLink href={addHref} variant="primary" icon="plus" fullWidth>
+              Add expense
+            </ButtonLink>
+          </div>
         </div>
       </BottomSheet>
       <ConfirmDialog

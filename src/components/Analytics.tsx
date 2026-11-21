@@ -9,7 +9,6 @@ import { TransactionList } from "./TransactionList";
 /** The donut shows this many categories; the rest share one "Other" slice. */
 const SLICES = 5;
 
-const seriesFor = (rank: number): Series => (rank < SLICES ? ((rank + 1) as Series) : "other");
 
 type CategoryBreakdownProps = {
   summary: ExpensesSummary;
@@ -20,40 +19,47 @@ type CategoryBreakdownProps = {
 
 /** Donut and category list (§5.6): each category's spend and share, largest first. Colour follows rank in this window. */
 export function CategoryBreakdown({ summary, names, caption }: CategoryBreakdownProps) {
+  const nameOf = (id: string) => names.get(id) ?? "Unknown";
+  const folded = summary.categories.slice(SLICES).map((c) => nameOf(c.categoryId));
   const slices = foldCategories(summary.categories, SLICES, summary.totalPence).map((s, i) => ({
     key: s.categoryId ?? "other",
-    label: s.categoryId === null ? "Other" : (names.get(s.categoryId) ?? "Unknown"),
+    label: s.categoryId === null ? "Other" : nameOf(s.categoryId),
     pence: s.pence,
     percent: s.percent,
-    series: s.categoryId === null ? ("other" as const) : seriesFor(i),
+    series: s.categoryId === null ? ("other" as const) : ((i + 1) as Series),
   }));
 
   return (
     <div className="@container">
-     <div className="flex flex-col gap-5 @xl:flex-row @xl:items-center @xl:gap-8">
-      <div className="@xl:w-56 @xl:shrink-0">
-        <Donut label="Spending by category" slices={slices}>
-          <Money pence={summary.totalPence} size="title" />
-          <span className="text-caption text-muted">{caption}</span>
-        </Donut>
+      <div className="flex flex-col gap-5 @xl:flex-row @xl:items-center @xl:gap-8">
+        <div className="@xl:w-56 @xl:shrink-0">
+          <Donut label="Spending by category" slices={slices}>
+            <Money pence={summary.totalPence} size="title" />
+            <span className="text-caption text-muted">{caption}</span>
+          </Donut>
+        </div>
+        {slices.length === 0 ? (
+          <p className="text-body text-muted @xl:flex-1">Categories will show here once you add expenses.</p>
+        ) : (
+          <ul aria-label="Categories" className="flex min-w-0 flex-1 flex-col divide-y divide-border">
+            {slices.map((s) => (
+              <li key={s.key} className="flex items-center gap-3 py-2.5">
+                <SeriesSwatch series={s.series} />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-body text-text">{s.label}</span>
+                  {s.series === "other" ? (
+                    <span className="truncate text-caption text-muted">{folded.join(", ")}</span>
+                  ) : null}
+                </span>
+                <span className="text-caption text-muted">{s.percent}%</span>
+                <span className="text-body text-text">
+                  <Money pence={s.pence} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      {summary.categories.length === 0 ? (
-        <p className="text-body text-muted @xl:flex-1">Categories will show here once you add expenses.</p>
-      ) : (
-        <ul aria-label="Categories" className="flex min-w-0 flex-1 flex-col divide-y divide-border">
-          {summary.categories.map((c, i) => (
-            <li key={c.categoryId} className="flex items-center gap-3 py-2.5">
-              <SeriesSwatch series={seriesFor(i)} />
-              <span className="min-w-0 flex-1 truncate text-body text-text">{names.get(c.categoryId) ?? "Unknown"}</span>
-              <span className="text-caption text-muted">{c.percent}%</span>
-              <span className="text-body text-text">
-                <Money pence={c.pence} />
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-     </div>
     </div>
   );
 }
@@ -70,8 +76,10 @@ type ComparisonCardProps = {
   comparison: Comparison | null;
   /** True while today is inside the window: the comparison counts the same elapsed days. */
   inProgress: boolean;
-  /** Set while the window is still ahead of today: "This month hasn't started yet" (or "period"). */
-  upcoming: "month" | "period" | null;
+  /** Calendar months compare with "last month", budget periods with "last period". */
+  unit: "month" | "period";
+  /** The window is still ahead of today: "This month hasn't started yet". */
+  upcoming: boolean;
 };
 
 /**
@@ -79,34 +87,34 @@ type ComparisonCardProps = {
  * words. More spending is drawn in the danger tone, less in the positive tone,
  * the same in plain text. With no previous expenses it says so instead.
  */
-export function ComparisonCard({ comparison, inProgress, upcoming }: ComparisonCardProps) {
+export function ComparisonCard({ comparison, inProgress, unit, upcoming }: ComparisonCardProps) {
   const headingId = useId();
   return (
     <section aria-labelledby={headingId}>
       <Card className="flex flex-col gap-2">
         <h2 id={headingId} className="text-caption font-semibold text-muted">
-          Compared with last period
+          Compared with last {unit}
         </h2>
         {upcoming ? (
           <EmptyState
             icon="calendar"
-            title={`This ${upcoming} hasn't started yet`}
+            title={`This ${unit} hasn't started yet`}
             body="It will compare with the one before once it begins."
           />
         ) : comparison === null ? (
           <EmptyState
             icon="chart"
-            title="No previous period to compare yet"
-            body="Once the period before this one has expenses, you'll see how this one compares."
+            title={`No previous ${unit} to compare yet`}
+            body={`Once the ${unit} before this one has expenses, you'll see how this one compares.`}
           />
         ) : (
           <>
             {comparison.direction === "same" ? (
-              <p className={`text-title font-semibold ${tones.same}`}>Same as last period</p>
+              <p className={`text-title font-semibold ${tones.same}`}>Same as last {unit}</p>
             ) : (
               <p className={`text-title font-semibold ${tones[comparison.direction]}`}>
                 <Money pence={Math.abs(comparison.diffPence)} tone="neutral" />{" "}
-                {comparison.direction === "up" ? "more" : "less"} than last period
+                {comparison.direction === "up" ? "more" : "less"} than last {unit}
               </p>
             )}
             {comparison.pct !== null ? (

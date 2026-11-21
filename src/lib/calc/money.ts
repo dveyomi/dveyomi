@@ -42,17 +42,18 @@ export function penceToInputText(pence: number): string {
 }
 
 /**
- * A compact GBP label for tight spaces such as a calendar cell: pence kept
- * under £10 ("£5.00"), whole pounds (halves up) under £1,000 ("£18"), then
- * thousands to one decimal ("£1.2k"). Pair it with the full formatGBP figure
- * for assistive tech.
+ * A compact GBP label for tight spaces such as a calendar tile: exact pence
+ * under £100 ("£17.50"), whole pounds (halves up) from £100 to £999 ("£240"),
+ * then thousands to one decimal ("£1.2k", "£1k" when the decimal is 0). Pair
+ * it with the full formatGBP figure for assistive tech.
  */
 export function formatGBPShort(pence: number): string {
   const sign = pence < 0 ? "-" : "";
   const abs = Math.abs(pence);
-  if (abs < 1_000) return formatGBP(pence);
+  if (abs < 10_000) return formatGBP(pence);
   const pounds = divRound(abs, 100);
   if (pounds < 1000) return `${sign}£${pounds}`;
   const tenths = divRound(abs, 10_000);
-  return `${sign}£${Math.floor(tenths / 10)}.${tenths % 10}k`;
+  const whole = Math.floor(tenths / 10);
+  return tenths % 10 === 0 ? `${sign}£${whole}k` : `${sign}£${whole}.${tenths % 10}k`;
 }

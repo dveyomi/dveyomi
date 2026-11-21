@@ -25,6 +25,14 @@ export function shiftYearMonth(m: YearMonth, delta: number): YearMonth {
   return `${Math.floor(idx / 12)}-${String((idx % 12) + 1).padStart(2, "0")}`;
 }
 
+const monthName = new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" });
+
+/** "2026-11" -> "November". */
+export function formatMonth(m: YearMonth): string {
+  const [y, mo] = m.split("-").map(Number);
+  return monthName.format(Date.UTC(y, mo - 1, 1));
+}
+
 const monthYear = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 
 /** "2026-11" -> "November 2026". */
@@ -100,7 +108,7 @@ export function summariseExpenses(txns: Txn[], current: Period, previous: Period
 
 /** The chart's slices: the `keep` largest categories, then the rest as one "Other" slice. */
 export function foldCategories(shares: CategoryShare[], keep: number, totalPence: number): CategorySlice[] {
-  if (shares.length <= keep + 1) return shares;
+  if (shares.length <= keep) return shares;
   const rest = shares.slice(keep).reduce((sum, s) => sum + s.pence, 0);
   return [...shares.slice(0, keep), { categoryId: null, pence: rest, percent: share(rest, totalPence) }];
 }

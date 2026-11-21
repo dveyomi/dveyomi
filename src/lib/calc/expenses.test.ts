@@ -4,6 +4,7 @@ import {
   calendarWeeks,
   expenseWindow,
   foldCategories,
+  formatMonth,
   formatMonthYear,
   isYearMonth,
   shiftYearMonth,
@@ -37,6 +38,7 @@ describe("year-months", () => {
 
   it("formats for people", () => {
     expect(formatMonthYear("2026-11")).toBe("November 2026");
+    expect(formatMonth("2026-11")).toBe("November");
   });
 });
 
@@ -93,17 +95,28 @@ describe("calendarWeeks", () => {
 });
 
 describe("formatGBPShort", () => {
-  it("keeps pence under £10, whole pounds (halves up) under £1,000, then thousands", () => {
+  it("keeps exact pence under £100", () => {
     expect(formatGBPShort(500)).toBe("£5.00");
-    expect(formatGBPShort(999)).toBe("£9.99");
-    expect(formatGBPShort(1750)).toBe("£18");
-    expect(formatGBPShort(1749)).toBe("£17");
-    expect(formatGBPShort(99949)).toBe("£999");
-    expect(formatGBPShort(99950)).toBe("£1.0k");
+    expect(formatGBPShort(1750)).toBe("£17.50");
+    expect(formatGBPShort(5830)).toBe("£58.30");
+    expect(formatGBPShort(9999)).toBe("£99.99");
+  });
+
+  it("shows whole pounds (halves up) from £100 to £999", () => {
+    expect(formatGBPShort(10000)).toBe("£100");
+    expect(formatGBPShort(24000)).toBe("£240");
     expect(formatGBPShort(25049)).toBe("£250");
     expect(formatGBPShort(25050)).toBe("£251");
+    expect(formatGBPShort(99949)).toBe("£999");
+  });
+
+  it("shows thousands to one decimal from £1,000, dropping a .0", () => {
+    expect(formatGBPShort(99950)).toBe("£1k");
+    expect(formatGBPShort(100000)).toBe("£1k");
+    expect(formatGBPShort(120000)).toBe("£1.2k");
     expect(formatGBPShort(123456)).toBe("£1.2k");
     expect(formatGBPShort(1250000)).toBe("£12.5k");
+    expect(formatGBPShort(2000000)).toBe("£20k");
   });
 });
 
@@ -151,6 +164,17 @@ describe("foldCategories", () => {
       { categoryId: "a", pence: 500, percent: 50 },
       { categoryId: "b", pence: 300, percent: 30 },
       { categoryId: null, pence: 200, percent: 20 },
+    ]);
+  });
+
+  it("folds even a single category past the limit, so the neutral colour always means Other", () => {
+    const shares = [
+      { categoryId: "a", pence: 500, percent: 63 },
+      { categoryId: "b", pence: 300, percent: 38 },
+    ];
+    expect(foldCategories(shares, 1, 800)).toEqual([
+      { categoryId: "a", pence: 500, percent: 63 },
+      { categoryId: null, pence: 300, percent: 38 },
     ]);
   });
 

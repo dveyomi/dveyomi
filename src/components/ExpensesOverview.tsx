@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ButtonLink, Card, EmptyState, Money, RadioSegments, SegmentedTabs, Button } from "@/components/ui";
 import {
+  formatMonth,
   formatMonthYear,
   formatPeriodRange,
   shiftYearMonth,
@@ -65,7 +66,7 @@ export function ExpensesOverview({ data, today, initialView }: ExpensesOverviewP
   const isPeriod = range === "period";
   const title = isPeriod ? formatPeriodRange(current.start, current.end) : formatMonthYear(win.month);
   const unit = isPeriod ? "period" : "month";
-  const spentCaption = isPeriod ? "Spent this period" : `Spent in ${formatMonthYear(win.month).split(" ")[0]}`;
+  const spentCaption = isPeriod ? "Spent this period" : `Spent in ${formatMonth(win.month)}`;
   const returnTo = expensesHref({ range, month: win.month, view });
   const step = (delta: number) => expensesHref({ range, month: shiftYearMonth(win.month, delta), view });
   const inProgress = today >= current.start && today <= current.end;
@@ -77,7 +78,7 @@ export function ExpensesOverview({ data, today, initialView }: ExpensesOverviewP
   }
 
   const switcher = (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center justify-between gap-2 px-1 md:px-0">
       <ButtonLink href={step(-1)} variant="secondary" icon="chevron-left">
         <span className="sr-only">Previous {unit}</span>
       </ButtonLink>
@@ -98,7 +99,8 @@ export function ExpensesOverview({ data, today, initialView }: ExpensesOverviewP
     <ComparisonCard
       comparison={summary.comparison}
       inProgress={inProgress}
-      upcoming={today < current.start ? unit : null}
+      unit={unit}
+      upcoming={today < current.start}
     />
   );
 
@@ -121,7 +123,7 @@ export function ExpensesOverview({ data, today, initialView }: ExpensesOverviewP
       <div role="tabpanel" aria-label={view === "calendar" ? "Calendar" : "Analytics"}>
         {view === "calendar" ? (
           <div className="grid items-start gap-4 lg:grid-cols-3 lg:gap-6">
-            <Card as="section" className="flex flex-col gap-4 px-2 md:px-5 lg:col-span-2">
+            <Card as="section" className="flex flex-col gap-4 px-1 md:px-5 lg:col-span-2">
               <div className="flex flex-col gap-1 px-2 md:px-0">
                 <span className="text-caption font-semibold text-muted">{spentCaption}</span>
                 <Money pence={summary.totalPence} size="display" />
@@ -166,7 +168,9 @@ export function ExpensesOverview({ data, today, initialView }: ExpensesOverviewP
             </div>
             {comparisonCard}
             <div className="lg:col-span-3">
-              <TransactionsPanel txns={inWindow} categories={categories} today={today} returnTo={returnTo} />
+              <TransactionsPanel
+                key={`${range}-${win.month}`}
+                txns={inWindow} categories={categories} today={today} returnTo={returnTo} />
             </div>
           </div>
         )}
@@ -175,7 +179,6 @@ export function ExpensesOverview({ data, today, initialView }: ExpensesOverviewP
       <DaySheet
         day={openDay}
         txns={openDay ? inWindow.filter((t) => t.date === openDay) : []}
-        totalPence={openDay ? (summary.byDay.get(openDay) ?? 0) : 0}
         returnTo={returnTo}
         onClose={() => setOpenDay(null)}
       />

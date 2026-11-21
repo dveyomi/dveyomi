@@ -46,6 +46,12 @@ const NOVEMBER = {
   previous: { start: "2026-10-01", end: "2026-10-31", nextStart: "2026-11-01" },
 };
 
+const PERIOD_WINDOW = {
+  month: "2026-10",
+  current: { start: "2026-10-25", end: "2026-11-24", nextStart: "2026-11-25" },
+  previous: { start: "2026-09-25", end: "2026-10-24", nextStart: "2026-10-25" },
+};
+
 const standard = [
   txn("t3", "Spotify", 1199, "2026-11-10", "music", { unchecked: true }),
   txn("t1", "Tesco", 1250, "2026-11-03", "food"),
@@ -67,7 +73,7 @@ const dayCell = (label: RegExp) => screen.getByRole("button", { name: label });
 /** The element whose whole text is exactly `text` (text split across child elements included). */
 const byText = (text: string) => (_: string, el: Element | null) =>
   el?.textContent === text && ![...el.children].some((child) => child.textContent === text);
-const comparison = () => screen.getByRole("region", { name: "Compared with last period" });
+const comparison = (unit = "month") => screen.getByRole("region", { name: `Compared with last ${unit}` });
 
 beforeEach(() => {
   actions.removeExpenseAction.mockReset();
@@ -80,7 +86,8 @@ describe("Calendar", () => {
   it("shows a day's total in its cell: 1250 + 500 reads £17.50", () => {
     renderOverview();
     const cell = dayCell(/^Tuesday 3 November/);
-    expect(cell).toHaveTextContent("£17.50");
+    // The phone label itself (the desktop one sits beside it, hidden under 768px).
+    expect(cell.querySelector("[data-amount='phone']")).toHaveTextContent(/^£17\.50$/);
     expect(cell).toHaveAccessibleName("Tuesday 3 November: £17.50 spent, 2 expenses");
   });
 
@@ -199,6 +206,51 @@ describe("Day sheet", () => {
     );
   });
 
+  it("a failed connection shows an error and lets the user try again", async () => {
+    actions.removeExpenseAction.mockRejectedValue(new Error("Failed to fetch"));
+    const sheet = openDay();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Delete Taxi" }));
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+    });
+    expect(within(sheet).getByRole("alert")).toHaveTextContent("We couldn't delete this expense");
+    fireEvent.click(within(sheet).getByRole("button", { name: "Delete Taxi" }));
+    expect(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("after a delete, focus moves to the next row's delete button", async () => {
+    actions.removeExpenseAction.mockResolvedValue({});
+    const sheet = openDay();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Delete Tesco" }));
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+    });
+    expect(within(sheet).queryByRole("button", { name: "Delete Tesco" })).toBeNull();
+    expect(within(sheet).getByRole("button", { name: "Delete Taxi" })).toHaveFocus();
+  });
+
+  it("after deleting the last row, focus moves to the previous row's delete button", async () => {
+    actions.removeExpenseAction.mockResolvedValue({});
+    const sheet = openDay();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Delete Taxi" }));
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+    });
+    expect(within(sheet).getByRole("button", { name: "Delete Tesco" })).toHaveFocus();
+  });
+
+  it("after deleting a day's only expense, focus moves to Add expense", async () => {
+    actions.removeExpenseAction.mockResolvedValue({});
+    renderOverview();
+    fireEvent.click(dayCell(/^Tuesday 10 November/));
+    const sheet = screen.getByRole("dialog", { name: "Tuesday 10 November" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Delete Spotify" }));
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+    });
+    expect(within(sheet).getByRole("link", { name: "Add expense" })).toHaveFocus();
+  });
+
   it('marks an auto-added recurring expense "unchecked"', () => {
     renderOverview();
     fireEvent.click(dayCell(/^Tuesday 10 November/));
@@ -233,6 +285,42 @@ describe("Analytics", () => {
     ]);
   });
 
+  it("folds the categories past the fifth into one Other row, matching the donut", () => {
+    const many = ["food", "music", "travel"].map((c, i) => txn(`m${i}`, c, 9000 - i * 1000, "2026-11-02", c));
+    const extra = [
+      { id: "c4", name: "Gifts", kind: "want" as const },
+      { id: "c5", name: "Bills", kind: "need" as const },
+      { id: "c6", name: "Books", kind: "want" as const },
+      { id: "c7", name: "Pets", kind: "want" as const },
+    ];
+    const txns = [
+      ...many,
+      ...extra.map((c, i) => ({ ...txn(`e${i}`, c.name, 500 - i * 100, "2026-11-02", "food"), categoryId: c.id, categoryName: c.name })),
+    ];
+    renderOverview(txns, { initialView: "analytics", over: { categories: [...categories, ...extra] } });
+    const rows = within(screen.getByRole("list", { name: "Categories" })).getAllByRole("listitem");
+    expect(rows).toHaveLength(6);
+    const other = rows[5];
+    expect(other).toHaveTextContent(/^Other/);
+    expect(other).toHaveTextContent("Books, Pets");
+    expect(other).toHaveTextContent("£5.00");
+    const chart = screen.getAllByRole("table", { name: "Spending by category" })[0];
+    expect(within(chart).getByRole("row", { name: /Other/ })).toHaveTextContent("Other£5.00");
+  });
+
+  it("clears the search and filter when the month changes", () => {
+    const { rerender } = renderOverview(standard, { initialView: "analytics" });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search expenses" }), { target: { value: "spot" } });
+    rerender(
+      <ExpensesOverview
+        data={view(standard, { window: { month: "2026-10", current: NOVEMBER.previous, previous: { start: "2026-09-01", end: "2026-09-30", nextStart: "2026-10-01" } } })}
+        today={TODAY}
+        initialView="analytics"
+      />,
+    );
+    expect(screen.getByRole("searchbox", { name: "Search expenses" })).toHaveValue("");
+  });
+
   it("groups the transaction list by date, newest first, with the day total", () => {
     renderOverview(standard, { initialView: "analytics" });
     const groups = screen.getAllByRole("group");
@@ -264,20 +352,20 @@ describe("Analytics", () => {
 describe("Comparison", () => {
   it("with no previous expenses shows an empty state and no percentage", () => {
     renderOverview(standard.filter((t) => t.date >= "2026-11-01"));
-    expect(within(comparison()).getByText("No previous period to compare yet")).toBeInTheDocument();
+    expect(within(comparison()).getByText("No previous month to compare yet")).toBeInTheDocument();
     expect(comparison()).not.toHaveTextContent("%");
   });
 
   it("more spending: money and percent difference, in the danger tone", () => {
     renderOverview([txn("a", "A", 22000, "2026-11-02", "food"), txn("b", "B", 10000, "2026-10-02", "food")]);
-    const line = within(comparison()).getByText(byText("£120.00 more than last period"));
+    const line = within(comparison()).getByText(byText("£120.00 more than last month"));
     expect(line).toHaveClass("text-danger-fg");
     expect(comparison()).toHaveTextContent("+120%");
   });
 
   it("less spending: in the positive tone, and -0% reads 0%", () => {
     renderOverview([txn("a", "A", 10000, "2026-11-02", "food"), txn("b", "B", 10003, "2026-10-02", "food")]);
-    const line = within(comparison()).getByText(byText("£0.03 less than last period"));
+    const line = within(comparison()).getByText(byText("£0.03 less than last month"));
     expect(line).toHaveClass("text-positive-fg");
     expect(comparison()).toHaveTextContent("0%");
     expect(comparison()).not.toHaveTextContent("-0%");
@@ -297,9 +385,22 @@ describe("Comparison", () => {
     expect(comparison()).not.toHaveTextContent("%");
   });
 
+  it("in budget-period range keeps the period wording, and with no previous expenses shows its empty state", () => {
+    renderOverview([txn("a", "A", 22000, "2026-11-02", "food")], { over: { range: "period", window: PERIOD_WINDOW } });
+    expect(within(comparison("period")).getByText("No previous period to compare yet")).toBeInTheDocument();
+    expect(comparison("period")).not.toHaveTextContent("%");
+  });
+
+  it("in budget-period range: £120.00 more than last period", () => {
+    renderOverview([txn("a", "A", 22000, "2026-10-26", "food"), txn("b", "B", 10000, "2026-09-26", "food")], {
+      over: { range: "period", window: PERIOD_WINDOW },
+    });
+    expect(within(comparison("period")).getByText(byText("£120.00 more than last period"))).toHaveClass("text-danger-fg");
+  });
+
   it("the same: neutral", () => {
     renderOverview([txn("a", "A", 10000, "2026-11-02", "food"), txn("b", "B", 10000, "2026-10-02", "food")]);
-    const line = within(comparison()).getByText("Same as last period");
+    const line = within(comparison()).getByText("Same as last month");
     expect(line).not.toHaveClass("text-danger-fg");
     expect(line).not.toHaveClass("text-positive-fg");
   });
