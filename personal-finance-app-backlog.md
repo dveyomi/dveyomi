@@ -20,6 +20,9 @@ Updated 2026-11-21. Items move to the design doc once decided.
 - Open Banking for other banks (GoCardless free tier is one option).
 
 ## Decided
+- Themes: Light, Dark and Match device, chosen in Settings; light is the default (David, 2026-11-21). Replaces "dark theme only". The light theme uses a deeper lime for accent text and icons so it stays readable on white.
+- Sign out sits in Settings, added early (David, 2026-11-21).
+- Phone bottom nav: a floating pill with Expenses, Budget and Settings (active tab in a darker inset pill, lime icon and label) and a separate round + to its right (David's screenshot, 2026-11-21).
 - Month-on-month comparison uses green/red/neutral states as in the design (§8), with neutral wording (David, 2026-11-21; the plan had said neutral colour only).
 - An Edit budget screen is added after the Budget tab task: edit allocations for the current or next period, add, rename and delete categories; "Set new budget" and the category ⋯ menu open it (David, 2026-11-21; the plan had no task for it).
 - Web app, mobile-first (iPhone), desktop-first layout. Bottom nav: Expenses, Budget, Settings as three tabs, plus a + button.

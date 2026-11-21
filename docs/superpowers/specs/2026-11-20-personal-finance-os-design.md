@@ -35,6 +35,7 @@ Success looks like this: he can open the app on his iPhone, log an expense in a 
 
 - Web app, not native. Mobile-first for iPhone, with a layout designed for desktop (not a scaled-up phone layout).
 - Dark theme: near-black background, charcoal cards, white text, muted grey secondary text, one restrained lime accent, rounded shapes. The reference screenshots are the visual guide.
+- **Decided (2026-11-21):** a light theme as well. Settings offers Light, Dark and Match device; light is the default. The light theme mirrors the dark one (off-white background, white cards, near-black text, grey secondary text) with a deeper lime for accent text and icons.
 - GBP only. Currency defaults to GBP with no onboarding screen, and there is a currency setting in Settings.
 - Money is stored as integer pence. No floating-point money maths.
 - All financial calculations live in one shared, tested module, not in individual screens.
