@@ -22,6 +22,12 @@ export default function Page() {
           title="Recurring payments"
           subtitle="Pause, skip, change or cancel subscriptions and bills"
         />
+        <ListRow
+          href="/settings/import"
+          icon="upload"
+          title="Import expenses"
+          subtitle="Add spending from your bank's CSV export"
+        />
       </Card>
       <Suspense fallback={<Skeleton shape="card" />}>
         <AccountSection />

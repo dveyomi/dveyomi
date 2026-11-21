@@ -6,8 +6,10 @@ import {
   BottomSheet,
   Button,
   ButtonLink,
+  Checkbox,
   Chip,
   ConfirmDialog,
+  FileDrop,
   Donut,
   SeriesSwatch,
   Gauge,
@@ -586,5 +588,60 @@ describe("Donut", () => {
     const { container } = render(<SeriesSwatch series={3} />);
     expect(container.firstChild).toHaveClass("bg-chart-3");
     expect(container.firstChild).toHaveAttribute("aria-hidden", "true");
+  });
+});
+
+describe("Checkbox", () => {
+  function Controlled({ initial = false }: { initial?: boolean }) {
+    const [checked, setChecked] = useState(initial);
+    return (
+      <Checkbox checked={checked} onChange={setChecked}>
+        Tesco
+      </Checkbox>
+    );
+  }
+
+  it("is a native checkbox named by its content, with a 44px row as the tap target", () => {
+    render(<Controlled />);
+    const box = screen.getByRole("checkbox", { name: "Tesco" });
+    expect(box).not.toBeChecked();
+    expect(box.closest("label")!.className).toMatch(TAP_44);
+    fireEvent.click(screen.getByText("Tesco"));
+    expect(box).toBeChecked();
+  });
+
+  it("can start ticked", () => {
+    render(<Controlled initial />);
+    expect(screen.getByRole("checkbox", { name: "Tesco" })).toBeChecked();
+  });
+});
+
+describe("FileDrop", () => {
+  const file = () => new File(["a,b"], "bank.csv", { type: "text/csv" });
+
+  it("is a labelled file input that hands over the chosen file", () => {
+    const onFile = vi.fn();
+    render(<FileDrop label="Bank statement" hint="A .csv file" accept=".csv" onFile={onFile} />);
+    const input = screen.getByLabelText("Bank statement");
+    expect(input).toHaveAttribute("type", "file");
+    expect(input).toHaveAttribute("accept", ".csv");
+    expect(input).toHaveAccessibleDescription("A .csv file");
+    const chosen = file();
+    fireEvent.change(input, { target: { files: [chosen] } });
+    expect(onFile).toHaveBeenCalledWith(chosen);
+  });
+
+  it("takes a dropped file too", () => {
+    const onFile = vi.fn();
+    render(<FileDrop label="Bank statement" accept=".csv" onFile={onFile} />);
+    const dropped = file();
+    fireEvent.drop(screen.getByText(/drop/i).closest("div")!, { dataTransfer: { files: [dropped] } });
+    expect(onFile).toHaveBeenCalledWith(dropped);
+  });
+
+  it("shows an error instead of the hint", () => {
+    render(<FileDrop label="Bank statement" hint="A .csv file" accept=".csv" error="Too big" onFile={() => {}} />);
+    expect(screen.getByLabelText("Bank statement")).toHaveAccessibleDescription("Too big");
+    expect(screen.getByRole("alert")).toHaveTextContent("Too big");
   });
 });

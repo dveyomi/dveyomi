@@ -8,14 +8,17 @@ export const metadata: Metadata = { title: "Expenses · Personal Finance OS" };
 export default function Page({ searchParams }: PageProps<"/expenses">) {
   return (
     <div className="mx-auto flex w-full max-w-phone flex-col gap-4 px-4 py-6 md:mx-0 md:max-w-none md:p-8">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-title font-semibold text-text">Expenses</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <ButtonLink href="/expenses/trips" variant="secondary" icon="plane">
             Trips
           </ButtonLink>
           <ButtonLink href="/expenses/recurring" variant="secondary" icon="repeat">
             Recurring
+          </ButtonLink>
+          <ButtonLink href="/settings/import" variant="secondary" icon="upload">
+            Import
           </ButtonLink>
         </div>
       </div>

@@ -15,10 +15,10 @@ const tabs: { href: string; label: string; icon: IconName }[] = [
 
 /**
  * Focused screens with their own close: the add/edit expense form
- * (/expenses/new, /expenses/<uuid>) and the period-end review (/review).
- * Other /expenses/* pages keep the nav.
+ * (/expenses/new, /expenses/<uuid>), the period-end review (/review) and the
+ * CSV import (/settings/import). Other /expenses/* pages keep the nav.
  */
-const FOCUSED = /^\/(?:expenses\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})|review)$/i;
+const FOCUSED = /^\/(?:expenses\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})|review|settings\/import)$/i;
 
 /** Whether `pathname` is a focused screen (no phone nav; TimezoneSync's prompt stays away too). */
 export function isFocusedRoute(pathname: string): boolean {

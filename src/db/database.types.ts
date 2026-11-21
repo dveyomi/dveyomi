@@ -589,6 +589,7 @@ export type Database = {
         Returns: string;
       };
       delete_category: { Args: { p_category_id: string; p_period_id: string }; Returns: undefined };
+      import_expenses: { Args: { p_filename: string; p_rows: Json; p_today: string }; Returns: Json };
       raise_allocation: {
         Args: { p_amount_pence: number; p_category_id: string; p_next_end: string; p_period_id: string };
         Returns: undefined;
@@ -657,6 +658,7 @@ export type Database = {
         };
         Returns: string;
       };
+      undo_import: { Args: { p_batch_id: string }; Returns: number };
     };
     Enums: {
       [_ in never]: never;

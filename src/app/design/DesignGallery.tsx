@@ -8,10 +8,12 @@ import {
   Button,
   ButtonLink,
   Card,
+  Checkbox,
   Chip,
   ConfirmDialog,
   Donut,
   EmptyState,
+  FileDrop,
   Gauge,
   Icon,
   IconButton,
@@ -138,6 +140,7 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
   const [amount, setAmount] = useState("");
   const [period, setPeriod] = useState<"week" | "month" | "year">("month");
   const [toggle, setToggle] = useState(true);
+  const [tick, setTick] = useState(true);
   const [chip, setChip] = useState("groceries");
   const [repeat, setRepeat] = useState<"weekly" | "monthly" | "yearly">("monthly");
   const [leftover, setLeftover] = useState<string | null>("next_period");
@@ -416,6 +419,17 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
             onChange={setToggle}
           />
           <Toggle label="Disabled" checked={false} onChange={() => {}} disabled />
+          <Label>Checkbox: tick a row in a list (native checkbox)</Label>
+          <Checkbox checked={tick} onChange={setTick}>
+            <span className="text-body text-text">Tesco</span>
+            <span className="text-caption text-muted">Thu 5 Nov · £12.50</span>
+          </Checkbox>
+          <Checkbox checked={false} onChange={() => {}}>
+            <span className="text-body text-text">Unticked</span>
+          </Checkbox>
+          <Label>FileDrop: choose or drop one file</Label>
+          <FileDrop label="Bank statement (CSV)" hint="Up to 2 MB" accept=".csv" onFile={() => {}} />
+          <FileDrop label="With an error" accept=".csv" error="This file is over 2 MB." onFile={() => {}} />
           <SegmentedTabs
             label="Period"
             value={period}
