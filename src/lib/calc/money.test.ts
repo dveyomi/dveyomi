@@ -6,8 +6,9 @@ describe("parsePence", () => {
     expect(parsePence("£1,200.50")).toBe(120050);
     expect(parsePence("12.5")).toBe(1250);
     expect(parsePence("7")).toBe(700);
+    expect(parsePence("1,000")).toBe(100000);
   });
-  it.each(["12.555", "0", "0.00", "-5", "", "abc", "1e3"])("rejects %j", (s) => {
+  it.each(["12.555", "0", "0.00", "-5", "", "abc", "1e3", "12,50", "1,2,3"])("rejects %j", (s) => {
     expect(parsePence(s)).toBeNull();
   });
 });

@@ -2,8 +2,10 @@
 
 /** Parse a user-entered GBP amount into positive integer pence, or null if invalid. */
 export function parsePence(input: string): number | null {
-  const s = input.trim().replace(/^£/, "").replace(/,/g, "");
-  if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
+  const raw = input.trim().replace(/^£/, "");
+  // Commas are accepted only as thousands separators.
+  if (!/^(\d{1,3}(,\d{3})+|\d+)(\.\d{1,2})?$/.test(raw)) return null;
+  const s = raw.replace(/,/g, "");
   const [pounds, frac = ""] = s.split(".");
   const pence = Number(pounds) * 100 + Number(frac.padEnd(2, "0"));
   return Number.isSafeInteger(pence) && pence > 0 ? pence : null;
