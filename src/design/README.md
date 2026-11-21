@@ -73,7 +73,7 @@ Tailwind also writes self-referencing copies such as `--text-display: var(--text
 
 All components are exported from `@/components/ui`:
 
-`Button`, `IconButton`, `Card`, `ProgressBar`, `Gauge`, `Badge`, `StatusBadge`, `Money`, `AmountInput`, `TextField`, `Select`, `Toggle`, `SegmentedTabs` (switch views; tablist), `RadioSegments` (pick one setting; radiogroup; arrows, Home and End), `Skeleton` (placeholder while request-time content streams in), `BottomSheet`, `ConfirmDialog`, `ListRow`, `EmptyState`, `Chip`, `Icon` (a single inline SVG set, where `IconName` is a string union).
+`Button`, `ButtonLink` (a link that looks like a Button), `IconButton`, `Card`, `ProgressBar`, `Gauge`, `Badge`, `StatusBadge`, `Money`, `Notice` (tinted callout: danger, warning, neutral), `AmountInput`, `TextField`, `Select`, `Toggle`, `SegmentedTabs` (switch views; tablist), `RadioSegments` (pick one setting; radiogroup; arrows, Home and End), `Skeleton` (placeholder while request-time content streams in), `BottomSheet`, `ConfirmDialog`, `ListRow`, `EmptyState`, `Chip`, `Icon` (a single inline SVG set, where `IconName` is a string union).
 
 `/design` is a living gallery that shows every token and every component in each of its variants and states, at phone width (390) and at desktop width. A theme switch at the top shows it in light, dark or the device's setting. It is available only in development: in production it returns `notFound()`.
 

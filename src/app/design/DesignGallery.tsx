@@ -6,6 +6,7 @@ import {
   Badge,
   BottomSheet,
   Button,
+  ButtonLink,
   Card,
   Chip,
   ConfirmDialog,
@@ -16,6 +17,7 @@ import {
   iconNames,
   ListRow,
   Money,
+  Notice,
   ProgressBar,
   RadioSegments,
   SegmentedTabs,
@@ -189,7 +191,7 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
         </div>
       </Section>
 
-      <Section title="Button and IconButton">
+      <Section title="Button, ButtonLink and IconButton">
         <Widths>
           <div className="flex flex-wrap gap-3">
             <Button variant="primary">Primary</Button>
@@ -211,10 +213,18 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
           <Button variant="primary" size="lg" fullWidth>
             Full width
           </Button>
+          <div className="flex flex-wrap gap-3">
+            <ButtonLink href="/design" variant="secondary" icon="edit">
+              Link as button
+            </ButtonLink>
+            <ButtonLink href="/design" variant="ghost" icon="chevron-left">
+              Back
+            </ButtonLink>
+          </div>
         </Widths>
       </Section>
 
-      <Section title="Money, Badge, StatusBadge, Chip">
+      <Section title="Money, Notice, Badge, StatusBadge, Chip">
         <Widths>
           <div className="flex flex-wrap items-baseline gap-4">
             <Money pence={430178} size="display" />
@@ -222,6 +232,11 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
             <Money pence={-10000} />
             <Money pence={-10000} tone="neutral" />
             <Money pence={0} size="caption" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Notice tone="danger">Your allocations are £400.00 more than your spending money.</Notice>
+            <Notice tone="warning">Wants spending is ahead of the month.</Notice>
+            <Notice tone="neutral">Expenses paid from a fund don&apos;t count toward this budget.</Notice>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge tone="neutral">Neutral</Badge>

@@ -5,10 +5,12 @@ import {
   AmountInput,
   BottomSheet,
   Button,
+  ButtonLink,
   Chip,
   ConfirmDialog,
   Gauge,
   Money,
+  Notice,
   ProgressBar,
   RadioSegments,
   Skeleton,
@@ -48,6 +50,11 @@ describe("over state is announced", () => {
   it("Gauge over has aria-valuetext", () => {
     render(<Gauge percent={40} state="over" label="Budget used" />);
     expect(screen.getByRole("meter")).toHaveAttribute("aria-valuetext", "Over budget");
+  });
+
+  it("Gauge announces its figure through valueText, since a meter's children are presentational", () => {
+    render(<Gauge percent={40} state="normal" label="Left to spend" valueText="£400.00 left" />);
+    expect(screen.getByRole("meter")).toHaveAttribute("aria-valuetext", "£400.00 left");
   });
 });
 
@@ -114,6 +121,36 @@ describe("Button", () => {
     expect(primary).not.toBe(danger);
     expect(primary).toContain("bg-accent");
     expect(danger).toContain("bg-danger");
+  });
+});
+
+describe("ButtonLink", () => {
+  it("is a link styled like the matching Button, with a 44px tap target", () => {
+    render(
+      <>
+        <Button variant="secondary">Edit</Button>
+        <ButtonLink href="/budget/edit" variant="secondary" icon="edit">
+          Set new budget
+        </ButtonLink>
+      </>,
+    );
+    const link = screen.getByRole("link", { name: "Set new budget" });
+    expect(link).toHaveAttribute("href", "/budget/edit");
+    expect(link.className).toMatch(TAP_44);
+    for (const c of screen.getByRole("button", { name: "Edit" }).className.split(/\s+/).filter(Boolean)) {
+      expect(link).toHaveClass(c);
+    }
+    expect(link.querySelector("svg")).not.toBeNull();
+  });
+});
+
+describe("Notice", () => {
+  it("uses the tone's tint with its text-safe foreground and an icon", () => {
+    render(<Notice tone="danger">Allocations are over</Notice>);
+    const notice = screen.getByText("Allocations are over").closest("[data-tone]") as HTMLElement;
+    expect(notice).toHaveAttribute("data-tone", "danger");
+    expect(notice).toHaveClass("bg-danger/15", "text-danger-fg");
+    expect(notice.querySelector("svg")).not.toBeNull();
   });
 });
 

@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Nav } from "./Nav";
+import { Nav, NavBar } from "./Nav";
 
 let pathname = "/budget";
 vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
@@ -57,5 +57,12 @@ describe("Nav", () => {
     render(<Nav />);
     expect(within(nav()).getByRole("link", { name: "Add expense" })).toHaveAttribute("aria-current", "page");
     expect(within(nav()).getByRole("link", { name: "Expenses" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("NavBar without a pathname (the prerender fallback) renders every link and marks none current", () => {
+    render(<NavBar pathname={null} />);
+    const links = within(nav()).getAllByRole("link");
+    expect(links.map((l) => l.textContent)).toEqual(["Expenses", "Budget", "Settings", "Add expense"]);
+    for (const link of links) expect(link).not.toHaveAttribute("aria-current");
   });
 });

@@ -1,5 +1,5 @@
 import { Suspense, type ReactNode } from "react";
-import { Nav } from "@/components/Nav";
+import { Nav, NavBar } from "@/components/Nav";
 import { focusRing } from "@/components/ui/focus";
 import { SignedInSync } from "./SignedInSync";
 
@@ -13,7 +13,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       >
         Skip to content
       </a>
-      <Nav />
+      {/* On a route with an unknown dynamic param (/budget/[categoryId]) the pathname is only
+          known at request time, so the prerendered shell shows the nav with nothing current. */}
+      <Suspense fallback={<NavBar pathname={null} />}>
+        <Nav />
+      </Suspense>
       <main id="main" className="flex flex-1 flex-col pb-nav-clearance md:pb-0 md:pl-60">
         {children}
       </main>

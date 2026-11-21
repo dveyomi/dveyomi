@@ -41,3 +41,21 @@ const weekdayDate = new Intl.DateTimeFormat("en-GB", {
 export function formatWeekdayDate(d: IsoDate): string {
   return weekdayDate.format(toUtcMs(d)).replace(",", "");
 }
+
+const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+const shortDate = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
+
+/** "2026-11-01" -> "1 Nov". */
+export function formatDayMonth(d: IsoDate): string {
+  return dayMonth.format(toUtcMs(d));
+}
+
+/** "2026-11-21" -> "Sat 21 Nov". */
+export function formatShortDate(d: IsoDate): string {
+  return shortDate.format(toUtcMs(d)).replace(",", "");
+}

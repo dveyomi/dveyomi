@@ -24,7 +24,14 @@ function isCurrent(pathname: string, href: string): boolean {
  * "Add expense" under the tabs.
  */
 export function Nav() {
-  const pathname = usePathname();
+  return <NavBar pathname={usePathname()} />;
+}
+
+/**
+ * The navigation for a known pathname. With `null` (the Suspense fallback while
+ * a route with an unknown dynamic param prerenders) no link is marked current.
+ */
+export function NavBar({ pathname }: { pathname: string | null }) {
   const adding = pathname === ADD_HREF;
 
   return (
@@ -37,7 +44,7 @@ export function Nav() {
       </p>
       <ul className="flex flex-1 items-stretch rounded-pill border border-border bg-card-raised p-1 shadow-float md:flex-none md:flex-col md:gap-1 md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none">
         {tabs.map((tab) => {
-          const current = !adding && isCurrent(pathname, tab.href);
+          const current = pathname !== null && !adding && isCurrent(pathname, tab.href);
           return (
             <li key={tab.href} className="flex flex-1 md:flex-none">
               <Link

@@ -18,7 +18,7 @@ type MoneyProps = {
 export function Money({ pence, tone = "auto", size = "inherit" }: MoneyProps) {
   const danger = tone === "auto" && pence < 0;
   return (
-    <span className={`tabular-nums ${sizes[size]} ${danger ? "text-danger-fg" : ""}`}>
+    <span className={`tabular-nums whitespace-nowrap ${sizes[size]} ${danger ? "text-danger-fg" : ""}`}>
       {formatGBP(pence)}
     </span>
   );

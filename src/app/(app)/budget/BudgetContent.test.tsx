@@ -1,33 +1,48 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { ensureCurrentPeriod, redirect } = vi.hoisted(() => ({
-  ensureCurrentPeriod: vi.fn(),
+const { loadBudgetView, redirect, getUserId } = vi.hoisted(() => ({
+  loadBudgetView: vi.fn(),
+  getUserId: vi.fn(async (): Promise<string | null> => "user-1"),
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`);
   }),
 }));
-vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}), getUserId: async () => "user-1" }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}), getUserId }));
 vi.mock("@/lib/today", () => ({ getToday: async () => "2026-11-21" }));
-vi.mock("@/lib/data/ensurePeriod", () => ({ ensureCurrentPeriod }));
+vi.mock("@/lib/data/budget", () => ({ loadBudgetView }));
 vi.mock("next/navigation", () => ({ redirect }));
 
 import { BudgetContent } from "./BudgetContent";
 
+const period = { start: "2026-11-01", end: "2026-11-30", nextStart: "2026-12-01" };
+const params = (tab?: string) => Promise.resolve(tab ? { tab } : {});
+
 describe("BudgetContent", () => {
   beforeEach(() => {
-    ensureCurrentPeriod.mockReset();
+    loadBudgetView.mockReset();
     redirect.mockClear();
+    getUserId.mockClear();
   });
 
-  it("sends a user with no budget period to /onboarding", async () => {
-    ensureCurrentPeriod.mockResolvedValue(null);
-    await expect(BudgetContent()).rejects.toThrow("NEXT_REDIRECT:/onboarding");
-    expect(ensureCurrentPeriod).toHaveBeenCalledWith({}, "2026-11-21");
+  it("sends a signed-out visitor to /login before loading anything", async () => {
+    getUserId.mockResolvedValueOnce(null);
+    await expect(BudgetContent({ searchParams: params() })).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(loadBudgetView).not.toHaveBeenCalled();
   });
 
-  it("renders for a user with a budget period", async () => {
-    ensureCurrentPeriod.mockResolvedValue({ id: "p1" });
-    await expect(BudgetContent()).resolves.toBeTruthy();
+  it("sends a user with no budget to /onboarding", async () => {
+    loadBudgetView.mockResolvedValue({ period, summary: null, categories: [] });
+    await expect(BudgetContent({ searchParams: params() })).rejects.toThrow("NEXT_REDIRECT:/onboarding");
+    expect(loadBudgetView).toHaveBeenCalledWith({}, "2026-11-21");
+  });
+
+  it("renders the budget, on the tab the URL names", async () => {
+    const summary = { categories: [] };
+    loadBudgetView.mockResolvedValue({ period, summary, categories: [] });
+    const saving = await BudgetContent({ searchParams: params("saving") });
+    expect(saving.props).toMatchObject({ summary, tab: "saving" });
+    const other = await BudgetContent({ searchParams: params("nonsense") });
+    expect(other.props.tab).toBe("spending");
     expect(redirect).not.toHaveBeenCalled();
   });
 });

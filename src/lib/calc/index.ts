@@ -1,9 +1,18 @@
 export { parsePence, parseOptionalPence, formatGBP, divRound } from "./money";
-export { addDays, daysBetween, formatWeekdayDate, lastDayOfMonth, todayIn } from "./dates";
+export {
+  addDays,
+  daysBetween,
+  formatDayMonth,
+  formatShortDate,
+  formatWeekdayDate,
+  lastDayOfMonth,
+  todayIn,
+} from "./dates";
 export type { IsoDate } from "./dates";
 export { periodContaining, daysLeft, previousPeriod } from "./periods";
 export type { Period } from "./periods";
 export { summarise } from "./budget";
+export { percentLeft, leftToSpendPercent, overBudgetPence } from "./figures";
 export type {
   Txn,
   Allocation,
