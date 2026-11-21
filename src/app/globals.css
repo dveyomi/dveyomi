@@ -1,26 +1,56 @@
 @import "tailwindcss";
+@import "../design/tokens.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/*
+ * Map the design tokens into Tailwind's theme. Nothing here holds a value of its
+ * own: every entry reads a token from src/design/tokens.css. Tailwind's default
+ * colours, font sizes, radii and shadows are cleared so only tokens can be used.
+ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-*: initial;
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-card-raised: var(--card-raised);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-positive: var(--positive);
+  --color-border: var(--border);
+  --color-scrim: var(--scrim);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-*: initial;
+  --font-sans: var(--font-sans);
+
+  --text-*: initial;
+  --text-display: var(--text-display);
+  --text-display--line-height: var(--leading-display);
+  --text-title: var(--text-title);
+  --text-title--line-height: var(--leading-title);
+  --text-body: var(--text-body);
+  --text-body--line-height: var(--leading-body);
+  --text-caption: var(--text-caption);
+  --text-caption--line-height: var(--leading-caption);
+
+  --spacing: var(--space-1);
+
+  --radius-*: initial;
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-pill: var(--radius-pill);
+
+  --container-phone: var(--width-phone);
+
+  --shadow-*: initial;
+  --shadow-sheet: var(--shadow-sheet);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
 }
