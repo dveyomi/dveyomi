@@ -54,4 +54,7 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-body);
   line-height: var(--leading-body);
+  /* No double-tap zoom delay; focus rings replace the grey tap flash. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 
@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: "Personal Finance OS",
   description: "Know what is safe to spend, every day.",
 };
+
+/** Draw under the phone's home indicator; the tab bar pads itself with the safe-area inset. */
+export const viewport: Viewport = { viewportFit: "cover", colorScheme: "dark" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
