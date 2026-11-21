@@ -7,11 +7,10 @@ import { focusRing } from "@/components/ui/focus";
 
 const ADD_HREF = "/expenses/new";
 
-const tabs: { href: string; label: string; icon: IconName; order: string }[] = [
-  { href: "/expenses", label: "Expenses", icon: "wallet", order: "order-1 md:order-none" },
-  { href: "/budget", label: "Budget", icon: "chart", order: "order-2 md:order-none" },
-  // order-4: the + sits between Budget and Settings on a phone.
-  { href: "/settings", label: "Settings", icon: "settings", order: "order-4 flex-2 md:order-none md:flex-none" },
+const tabs: { href: string; label: string; icon: IconName }[] = [
+  { href: "/expenses", label: "Expenses", icon: "pie" },
+  { href: "/budget", label: "Budget", icon: "gauge" },
+  { href: "/settings", label: "Settings", icon: "settings" },
 ];
 
 function isCurrent(pathname: string, href: string): boolean {
@@ -19,8 +18,10 @@ function isCurrent(pathname: string, href: string): boolean {
 }
 
 /**
- * Main navigation. Under 768px: a bottom tab bar with a raised + in the
- * middle. From 768px: a left rail with "Add expense" as its first action.
+ * Main navigation, in one DOM order for every width: Expenses, Budget,
+ * Settings, then +. Under 768px it floats above the bottom edge as a pill of
+ * three tabs with a round + beside it. From 768px it is a left rail with
+ * "Add expense" under the tabs.
  */
 export function Nav() {
   const pathname = usePathname();
@@ -29,39 +30,41 @@ export function Nav() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:inset-y-0 md:right-auto md:flex md:w-60 md:flex-col md:gap-8 md:border-t-0 md:border-r md:px-4 md:py-6"
+      className="fixed inset-x-4 bottom-safe z-30 flex items-stretch gap-3 md:inset-x-auto md:top-0 md:bottom-0 md:left-0 md:w-60 md:flex-col md:justify-start md:gap-6 md:border-r md:border-border md:bg-card md:px-4 md:py-6"
     >
-      <p translate="no" className="hidden px-3 text-body font-semibold text-text md:block">Personal Finance OS</p>
-      <ul className="flex items-center md:flex-col md:items-stretch md:gap-1">
-        {/* First in the DOM, so keyboard order matches the rail. On a phone, CSS order puts it in the middle. */}
-        <li className="order-3 flex justify-center px-2 md:order-none md:mb-4 md:px-0">
-          <Link
-            href={ADD_HREF}
-            aria-current={adding ? "page" : undefined}
-            className={`-mt-6 flex size-14 items-center justify-center gap-2 rounded-pill bg-accent font-semibold text-accent-ink shadow-sheet ring-4 ring-bg transition-colors hover:bg-accent/90 md:mt-0 md:h-11 md:w-full md:shadow-none md:ring-0 ${focusRing}`}
-          >
-            <Icon name="plus" size="lg" />
-            <span className="sr-only md:not-sr-only">Add expense</span>
-          </Link>
-        </li>
+      <p translate="no" className="hidden px-3 text-body font-semibold text-text md:block">
+        Personal Finance OS
+      </p>
+      <ul className="flex flex-1 items-stretch rounded-pill border border-border bg-card-raised p-1 shadow-float md:flex-none md:flex-col md:gap-1 md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none">
         {tabs.map((tab) => {
           const current = !adding && isCurrent(pathname, tab.href);
           return (
-            <li key={tab.href} className={`flex-1 ${tab.order}`}>
+            <li key={tab.href} className="flex flex-1 md:flex-none">
               <Link
                 href={tab.href}
                 aria-current={current ? "page" : undefined}
-                className={`flex min-h-14 flex-col items-center justify-center gap-1 text-caption font-medium transition-colors md:min-h-11 md:flex-row md:justify-start md:gap-3 md:rounded-pill md:px-3 md:text-body ${focusRing} ${
-                  current ? "text-accent md:bg-card-raised" : "text-muted hover:text-text"
+                className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-pill text-caption font-semibold transition-colors md:min-h-11 md:flex-row md:justify-start md:gap-3 md:px-3 md:text-body ${focusRing} ${
+                  current ? "bg-bg text-accent md:bg-card-raised" : "text-text hover:bg-card md:hover:bg-card-raised"
                 }`}
               >
-                <Icon name={tab.icon} />
+                <Icon name={tab.icon} size="lg" />
                 <span>{tab.label}</span>
               </Link>
             </li>
           );
         })}
       </ul>
+      <Link
+        href={ADD_HREF}
+        aria-current={adding ? "page" : undefined}
+        className={`flex size-16.5 shrink-0 items-center justify-center gap-2 self-center rounded-pill border border-border font-semibold text-accent shadow-float transition-colors md:h-11 md:w-full md:border-0 md:bg-accent md:text-accent-ink md:shadow-none md:hover:bg-accent/90 ${focusRing} ${
+          adding ? "bg-bg" : "bg-card-raised hover:bg-card"
+        }`}
+      >
+        {/* size-16.5 = the pill's height: min-h-14 tab + p-1 either side + border. */}
+        <Icon name="plus" size="lg" />
+        <span className="sr-only md:not-sr-only">Add expense</span>
+      </Link>
     </nav>
   );
 }

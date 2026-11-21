@@ -29,7 +29,11 @@ export async function createClient() {
   );
 }
 
-/** The signed-in user's id from verified JWT claims (never getSession()), or null. */
+/**
+ * The signed-in user's id from verified JWT claims (never getSession()), or null.
+ * Every page, action and data function authorises itself with this (plus RLS);
+ * none may rely on the proxy or the (app) layout's redirect.
+ */
 export const getUserId = cache(async (): Promise<string | null> => {
   // Verifying a token reads the clock, so this is request-time work, never prerendered.
   await connection();
@@ -38,7 +42,7 @@ export const getUserId = cache(async (): Promise<string | null> => {
   return data?.claims.sub ?? null;
 });
 
-export type Profile = { timezone: string };
+export type Profile = { timezone: string; timezoneDetected: boolean };
 
 /** The signed-in user's profile, or null when signed out. Read once per request. */
 export const getProfile = cache(async (): Promise<Profile | null> => {
@@ -47,9 +51,9 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("timezone")
+    .select("timezone, timezone_detected")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return data && { timezone: data.timezone, timezoneDetected: data.timezone_detected };
 });

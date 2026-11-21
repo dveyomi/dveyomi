@@ -46,6 +46,17 @@
 
   --shadow-*: initial;
   --shadow-sheet: var(--shadow-sheet);
+  --shadow-float: var(--shadow-float);
+}
+
+/* The phone nav floats a --space-4 gap above the bottom edge, clear of the home indicator. */
+@utility bottom-safe {
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+}
+
+/* Room under page content for the floating phone nav (about 17 spacing steps tall). */
+@utility pb-nav-clearance {
+  padding-bottom: calc(var(--space-8) * 3 + env(safe-area-inset-bottom));
 }
 
 body {

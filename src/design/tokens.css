@@ -52,4 +52,5 @@
 
   /* Elevation */
   --shadow-sheet: 0 -8px 32px rgb(0 0 0 / 0.5);
+  --shadow-float: 0 8px 24px rgb(0 0 0 / 0.55); /* floating phone nav */
 }

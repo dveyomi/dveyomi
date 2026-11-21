@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isTimeZone, resolveToday } from "./today";
+import { isTimeZone } from "@/lib/timezone";
+import { resolveToday } from "./today";
 
 const now = new Date("2026-11-20T20:00:00Z");
 

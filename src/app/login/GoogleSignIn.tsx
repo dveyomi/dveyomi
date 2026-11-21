@@ -6,6 +6,10 @@ import { Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
 const FAILED = "Sign-in didn't finish. Please try again.";
+const messages: Record<string, string> = {
+  signin: FAILED,
+  account: "We couldn't load your account, so you've been signed out. Please sign in again.",
+};
 
 function SignInBody({ error, onClick, pending }: { error: string | null; onClick?: () => void; pending: boolean }) {
   return (
@@ -32,7 +36,10 @@ export function GoogleSignInFallback() {
 export function GoogleSignIn() {
   const searchParams = useSearchParams();
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(searchParams.get("error") ? FAILED : null);
+  const [error, setError] = useState<string | null>(() => {
+    const code = searchParams.get("error");
+    return code ? (messages[code] ?? FAILED) : null;
+  });
 
   async function signIn() {
     setPending(true);

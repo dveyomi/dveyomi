@@ -14,7 +14,10 @@
 
 create table public.profiles (
   user_id uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+  -- Home zone: detected from the device once, at first sign-in, then edited in Settings.
+  -- Travelling changes only "today" (the tz cookie), never this.
   timezone text not null default 'Europe/London',
+  timezone_detected boolean not null default false,
   currency text not null default 'GBP',
   budget_start_day int not null check (budget_start_day between 1 and 31)
 );

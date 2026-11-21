@@ -12,13 +12,21 @@ describe("Nav", () => {
     pathname = "/budget";
   });
 
-  it("renders the tabs Expenses, Budget, Settings in that order", () => {
+  it("renders Expenses, Budget, Settings, then +, in DOM (and so focus) order", () => {
     render(<Nav />);
-    const tabs = within(nav())
-      .getAllByRole("link")
-      .filter((a) => a.getAttribute("href") !== "/expenses/new");
-    expect(tabs.map((a) => a.textContent)).toEqual(["Expenses", "Budget", "Settings"]);
-    expect(tabs.map((a) => a.getAttribute("href"))).toEqual(["/expenses", "/budget", "/settings"]);
+    const links = within(nav()).getAllByRole("link");
+    expect(links.map((a) => a.textContent)).toEqual(["Expenses", "Budget", "Settings", "Add expense"]);
+    expect(links.map((a) => a.getAttribute("href"))).toEqual([
+      "/expenses",
+      "/budget",
+      "/settings",
+      "/expenses/new",
+    ]);
+  });
+
+  it("uses no CSS order utilities, so visual order is DOM order", () => {
+    render(<Nav />);
+    expect(nav().innerHTML).not.toMatch(/(?:^|[\s"])(?:md:)?-?order-/);
   });
 
   it("has a + link to /expenses/new", () => {

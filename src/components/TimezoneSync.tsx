@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { adoptDeviceTimezone } from "@/app/(app)/actions";
-import { DEFAULT_TIMEZONE, TZ_COOKIE } from "@/lib/timezone";
+import { TZ_COOKIE } from "@/lib/timezone";
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -14,11 +14,12 @@ function readCookie(name: string): string | undefined {
 
 /**
  * Keeps "today" in the device's time zone: writes the zone to the `tz` cookie
- * that getToday() reads, and on first sign-in saves it to a profile that still
- * has the default zone. Refreshes server data only when something changed, so
- * it settles after one refresh.
+ * that getToday() reads. On first sign-in (home zone not yet detected) it also
+ * saves the zone as the home zone; after that only Settings changes it.
+ * Refreshes server data only when something changed, so it settles after one
+ * refresh.
  */
-export function TimezoneSync({ profileTimezone }: { profileTimezone: string }) {
+export function TimezoneSync({ homeDetected }: { homeDetected: boolean }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -30,7 +31,7 @@ export function TimezoneSync({ profileTimezone }: { profileTimezone: string }) {
         document.cookie = `${TZ_COOKIE}=${encodeURIComponent(zone)}; path=/; max-age=${ONE_YEAR_SECONDS}; samesite=lax`;
         changed = true;
       }
-      if (profileTimezone === DEFAULT_TIMEZONE && zone !== DEFAULT_TIMEZONE) {
+      if (!homeDetected) {
         try {
           await adoptDeviceTimezone(zone);
           changed = true;
@@ -42,7 +43,7 @@ export function TimezoneSync({ profileTimezone }: { profileTimezone: string }) {
     }
 
     void sync();
-  }, [profileTimezone, router]);
+  }, [homeDetected, router]);
 
   return null;
 }

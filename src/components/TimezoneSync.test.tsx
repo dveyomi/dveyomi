@@ -34,7 +34,7 @@ describe("TimezoneSync", () => {
 
   it("writes the device zone to the tz cookie and refreshes once", async () => {
     setDeviceZone("Asia/Taipei");
-    render(<TimezoneSync profileTimezone="Asia/Taipei" />);
+    render(<TimezoneSync homeDetected />);
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
     expect(document.cookie).toContain("tz=Asia%2FTaipei");
     expect(adoptDeviceTimezone).not.toHaveBeenCalled();
@@ -43,33 +43,31 @@ describe("TimezoneSync", () => {
   it("does nothing when the cookie already matches the device", async () => {
     setDeviceZone("Asia/Taipei");
     document.cookie = "tz=Asia%2FTaipei; path=/";
-    render(<TimezoneSync profileTimezone="Asia/Taipei" />);
+    render(<TimezoneSync homeDetected />);
     await new Promise((r) => setTimeout(r, 10));
     expect(refresh).not.toHaveBeenCalled();
     expect(adoptDeviceTimezone).not.toHaveBeenCalled();
   });
 
-  it("saves the device zone to a profile still on the default zone", async () => {
+  it("detects the home zone once: saves the device zone while not yet detected", async () => {
     setDeviceZone("Asia/Taipei");
     document.cookie = "tz=Asia%2FTaipei; path=/";
-    render(<TimezoneSync profileTimezone="Europe/London" />);
+    render(<TimezoneSync homeDetected={false} />);
     await waitFor(() => expect(adoptDeviceTimezone).toHaveBeenCalledWith("Asia/Taipei"));
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
   });
 
-  it("leaves a profile that chose a zone alone", async () => {
-    setDeviceZone("Asia/Taipei");
-    render(<TimezoneSync profileTimezone="America/New_York" />);
-    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
-    expect(adoptDeviceTimezone).not.toHaveBeenCalled();
-  });
-
-  it("does not touch a default profile when the device is in London", async () => {
+  it("also records a London device as detected", async () => {
     setDeviceZone("Europe/London");
     document.cookie = "tz=Europe%2FLondon; path=/";
-    render(<TimezoneSync profileTimezone="Europe/London" />);
-    await new Promise((r) => setTimeout(r, 10));
+    render(<TimezoneSync homeDetected={false} />);
+    await waitFor(() => expect(adoptDeviceTimezone).toHaveBeenCalledWith("Europe/London"));
+  });
+
+  it("never touches a detected home zone, even when travelling", async () => {
+    setDeviceZone("Asia/Taipei");
+    render(<TimezoneSync homeDetected />);
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
     expect(adoptDeviceTimezone).not.toHaveBeenCalled();
-    expect(refresh).not.toHaveBeenCalled();
   });
 });

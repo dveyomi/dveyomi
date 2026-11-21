@@ -4,8 +4,6 @@ import { todayIn, type IsoDate } from "@/lib/calc";
 import { getProfile } from "@/lib/supabase/server";
 import { DEFAULT_TIMEZONE, TZ_COOKIE, isTimeZone } from "@/lib/timezone";
 
-export { isTimeZone };
-
 /**
  * Today's calendar date for the user: the device zone from the `tz` cookie,
  * else the profile's zone, else Europe/London. Invalid zones are skipped.

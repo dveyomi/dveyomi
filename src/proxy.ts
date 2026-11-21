@@ -1,15 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-
-/** Paths anyone may open without signing in. */
-function isPublic(pathname: string): boolean {
-  return (
-    pathname === "/login" ||
-    pathname === "/privacy" ||
-    pathname === "/auth" ||
-    pathname.startsWith("/auth/")
-  );
-}
+import { isPublic } from "@/lib/publicPaths";
 
 /**
  * Refreshes the Supabase session on every request and sends signed-out
@@ -60,8 +51,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    // Everything except Next internals and static files.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
-  ],
+  // Everything except Next's build assets and the favicon. There is no public/
+  // folder; if one is added, list its files here by name rather than bypassing
+  // any path that merely ends in an image extension.
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico$).*)"],
 };
