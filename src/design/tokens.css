@@ -2,25 +2,20 @@
  * Personal Finance OS design tokens: the only place colours, type, spacing,
  * radii and elevation are defined. Change a value here and the whole app follows.
  * globals.css maps these into Tailwind's theme (bg-card, text-muted, rounded-md…).
+ *
+ * Two colour sets, one set of names. Light is the default (:root). Dark applies
+ * under <html data-theme="dark">, and under data-theme="system" when the device
+ * prefers dark. The root layout's inline script sets data-theme from the `theme`
+ * cookie before first paint. Every colour token must be defined in both sets.
+ *
+ * Fill vs foreground: --accent, --danger, --warning and --positive are fills
+ * (buttons, chips, tints). Text, icons, strokes, bars and focus rings use the
+ * -fg tokens, which are at least 4.5:1 on bg and card in both themes. Text on a
+ * fill uses --accent-ink.
  */
+
+/* Shared by both themes */
 :root {
-  color-scheme: dark;
-
-  /* Colour */
-  --bg: #0B0B0C;
-  --card: #17181A;
-  --card-raised: #1F2023;
-  --text: #F5F5F4;
-  --muted: #8A8D93;
-  --accent: #C6F432;
-  --accent-ink: #0B0B0C; /* text on accent */
-  --danger: #FF5A5F;
-  --warning: #FFB020;
-  --positive: #4ADE80;
-  --border: #2A2B2E; /* dividers and decorative outlines */
-  --border-strong: #6B6E74; /* form control boundaries: >= 3:1 on card and card-raised */
-  --scrim: rgb(0 0 0 / 0.64); /* behind sheets and dialogs */
-
   /* Type */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --text-display: 40px; /* amounts */
@@ -49,8 +44,93 @@
 
   /* Layout */
   --width-phone: 390px; /* iPhone layout width; the design gallery previews at it */
+}
+
+/* Light (default) */
+:root {
+  color-scheme: light;
+
+  /* Colour */
+  --bg: #F5F5F3;
+  --card: #FFFFFF;
+  --card-raised: #EEEEEB;
+  --text: #111113;
+  --muted: #5F6268;
+  --accent: #C6F432; /* fill: primary button, selected chip, + button */
+  --accent-ink: #0B0B0C; /* text on accent (and on danger) */
+  --accent-fg: #4A6600; /* lime-family text, icons, strokes and focus rings on bg and card */
+  --danger: #FF5A5F;
+  --danger-fg: #C0262D;
+  --warning: #FFB020;
+  --warning-fg: #8F5B00;
+  --positive: #4ADE80;
+  --positive-fg: #1C7A3A;
+  --border: #E2E2DE; /* dividers and decorative outlines */
+  --border-strong: #7A7D83; /* form control boundaries: >= 3:1 on card and card-raised */
+  --scrim: rgb(17 17 19 / 0.4); /* behind sheets and dialogs */
+
+  /* Elevation */
+  --shadow-sheet: 0 -8px 32px rgb(17 17 19 / 0.12);
+  --shadow-float: 0 8px 24px rgb(17 17 19 / 0.12); /* floating phone nav */
+}
+
+/* Dark: chosen in Settings */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Colour */
+  --bg: #0B0B0C;
+  --card: #17181A;
+  --card-raised: #1F2023;
+  --text: #F5F5F4;
+  --muted: #8A8D93;
+  --accent: #C6F432;
+  --accent-ink: #0B0B0C;
+  --accent-fg: #C6F432;
+  --danger: #FF5A5F;
+  --danger-fg: #FF5A5F;
+  --warning: #FFB020;
+  --warning-fg: #FFB020;
+  --positive: #4ADE80;
+  --positive-fg: #4ADE80;
+  --border: #2A2B2E;
+  --border-strong: #6B6E74;
+  --scrim: rgb(0 0 0 / 0.64);
 
   /* Elevation */
   --shadow-sheet: 0 -8px 32px rgb(0 0 0 / 0.5);
-  --shadow-float: 0 8px 24px rgb(0 0 0 / 0.55); /* floating phone nav */
+  --shadow-float: 0 8px 24px rgb(0 0 0 / 0.55);
+}
+
+/* Match device: light unless the device prefers dark. Keep this block identical to the dark one. */
+:root[data-theme="system"] {
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    color-scheme: dark;
+
+    /* Colour */
+    --bg: #0B0B0C;
+    --card: #17181A;
+    --card-raised: #1F2023;
+    --text: #F5F5F4;
+    --muted: #8A8D93;
+    --accent: #C6F432;
+    --accent-ink: #0B0B0C;
+    --accent-fg: #C6F432;
+    --danger: #FF5A5F;
+    --danger-fg: #FF5A5F;
+    --warning: #FFB020;
+    --warning-fg: #FFB020;
+    --positive: #4ADE80;
+    --positive-fg: #4ADE80;
+    --border: #2A2B2E;
+    --border-strong: #6B6E74;
+    --scrim: rgb(0 0 0 / 0.64);
+
+    /* Elevation */
+    --shadow-sheet: 0 -8px 32px rgb(0 0 0 / 0.5);
+    --shadow-float: 0 8px 24px rgb(0 0 0 / 0.55);
+  }
 }

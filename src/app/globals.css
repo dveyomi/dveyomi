@@ -15,9 +15,13 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
+  --color-accent-fg: var(--accent-fg);
   --color-danger: var(--danger);
+  --color-danger-fg: var(--danger-fg);
   --color-warning: var(--warning);
+  --color-warning-fg: var(--warning-fg);
   --color-positive: var(--positive);
+  --color-positive-fg: var(--positive-fg);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-scrim: var(--scrim);

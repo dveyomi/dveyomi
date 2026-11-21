@@ -15,7 +15,7 @@ function SignInBody({ error, onClick, pending }: { error: string | null; onClick
   return (
     <div className="flex flex-col gap-3">
       {error ? (
-        <p role="alert" className="text-body text-danger">
+        <p role="alert" className="text-body text-danger-fg">
           {error}
         </p>
       ) : null}

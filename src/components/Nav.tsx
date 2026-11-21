@@ -44,7 +44,7 @@ export function Nav() {
                 href={tab.href}
                 aria-current={current ? "page" : undefined}
                 className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-pill text-caption font-semibold transition-colors md:min-h-11 md:flex-row md:justify-start md:gap-3 md:px-3 md:text-body ${focusRing} ${
-                  current ? "bg-bg text-accent md:bg-card-raised" : "text-text hover:bg-card md:hover:bg-card-raised"
+                  current ? "bg-bg text-accent-fg md:bg-card-raised" : "text-text hover:bg-card md:hover:bg-card-raised"
                 }`}
               >
                 <Icon name={tab.icon} size="lg" />
@@ -57,7 +57,7 @@ export function Nav() {
       <Link
         href={ADD_HREF}
         aria-current={adding ? "page" : undefined}
-        className={`flex size-16.5 shrink-0 items-center justify-center gap-2 self-center rounded-pill border border-border font-semibold text-accent shadow-float transition-colors md:h-11 md:w-full md:border-0 md:bg-accent md:text-accent-ink md:shadow-none md:hover:bg-accent/90 ${focusRing} ${
+        className={`flex size-16.5 shrink-0 items-center justify-center gap-2 self-center rounded-pill border border-border font-semibold text-accent-fg shadow-float transition-colors md:h-11 md:w-full md:border-0 md:bg-accent md:text-accent-ink md:shadow-none md:hover:bg-accent/90 ${focusRing} ${
           adding ? "bg-bg" : "bg-card-raised hover:bg-card"
         }`}
       >

@@ -1,6 +1,41 @@
 # Design system
 
-One design system for the whole app. It is dark only and built for a phone first, with a separately designed desktop layout: a near-black background, charcoal cards, white text, muted grey secondary text, one restrained lime accent and rounded shapes.
+One design system for the whole app, built for a phone first with a separately designed desktop layout. It has two themes that share every token name: **light** (the default: off-white background, white cards, near-black text, grey secondary text) and **dark** (near-black background, charcoal cards, white text, muted grey secondary text). Both use one restrained lime accent and rounded shapes.
+
+## Themes
+
+`tokens.css` holds two colour sets:
+
+| Selector | When it applies |
+| --- | --- |
+| `:root` (the block with `color-scheme: light`) | Light, the default: no cookie, `theme=light`, or an invalid value |
+| `:root[data-theme="dark"]` | Dark, chosen in Settings |
+| `:root[data-theme="system"]` inside `@media (prefers-color-scheme: dark)` | Match device, while the device prefers dark. It is a copy of the dark block; a test fails if they differ |
+
+Type, spacing, radii and layout tokens are shared and sit in their own `:root` block. Colours and elevation (`--shadow-*`, `--scrim`) differ per theme. Each theme sets `color-scheme`, so native controls and scrollbars match.
+
+The choice lives in the `theme` cookie (`light`, `dark` or `system`; one year, `path=/`, `SameSite=Lax`). `src/lib/theme.ts` holds the helpers. An inline script in the root layout's `<head>` reads the cookie and sets `<html data-theme>` before first paint, so no page shows the wrong theme, and pages stay static. The Settings Theme card and the `/design` gallery use `ThemeChooser`, which changes `data-theme` and the cookie at once, with no reload. Match device follows the OS setting live through the media query.
+
+## Fill vs foreground colours
+
+Bright lime is unreadable on white, so each accent and status colour comes in two roles:
+
+| Fill (backgrounds) | Foreground (text, icons, strokes, bars, focus rings on bg and card) |
+| --- | --- |
+| `--accent` (`bg-accent`): primary button, selected chip, desktop + button | `--accent-fg` (`text-accent-fg`, `stroke-accent-fg`, `outline-accent-fg`): lime in dark, deep olive in light |
+| `--danger`, `--warning`, `--positive` (`bg-danger`, tints such as `bg-danger/15`) | `--danger-fg`, `--warning-fg`, `--positive-fg` |
+| text on a fill: `--accent-ink` (`text-accent-ink`) | |
+
+Rule: a fill token never colours text, icons, strokes, outlines or borders. `tokens.test.ts` fails on `text-accent`, `stroke-danger`, `outline-accent`, `border-danger` and similar. In dark each `-fg` value equals its fill, so the dark theme looks the same.
+
+Contrast is tested in both themes: text and muted are at least 4.5:1 on bg, card and card-raised; every `-fg` is at least 4.5:1 on bg and card; `--accent-ink` is at least 4.5:1 on `--accent`; `--border-strong` is at least 3:1 on card and card-raised.
+
+## Adding a colour token
+
+1. Add it to the light `:root` block **and** to `:root[data-theme="dark"]`. Copy the dark line into the `[data-theme="system"]` block inside the media query too.
+2. Map it in `src/app/globals.css` under `@theme inline` (`--color-name: var(--name);`).
+3. If it is a foreground, add it to the contrast tests in `tokens.test.ts`. If it is a fill that needs text on it, add a `-fg` partner or an ink token.
+4. Add a swatch to the Colour section of `/design`, then check both themes with the switch at the top.
 
 ## Rules
 
@@ -24,12 +59,12 @@ One design system for the whole app. It is dark only and built for a phone first
 
 | Token | Utilities |
 | --- | --- |
-| `--bg`, `--card`, `--card-raised`, `--text`, `--muted`, `--accent`, `--accent-ink`, `--danger`, `--warning`, `--positive`, `--border`, `--scrim` | `bg-*`, `text-*`, `border-*`, `stroke-*`, etc. (e.g. `bg-card`, `text-muted`) |
+| `--bg`, `--card`, `--card-raised`, `--text`, `--muted`, `--accent`, `--accent-ink`, `--accent-fg`, `--danger`, `--danger-fg`, `--warning`, `--warning-fg`, `--positive`, `--positive-fg`, `--border`, `--border-strong`, `--scrim` | `bg-*`, `text-*`, `border-*`, `stroke-*`, etc. (e.g. `bg-card`, `text-muted`) |
 | `--text-display` 40px, `--text-title` 20px, `--text-body` 16px, `--text-caption` 13px | `text-display`, `text-title`, `text-body`, `text-caption` |
 | `--font-sans` | `font-sans` |
 | `--space-1` (4px step) | every spacing utility: `p-4` is `4 × --space-1`, which equals `--space-4` |
 | `--radius-sm` 8px, `--radius-md` 16px, `--radius-pill` | `rounded-sm`, `rounded-md`, `rounded-pill` |
-| `--shadow-sheet` | `shadow-sheet` |
+| `--shadow-sheet`, `--shadow-float` | `shadow-sheet`, `shadow-float` |
 | `--width-phone` 390px | `max-w-phone` |
 
 Tailwind also writes self-referencing copies such as `--text-display: var(--text-display)` into its `theme` layer. Those copies have no effect, because `tokens.css` is not in any layer and unlayered declarations win. The `/design` page confirms that the real values apply.
@@ -38,9 +73,9 @@ Tailwind also writes self-referencing copies such as `--text-display: var(--text
 
 All components are exported from `@/components/ui`:
 
-`Button`, `IconButton`, `Card`, `ProgressBar`, `Gauge`, `Badge`, `StatusBadge`, `Money`, `AmountInput`, `TextField`, `Select`, `Toggle`, `SegmentedTabs`, `BottomSheet`, `ConfirmDialog`, `ListRow`, `EmptyState`, `Chip`, `Icon` (a single inline SVG set, where `IconName` is a string union).
+`Button`, `IconButton`, `Card`, `ProgressBar`, `Gauge`, `Badge`, `StatusBadge`, `Money`, `AmountInput`, `TextField`, `Select`, `Toggle`, `SegmentedTabs` (switch views; tablist), `RadioSegments` (pick one setting; radiogroup), `BottomSheet`, `ConfirmDialog`, `ListRow`, `EmptyState`, `Chip`, `Icon` (a single inline SVG set, where `IconName` is a string union).
 
-`/design` is a living gallery that shows every token and every component in each of its variants and states, at phone width (390) and at desktop width. It is available only in development: in production it returns `notFound()`.
+`/design` is a living gallery that shows every token and every component in each of its variants and states, at phone width (390) and at desktop width. A theme switch at the top shows it in light, dark or the device's setting. It is available only in development: in production it returns `notFound()`.
 
 ## References
 
@@ -59,5 +94,5 @@ The reference results also settled several token values:
 
 - **Large figures:** around 40px, set in tabular numerals.
 - **Corner radii:** 16px on cards and pill-shaped buttons.
-- **Card surfaces:** charcoal cards on a near-black background (Phantom and Aave in dark mode).
+- **Card surfaces:** charcoal cards on a near-black background (Phantom and Aave in dark mode); in light, white cards on an off-white background.
 - **Over-budget state:** shown in red by filling the bar completely (Copilot).

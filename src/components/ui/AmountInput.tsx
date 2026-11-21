@@ -56,7 +56,7 @@ export function AmountInput({
   return (
     <FieldShell id={id} label={label} hint={hint} error={shown}>
       <div
-        className={`flex h-16 items-center gap-1 rounded-sm border bg-card-raised px-4 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent ${borderFor(shown)}`}
+        className={`flex h-16 items-center gap-1 rounded-sm border bg-card-raised px-4 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent-fg ${borderFor(shown)}`}
       >
         <span aria-hidden="true" className="text-title font-semibold text-muted">
           £

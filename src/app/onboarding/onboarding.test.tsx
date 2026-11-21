@@ -63,7 +63,7 @@ describe("OnboardingWizard: spending budget", () => {
     expect(screen.getByRole("heading", { name: "Your spending budget" })).toBeInTheDocument();
     addCategory("Rent", "1200");
     const over = screen.getByText("£200.00 over");
-    expect(over).toHaveClass("text-danger");
+    expect(over).toHaveClass("text-danger-fg");
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
     click("Continue");
     expect(screen.getByRole("heading", { name: "Savings" })).toBeInTheDocument();

@@ -57,7 +57,7 @@ export function Savings({
         <p aria-live="polite" className="text-caption text-muted">
           That leaves <Money pence={poolPence} /> a month to spend.
           {overAllocatedPence > 0 ? (
-            <span className="text-danger"> Your categories are {formatGBP(overAllocatedPence)} over that.</span>
+            <span className="text-danger-fg"> Your categories are {formatGBP(overAllocatedPence)} over that.</span>
           ) : null}
         </p>
       </Card>
@@ -119,11 +119,11 @@ export function Savings({
         {saving && funds.length > 0 ? (
           <p aria-live="polite" className="text-body font-semibold">
             {remainder > 0 ? (
-              <span className="text-warning">{formatGBP(remainder)} still to split</span>
+              <span className="text-warning-fg">{formatGBP(remainder)} still to split</span>
             ) : remainder < 0 ? (
-              <span className="text-danger">{formatGBP(-remainder)} more than your savings</span>
+              <span className="text-danger-fg">{formatGBP(-remainder)} more than your savings</span>
             ) : (
-              <span className="text-positive">Your funds add up to your savings</span>
+              <span className="text-positive-fg">Your funds add up to your savings</span>
             )}
           </p>
         ) : null}

@@ -10,6 +10,7 @@ import {
   Gauge,
   Money,
   ProgressBar,
+  RadioSegments,
   SegmentedTabs,
   StatusBadge,
   Toggle,
@@ -23,7 +24,7 @@ describe("ProgressBar", () => {
     render(<ProgressBar percent={40} state="over" label="Groceries" />);
     const fill = screen.getByRole("progressbar").firstElementChild as HTMLElement;
     expect(fill.style.width).toBe("100%");
-    expect(fill).toHaveClass("bg-danger");
+    expect(fill).toHaveClass("bg-danger-fg");
   });
 
   it("renders the clamped percent with the accent fill when normal", () => {
@@ -31,8 +32,8 @@ describe("ProgressBar", () => {
     const bar = screen.getByRole("progressbar");
     const fill = bar.firstElementChild as HTMLElement;
     expect(fill.style.width).toBe("100%");
-    expect(fill).toHaveClass("bg-accent");
-    expect(fill).not.toHaveClass("bg-danger");
+    expect(fill).toHaveClass("bg-accent-fg");
+    expect(fill).not.toHaveClass("bg-danger-fg");
     expect(bar).toHaveAttribute("aria-valuenow", "100");
   });
 });
@@ -89,13 +90,13 @@ describe("Money", () => {
   it("shows a negative amount in danger when tone is auto", () => {
     render(<Money pence={-10000} />);
     const el = screen.getByText("-£100.00");
-    expect(el).toHaveClass("text-danger");
+    expect(el).toHaveClass("text-danger-fg");
     expect(el).toHaveClass("tabular-nums");
   });
 
   it("does not colour a negative amount when tone is neutral", () => {
     render(<Money pence={-10000} tone="neutral" />);
-    expect(screen.getByText("-£100.00")).not.toHaveClass("text-danger");
+    expect(screen.getByText("-£100.00")).not.toHaveClass("text-danger-fg");
   });
 });
 
@@ -282,5 +283,70 @@ describe("StatusBadge", () => {
   ] as const)("maps %s to %s", (status, label) => {
     render(<StatusBadge status={status} />);
     expect(screen.getByText(label)).toBeInTheDocument();
+  });
+});
+
+describe("RadioSegments", () => {
+  const options = [
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
+    { value: "system", label: "Match device" },
+  ] as const;
+
+  function Controlled({ onChange = () => {} }: { onChange?: (v: string) => void }) {
+    const [value, setValue] = useState<string>("light");
+    return (
+      <RadioSegments
+        label="Theme"
+        options={[...options]}
+        value={value}
+        onChange={(v) => {
+          setValue(v);
+          onChange(v);
+        }}
+      />
+    );
+  }
+
+  it("is a labelled radiogroup with the current option checked", () => {
+    render(<Controlled />);
+    expect(screen.getByRole("radiogroup", { name: "Theme" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Light" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Dark" })).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("selects on click", () => {
+    const onChange = vi.fn();
+    render(<Controlled onChange={onChange} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Match device" }));
+    expect(onChange).toHaveBeenCalledWith("system");
+    expect(screen.getByRole("radio", { name: "Match device" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("has one tab stop, and arrow keys move and select (wrapping)", () => {
+    render(<Controlled />);
+    const [light, dark, system] = screen.getAllByRole("radio");
+    expect(light).toHaveAttribute("tabindex", "0");
+    expect(dark).toHaveAttribute("tabindex", "-1");
+    fireEvent.keyDown(light, { key: "ArrowRight" });
+    expect(dark).toHaveAttribute("aria-checked", "true");
+    expect(dark).toHaveFocus();
+    fireEvent.keyDown(dark, { key: "ArrowDown" });
+    expect(system).toHaveAttribute("aria-checked", "true");
+    fireEvent.keyDown(system, { key: "ArrowRight" });
+    expect(light).toHaveAttribute("aria-checked", "true");
+    fireEvent.keyDown(light, { key: "ArrowUp" });
+    expect(system).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("marks the checked option with an accent-fg edge, not the fill alone", () => {
+    render(<Controlled />);
+    expect(screen.getByRole("radio", { name: "Light" })).toHaveClass("border-accent-fg");
+    expect(screen.getByRole("radio", { name: "Dark" })).not.toHaveClass("border-accent-fg");
+  });
+
+  it("every option is at least 44px tall", () => {
+    render(<Controlled />);
+    for (const radio of screen.getAllByRole("radio")) expect(radio.className).toMatch(TAP_44);
   });
 });

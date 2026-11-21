@@ -17,6 +17,7 @@ import {
   ListRow,
   Money,
   ProgressBar,
+  RadioSegments,
   SegmentedTabs,
   Select,
   StatusBadge,
@@ -33,9 +34,14 @@ const colours = [
   ["--muted", "bg-muted"],
   ["--accent", "bg-accent"],
   ["--accent-ink", "bg-accent-ink"],
+  ["--accent-fg", "bg-accent-fg"],
   ["--danger", "bg-danger"],
+  ["--danger-fg", "bg-danger-fg"],
   ["--warning", "bg-warning"],
+  ["--warning-fg", "bg-warning-fg"],
   ["--positive", "bg-positive"],
+  ["--positive-fg", "bg-positive-fg"],
+  ["--border-strong", "bg-border-strong"],
 ] as const;
 
 const typeScale = [
@@ -104,13 +110,15 @@ function Label({ children }: { children: ReactNode }) {
   return <span className="text-caption text-muted">{children}</span>;
 }
 
-export function DesignGallery() {
+/** `themeSwitch`: the Light / Dark / Match device control, so every component can be checked in both themes. */
+export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [period, setPeriod] = useState<"week" | "month" | "year">("month");
   const [toggle, setToggle] = useState(true);
   const [chip, setChip] = useState("groceries");
+  const [repeat, setRepeat] = useState<"weekly" | "monthly" | "yearly">("monthly");
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 md:px-8">
@@ -120,6 +128,10 @@ export function DesignGallery() {
           Every token and component. Change a value in src/design/tokens.css; change a
           component&apos;s look in its file under src/components/ui.
         </p>
+        <div className="mt-2 flex max-w-phone flex-col gap-2">
+          <Label>Theme (the same control as Settings)</Label>
+          {themeSwitch}
+        </div>
       </header>
 
       <Section title="Colour">
@@ -339,6 +351,29 @@ export function DesignGallery() {
               { value: "year", label: "Year" },
             ]}
           />
+          <Label>RadioSegments: pick one setting (radiogroup), on bg and inside a Card</Label>
+          <RadioSegments
+            label="Repeats"
+            value={repeat}
+            onChange={setRepeat}
+            options={[
+              { value: "weekly", label: "Weekly" },
+              { value: "monthly", label: "Monthly" },
+              { value: "yearly", label: "Yearly" },
+            ]}
+          />
+          <Card>
+            <RadioSegments
+              label="Repeats (in a card)"
+              value={repeat}
+              onChange={setRepeat}
+              options={[
+                { value: "weekly", label: "Weekly" },
+                { value: "monthly", label: "Monthly" },
+                { value: "yearly", label: "Yearly" },
+              ]}
+            />
+          </Card>
         </Widths>
       </Section>
 

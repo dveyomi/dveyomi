@@ -23,7 +23,7 @@ export function Live({ input, today }: { input: OnboardingInput; today: IsoDate 
           <Row label="Needs" value={<Money pence={totals.needsPence} />} />
           <Row label="Wants" value={<Money pence={totals.wantsPence} />} />
           {totals.overAllocatedPence > 0 ? (
-            <Row label="Over allocated" value={<span className="text-danger">{formatGBP(totals.overAllocatedPence)}</span>} />
+            <Row label="Over allocated" value={<span className="text-danger-fg">{formatGBP(totals.overAllocatedPence)}</span>} />
           ) : (
             <Row label="Left to allocate" value={<Money pence={totals.unallocatedPence} />} />
           )}
@@ -56,7 +56,7 @@ function Row({ label, sub, value, strong }: { label: string; sub?: string; value
         <span className={`text-body ${strong ? "font-semibold text-text" : "text-muted"}`}>{label}</span>
         {sub ? <span className="text-caption text-muted">{sub}</span> : null}
       </dt>
-      <dd className={`text-body tabular-nums ${strong ? "font-semibold text-accent" : "text-text"}`}>{value}</dd>
+      <dd className={`text-body tabular-nums ${strong ? "font-semibold text-accent-fg" : "text-text"}`}>{value}</dd>
     </div>
   );
 }

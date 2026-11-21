@@ -35,7 +35,7 @@ export function Gauge({ percent, state, label, children }: GaugeProps) {
             strokeLinecap="round"
             pathLength={100}
             strokeDasharray={`${drawn} 100`}
-            className={state === "over" ? "stroke-danger" : "stroke-accent"}
+            className={state === "over" ? "stroke-danger-fg" : "stroke-accent-fg"}
           />
         ) : null}
       </svg>

@@ -52,11 +52,11 @@ export function Spending({ incomePence, savingsPence, savingsEntered, categories
         <Figure label="Allocated" pence={totals.allocatedPence} />
         <p aria-live="polite" className="col-span-2 text-body font-semibold">
           {totals.overAllocatedPence > 0 ? (
-            <span className="text-danger">{formatGBP(totals.overAllocatedPence)} over</span>
+            <span className="text-danger-fg">{formatGBP(totals.overAllocatedPence)} over</span>
           ) : totals.unallocatedPence > 0 ? (
             <span className="text-muted">{formatGBP(totals.unallocatedPence)} left to allocate</span>
           ) : categories.length > 0 ? (
-            <span className="text-positive">Every pound has a job</span>
+            <span className="text-positive-fg">Every pound has a job</span>
           ) : null}
         </p>
       </Card>

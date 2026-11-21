@@ -191,7 +191,7 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
         <footer className="sticky bottom-0 mt-6 border-t border-border bg-bg pt-4 pb-safe md:static md:border-0 md:bg-transparent md:pb-12">
           <div className="mx-auto flex w-full max-w-phone flex-col gap-3 px-4 md:max-w-2xl md:items-end md:px-8">
             {stepError ? (
-              <p role="alert" className="text-caption text-danger md:self-stretch">
+              <p role="alert" className="text-caption text-danger-fg md:self-stretch">
                 {stepError}
               </p>
             ) : null}

@@ -15,7 +15,7 @@ export function Chip({ label, selected = false, onClick, disabled }: ChipProps) 
       aria-pressed={selected}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex min-h-11 items-center rounded-pill border px-4 text-caption font-semibold transition-colors disabled:opacity-40 ${focusRing} ${selected ? "border-accent bg-accent text-accent-ink" : "border-border bg-card text-text hover:bg-card-raised"}`}
+      className={`inline-flex min-h-11 items-center rounded-pill border px-4 text-caption font-semibold transition-colors disabled:opacity-40 ${focusRing} ${selected ? "border-accent-fg bg-accent text-accent-ink" : "border-border bg-card text-text hover:bg-card-raised"}`}
     >
       {label}
     </button>

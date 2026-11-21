@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 
 const tones = {
   neutral: "bg-card-raised text-muted",
-  positive: "bg-positive/15 text-positive",
-  warning: "bg-warning/15 text-warning",
-  danger: "bg-danger/15 text-danger",
+  positive: "bg-positive/15 text-positive-fg",
+  warning: "bg-warning/15 text-warning-fg",
+  danger: "bg-danger/15 text-danger-fg",
 } as const;
 
 export type BadgeTone = keyof typeof tones;

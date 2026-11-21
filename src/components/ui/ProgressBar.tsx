@@ -23,7 +23,7 @@ export function ProgressBar({ percent, state, label, className = "" }: ProgressB
       className={`h-2 w-full overflow-hidden rounded-pill bg-card-raised ${className}`}
     >
       <div
-        className={`h-full rounded-pill transition-[width] duration-300 ${state === "over" ? "bg-danger" : "bg-accent"}`}
+        className={`h-full rounded-pill transition-[width] duration-300 ${state === "over" ? "bg-danger-fg" : "bg-accent-fg"}`}
         style={{ width: `${drawn}%` }}
       />
     </div>

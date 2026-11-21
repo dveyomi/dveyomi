@@ -55,7 +55,11 @@ describe("design tokens", () => {
       "--muted",
       "--accent",
       "--accent-ink",
+      "--accent-fg",
       "--danger",
+      "--danger-fg",
+      "--warning-fg",
+      "--positive-fg",
       "--warning",
       "--positive",
       "--border",
@@ -108,19 +112,112 @@ function contrast(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
 }
-function tokenHex(name: string): string {
-  const m = tokensCss.match(new RegExp(`${name}\\s*:\\s*(#[0-9a-fA-F]{6})\\b`));
-  if (!m) throw new Error(`${name} is not a 6-digit hex token`);
-  return m[1];
+
+/** The body of the first rule whose selector is exactly `selector`, searching from `from`. */
+function ruleBody(css: string, selector: string, from = 0): string {
+  const at = css.indexOf(`${selector} {`, from);
+  if (at === -1) throw new Error(`no "${selector} {" block in tokens.css`);
+  const open = css.indexOf("{", at);
+  return css.slice(open + 1, css.indexOf("}", open));
+}
+/** Custom properties declared in a rule body, name to value. */
+function declarations(body: string): Map<string, string> {
+  return new Map([...body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
 }
 
-describe("contrast", () => {
-  it("--border-strong (form control boundaries) is at least 3:1 on --card and --card-raised", () => {
+const DARK = ':root[data-theme="dark"]';
+const SYSTEM = ':root[data-theme="system"]';
+/** The light (default) colours: the top-level `:root {` block that sets color-scheme. */
+const lightBody =
+  [...tokensCss.matchAll(/^:root \{/gm)]
+    .map((m) => ruleBody(tokensCss, ":root", m.index))
+    .find((body) => /color-scheme/.test(body)) ?? "";
+const darkBody = ruleBody(tokensCss, DARK);
+const mediaAt = tokensCss.indexOf("@media (prefers-color-scheme: dark)");
+const systemDarkBody = mediaAt === -1 ? "" : ruleBody(tokensCss, SYSTEM, mediaAt);
+const themes = { light: declarations(lightBody), dark: declarations(darkBody) };
+
+function hex(theme: Map<string, string>, name: string): string {
+  const value = theme.get(name);
+  if (!value || !/^#[0-9a-fA-F]{6}$/.test(value)) throw new Error(`${name} is not a 6-digit hex token`);
+  return value;
+}
+
+describe("themes", () => {
+  it("light is the default (:root) and declares color-scheme: light", () => {
+    expect(lightBody).toMatch(/color-scheme:\s*light;/);
+  });
+
+  it('dark lives under [data-theme="dark"] with color-scheme: dark', () => {
+    expect(darkBody).toMatch(/color-scheme:\s*dark;/);
+  });
+
+  it('[data-theme="system"] takes the dark values, unchanged, when the device prefers dark', () => {
+    expect(mediaAt).toBeGreaterThan(-1);
+    const normalise = (body: string) => body.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ").trim();
+    expect(normalise(systemDarkBody)).toBe(normalise(darkBody));
+  });
+
+  it('[data-theme="system"] declares both color schemes so native controls follow the device', () => {
+    expect(ruleBody(tokensCss, SYSTEM)).toMatch(/color-scheme:\s*light dark;/);
+  });
+
+  it("both themes define the same colour and elevation tokens", () => {
+    const light = [...themes.light.keys()].sort();
+    expect(light.length).toBeGreaterThan(10);
+    expect([...themes.dark.keys()].sort()).toEqual(light);
+  });
+
+  it("keeps the approved dark palette", () => {
+    expect(Object.fromEntries(themes.dark)).toMatchObject({
+      "--bg": "#0B0B0C",
+      "--card": "#17181A",
+      "--card-raised": "#1F2023",
+      "--text": "#F5F5F4",
+      "--muted": "#8A8D93",
+      "--accent": "#C6F432",
+      "--accent-ink": "#0B0B0C",
+      "--danger": "#FF5A5F",
+      "--warning": "#FFB020",
+      "--positive": "#4ADE80",
+      "--border": "#2A2B2E",
+      "--border-strong": "#6B6E74",
+    });
+  });
+});
+
+describe.each(Object.entries(themes))("contrast (%s)", (_name, theme) => {
+  const on = (fg: string, bg: string) => contrast(hex(theme, fg), hex(theme, bg));
+
+  it.each(["--text", "--muted"])("%s is at least 4.5:1 on bg, card and card-raised", (fg) => {
+    for (const surface of ["--bg", "--card", "--card-raised"]) {
+      expect(on(fg, surface), surface).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it.each(["--accent-fg", "--danger-fg", "--warning-fg", "--positive-fg"])(
+    "%s (text and icons) is at least 4.5:1 on bg and card",
+    (fg) => {
+      for (const surface of ["--bg", "--card"]) {
+        expect(on(fg, surface), surface).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
+
+  it("--accent-ink is at least 4.5:1 on --accent", () => {
+    expect(on("--accent-ink", "--accent")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("--border-strong (form control boundaries) is at least 3:1 on card and card-raised", () => {
     for (const surface of ["--card", "--card-raised"]) {
-      expect(contrast(tokenHex("--border-strong"), tokenHex(surface)), surface).toBeGreaterThanOrEqual(3);
+      expect(on("--border-strong", surface), surface).toBeGreaterThanOrEqual(3);
     }
   });
 });
+
+/** Foreground utilities given a fill token; foregrounds use the -fg (or -ink) tokens instead. */
+const FILL_AS_FOREGROUND =
+  /(?<![\w-])(?:text|stroke|fill|outline|ring|decoration|caret|border)-(?:accent|danger|warning|positive)(?![\w-])/;
 
 describe("no styling outside the design system", () => {
   it("has no hex colour literals", () => {
@@ -153,7 +250,15 @@ describe("no styling outside the design system", () => {
     expect(found).toEqual([]);
   });
 
+  it("never uses a fill colour (accent, danger, warning, positive) for text, icons, strokes or outlines", () => {
+    expect(offences(FILL_AS_FOREGROUND)).toEqual([]);
+  });
+
   it("the scan itself catches offences (guards the regexes)", () => {
+    expect(FILL_AS_FOREGROUND.test('className="text-accent"')).toBe(true);
+    expect(FILL_AS_FOREGROUND.test("stroke-danger")).toBe(true);
+    expect(FILL_AS_FOREGROUND.test("focus-visible:outline-accent")).toBe(true);
+    expect(FILL_AS_FOREGROUND.test("text-accent-fg text-accent-ink bg-accent")).toBe(false);
     const hex = /(?<![\w&])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/;
     expect(hex.test('className="text-[#C6F432]"')).toBe(true);
     expect(hex.test('href="#budget"')).toBe(false);
