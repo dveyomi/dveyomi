@@ -17,3 +17,5 @@ export { compareToPrevious } from "./comparison";
 export type { Comparison } from "./comparison";
 export { fundBalance, fundHistory } from "./funds";
 export type { FundMovement, FundEntry } from "./funds";
+export { scheduleBetween, dueOccurrences, amountOn, withPriceChange } from "./recurring";
+export type { Frequency, Price, Rule } from "./recurring";
