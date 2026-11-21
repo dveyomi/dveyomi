@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { BudgetOverview } from "@/components/BudgetOverview";
 import { loadBudgetView } from "@/lib/data/budget";
+import { loadSavingView } from "@/lib/data/funds";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
 
@@ -14,9 +15,13 @@ export async function BudgetContent({ searchParams }: BudgetContentProps) {
   const [supabase, today, { tab, saved, deleted }] = await Promise.all([createClient(), getToday(), searchParams]);
   const view = await loadBudgetView(supabase, today);
   if (!view.summary) redirect("/onboarding");
+  // After loadBudgetView: it renews the period if due, which can create this period's savings prompt.
+  const saving = await loadSavingView(supabase, today);
   return (
     <BudgetOverview
       {...view}
+      saving={saving}
+      today={today}
       tab={tab === "saving" ? "saving" : "spending"}
       notice={saved === "1" ? "saved" : deleted === "1" ? "deleted" : undefined}
     />

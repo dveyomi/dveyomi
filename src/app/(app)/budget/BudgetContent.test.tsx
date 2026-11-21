@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { loadBudgetView, redirect, getUserId } = vi.hoisted(() => ({
+const { loadBudgetView, loadSavingView, redirect, getUserId } = vi.hoisted(() => ({
   loadBudgetView: vi.fn(),
+  loadSavingView: vi.fn(),
   getUserId: vi.fn(async (): Promise<string | null> => "user-1"),
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`);
@@ -10,6 +11,7 @@ const { loadBudgetView, redirect, getUserId } = vi.hoisted(() => ({
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}), getUserId }));
 vi.mock("@/lib/today", () => ({ getToday: async () => "2026-11-21" }));
 vi.mock("@/lib/data/budget", () => ({ loadBudgetView }));
+vi.mock("@/lib/data/funds", () => ({ loadSavingView }));
 vi.mock("next/navigation", () => ({ redirect }));
 
 import { BudgetContent } from "./BudgetContent";
@@ -20,6 +22,7 @@ const params = (tab?: string) => Promise.resolve(tab ? { tab } : {});
 describe("BudgetContent", () => {
   beforeEach(() => {
     loadBudgetView.mockReset();
+    loadSavingView.mockReset().mockResolvedValue({ funds: [], waiting: [] });
     redirect.mockClear();
     getUserId.mockClear();
   });
@@ -34,13 +37,15 @@ describe("BudgetContent", () => {
     loadBudgetView.mockResolvedValue({ period, summary: null, categories: [] });
     await expect(BudgetContent({ searchParams: params() })).rejects.toThrow("NEXT_REDIRECT:/onboarding");
     expect(loadBudgetView).toHaveBeenCalledWith({}, "2026-11-21");
+    expect(loadSavingView).not.toHaveBeenCalled();
   });
 
   it("renders the budget, on the tab the URL names", async () => {
     const summary = { categories: [] };
     loadBudgetView.mockResolvedValue({ period, summary, categories: [] });
     const saving = await BudgetContent({ searchParams: params("saving") });
-    expect(saving.props).toMatchObject({ summary, tab: "saving" });
+    expect(saving.props).toMatchObject({ summary, tab: "saving", saving: { funds: [], waiting: [] }, today: "2026-11-21" });
+    expect(loadSavingView).toHaveBeenCalledWith({}, "2026-11-21");
     const other = await BudgetContent({ searchParams: params("nonsense") });
     expect(other.props.tab).toBe("spending");
     expect(redirect).not.toHaveBeenCalled();

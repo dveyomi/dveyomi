@@ -536,6 +536,7 @@ export type Database = {
         };
         Returns: string;
       };
+      confirm_savings_split: { Args: { p_date: string; p_period_id: string; p_split: Json }; Returns: undefined };
       delete_category: { Args: { p_category_id: string; p_period_id: string }; Returns: undefined };
       remove_from_budget: {
         Args: { p_category_id: string; p_next_end: string; p_period_id: string; p_scope: string };

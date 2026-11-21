@@ -3,6 +3,7 @@ import { BudgetTabs, type BudgetTab } from "@/components/BudgetTabs";
 import { categoryIcon } from "@/components/categoryIcon";
 import { SafeToSpendInfo } from "@/components/SafeToSpendInfo";
 import { SavedNotice, type SavedNoticeKind } from "@/components/SavedNotice";
+import { SavingTab } from "@/components/SavingTab";
 import { ButtonLink, Card, EmptyState, Gauge, Money, Notice, StatusBadge } from "@/components/ui";
 import {
   formatDaysLeft,
@@ -12,8 +13,10 @@ import {
   leftToSpendPercent,
   overBudgetPence,
   type BudgetSummary,
+  type IsoDate,
   type Period,
 } from "@/lib/calc";
+import type { SavingView } from "@/lib/data/funds";
 import type { CategoryRow } from "@/lib/data/types";
 
 type BudgetOverviewProps = {
@@ -21,6 +24,10 @@ type BudgetOverviewProps = {
   summary: BudgetSummary | null;
   categories: CategoryRow[];
   tab: BudgetTab;
+  /** The Saving tab's funds and waiting savings. */
+  saving: SavingView;
+  /** The user's today, for dating money added to a fund. */
+  today: IsoDate;
   /** A confirmation after returning from the editor or the ⋯ menu. */
   notice?: SavedNoticeKind;
 };
@@ -32,7 +39,7 @@ const groups = [
 ] as const;
 
 /** The Budget tab (§5.4). Every figure is read from `summary`; nothing is worked out here. */
-export function BudgetOverview({ period, summary, categories, tab, notice }: BudgetOverviewProps) {
+export function BudgetOverview({ period, summary, categories, tab, saving, today, notice }: BudgetOverviewProps) {
   if (!summary) {
     return (
       <Card>
@@ -128,15 +135,7 @@ export function BudgetOverview({ period, summary, categories, tab, notice }: Bud
         <BudgetTabs
           initial={tab}
           spending={<SpendingPanel summary={summary} categories={categories} />}
-          saving={
-            <Card>
-              <EmptyState
-                icon="savings"
-                title="Savings funds"
-                body="Your funds and the savings waiting to be moved will show here."
-              />
-            </Card>
-          }
+          saving={<SavingTab view={saving} today={today} />}
         />
       </div>
     </div>

@@ -68,6 +68,13 @@ export function formatDayMonth(d: IsoDate): string {
   return dayMonth.format(toUtcMs(d));
 }
 
+const dayMonthYear = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+/** "2027-07-31" -> "31 Jul 2027". */
+export function formatDayMonthYear(d: IsoDate): string {
+  return dayMonthYear.format(toUtcMs(d));
+}
+
 /** "2026-11-21" -> "Sat 21 Nov". */
 export function formatShortDate(d: IsoDate): string {
   return shortDate.format(toUtcMs(d)).replace(",", "");

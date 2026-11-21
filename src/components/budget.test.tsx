@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BudgetSummary, CategoryFigure, Period } from "@/lib/calc";
+import type { SavingView } from "@/lib/data/funds";
 import type { CategoryRow } from "@/lib/data/types";
 const actions = vi.hoisted(() => ({
   renameCategoryAction: vi.fn(),
@@ -8,12 +9,14 @@ const actions = vi.hoisted(() => ({
   removeFromBudgetAction: vi.fn(),
 }));
 vi.mock("@/app/(app)/budget/actions", () => actions);
+vi.mock("@/app/(app)/budget/fundActions", () => ({ confirmSavingsAction: vi.fn(), saveFundAction: vi.fn(), addFundMovementAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 
 import { BudgetOverview } from "./BudgetOverview";
 import { CategoryDetail } from "./CategoryDetail";
 
 const period: Period = { start: "2026-11-01", end: "2026-11-30", nextStart: "2026-12-01" };
+const noSaving: SavingView = { funds: [], waiting: [] };
 
 function category(id: string, name: string, kind: "need" | "want"): CategoryRow {
   return { id, name, kind, icon: null, colour: null, user_id: "u1" };
@@ -62,7 +65,7 @@ function cardFor(name: string): HTMLElement {
 
 describe("BudgetOverview", () => {
   it("without a budget shows only the set-up empty state: no £0 and no On Track", () => {
-    const { container } = render(<BudgetOverview period={period} summary={null} categories={categories} tab="spending" />);
+    const { container } = render(<BudgetOverview period={period} summary={null} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     expect(screen.getByRole("heading", { name: "Set up your budget" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /set up your budget/i })).toHaveAttribute("href", "/onboarding");
     expect(container.textContent).not.toMatch(/£0/);
@@ -71,7 +74,7 @@ describe("BudgetOverview", () => {
   });
 
   it("with no expenses shows the full pool as Left to spend and On Track", () => {
-    render(<BudgetOverview period={period} summary={summary()} categories={categories} tab="spending" />);
+    render(<BudgetOverview period={period} summary={summary()} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     const gauge = screen.getByRole("meter", { name: /left to spend/i });
     expect(within(gauge).getByText("£2,500.00")).toBeInTheDocument();
     expect(gauge).toHaveAttribute("aria-valuenow", "100");
@@ -80,7 +83,7 @@ describe("BudgetOverview", () => {
   });
 
   it("shows the period dates, the next budget date and a Set new budget link", () => {
-    render(<BudgetOverview period={period} summary={summary()} categories={categories} tab="spending" />);
+    render(<BudgetOverview period={period} summary={summary()} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     expect(screen.getByText("1 Nov – 30 Nov")).toBeInTheDocument();
     expect(byText("Next budgetTue 1 Dec")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Set new budget" })).toHaveAttribute("href", "/budget/edit");
@@ -88,20 +91,21 @@ describe("BudgetOverview", () => {
 
   it("confirms a saved budget or a deleted category after returning from the editor", () => {
     const { rerender } = render(
-      <BudgetOverview period={period} summary={summary()} categories={categories} tab="spending" notice="saved" />,
+      <BudgetOverview period={period} summary={summary()} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" notice="saved" />,
     );
     expect(screen.getByRole("status")).toHaveTextContent("Budget saved.");
-    rerender(<BudgetOverview period={period} summary={summary()} categories={categories} tab="spending" notice="deleted" />);
+    rerender(<BudgetOverview period={period} summary={summary()} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" notice="deleted" />);
     expect(screen.getByRole("status")).toHaveTextContent("Category deleted.");
-    rerender(<BudgetOverview period={period} summary={summary()} categories={categories} tab="spending" />);
+    rerender(<BudgetOverview period={period} summary={summary()} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     expect(screen.queryByText(/saved|deleted/)).not.toBeInTheDocument();
   });
 
   it("clears ?saved from the address once shown, keeping other parameters", () => {
     window.history.replaceState(null, "", "/budget?saved=1&tab=saving");
-    render(<BudgetOverview period={period} summary={summary()} categories={categories} tab="saving" notice="saved" />);
+    render(<BudgetOverview period={period} summary={summary()} categories={categories} saving={noSaving} today="2026-11-21" tab="saving" notice="saved" />);
     expect(window.location.search).toBe("?tab=saving");
-    expect(screen.getByRole("status")).toHaveTextContent("Budget saved.");
+    // The Saving tab has its own (empty) status line too.
+    expect(screen.getByText("Budget saved.").closest('[role="status"]')).not.toBeNull();
     window.history.replaceState(null, "", "/");
   });
 
@@ -115,7 +119,7 @@ describe("BudgetOverview", () => {
       safeToSpendPerDayPence: 86036,
       categories: [],
     });
-    render(<BudgetOverview period={period} summary={ref} categories={categories} tab="spending" />);
+    render(<BudgetOverview period={period} summary={ref} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     const gauge = screen.getByRole("meter", { name: /left to spend/i });
     expect(within(gauge).getByText("£4,301.78")).toBeInTheDocument();
     expect(within(gauge).getByText("5 days left")).toBeInTheDocument();
@@ -126,7 +130,7 @@ describe("BudgetOverview", () => {
   });
 
   it("explains the safe to spend formula behind the info button", () => {
-    render(<BudgetOverview period={period} summary={summary()} categories={categories} tab="spending" />);
+    render(<BudgetOverview period={period} summary={summary()} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     fireEvent.click(screen.getByRole("button", { name: /how safe to spend/i }));
     const sheet = screen.getByRole("dialog", { name: "Safe to spend per day" });
     expect(sheet).toHaveTextContent("(total left − Needs left) ÷ days left, counting today");
@@ -143,7 +147,7 @@ describe("BudgetOverview", () => {
         fig({ categoryId: "fun", kind: "want", allocatedPence: 100000, leftPence: 100000 }),
       ],
     });
-    render(<BudgetOverview period={period} summary={s} categories={categories} tab="spending" />);
+    render(<BudgetOverview period={period} summary={s} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     const card = cardFor("Rent");
     const over = within(card).getByText((_, el) => el?.textContent === "£200.00 over" && el.tagName === "P");
     expect(over).toHaveClass("text-danger-fg");
@@ -159,7 +163,7 @@ describe("BudgetOverview", () => {
         fig({ categoryId: "gifts", kind: null, noBudget: true, spentPence: 2500, leftPence: -2500, overPence: 2500 }),
       ],
     });
-    render(<BudgetOverview period={period} summary={s} categories={categories} tab="spending" />);
+    render(<BudgetOverview period={period} summary={s} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     const card = cardFor("Gifts");
     expect(within(card).getByText(/no budget yet/i)).toBeInTheDocument();
     expect(within(card).queryByText(/over/)).not.toBeInTheDocument();
@@ -180,7 +184,7 @@ describe("BudgetOverview", () => {
         fig({ categoryId: "fun", kind: "want", allocatedPence: 150000, spentPence: 254500, leftPence: -104500, overPence: 104500 }),
       ],
     });
-    const { container } = render(<BudgetOverview period={period} summary={s} categories={categories} tab="spending" />);
+    const { container } = render(<BudgetOverview period={period} summary={s} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     expect(byText("Over budget by £50.00")).toBeInTheDocument();
     expect(screen.getByRole("meter", { name: /left to spend/i })).toHaveAttribute(
       "aria-valuetext",
@@ -194,23 +198,27 @@ describe("BudgetOverview", () => {
   });
 
   it("links each allocation card to its category detail", () => {
-    render(<BudgetOverview period={period} summary={summary()} categories={categories} tab="spending" />);
+    render(<BudgetOverview period={period} summary={summary()} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     expect(cardFor("Rent")).toHaveAttribute("href", "/budget/rent");
     expect(cardFor("Going out")).toHaveAttribute("href", "/budget/fun");
   });
 
-  it("opens the Saving tab with the savings empty state", () => {
-    render(<BudgetOverview period={period} summary={summary()} categories={categories} tab="saving" />);
+  it("opens the Saving tab with the funds and the savings waiting to be moved", () => {
+    const saving: SavingView = {
+      funds: [],
+      waiting: [{ periodId: "nov", start: "2026-11-01", end: "2026-11-30", savingsPence: 30000, prefill: [], prefillFrom: "none" }],
+    };
+    render(<BudgetOverview period={period} summary={summary()} categories={categories} saving={saving} today="2026-11-21" tab="saving" />);
     expect(screen.getByRole("tab", { name: "Saving" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("heading", { name: "Savings funds" })).toBeInTheDocument();
-    expect(screen.getByText("Your funds and the savings waiting to be moved will show here.")).toBeInTheDocument();
+    expect(screen.getByText("waiting to be moved", { exact: false }).textContent).toBe("£300.00 waiting to be moved");
+    expect(screen.getByRole("heading", { name: "No funds yet" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^Rent/ })).not.toBeInTheDocument();
   });
 
   it("switches tabs and records the tab in the URL", () => {
-    render(<BudgetOverview period={period} summary={summary()} categories={categories} tab="spending" />);
+    render(<BudgetOverview period={period} summary={summary()} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     fireEvent.click(screen.getByRole("tab", { name: "Saving" }));
-    expect(screen.getByRole("heading", { name: "Savings funds" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "No funds yet" })).toBeInTheDocument();
     expect(window.location.search).toBe("?tab=saving");
     fireEvent.click(screen.getByRole("tab", { name: "Spending" }));
     expect(window.location.search).toBe("");

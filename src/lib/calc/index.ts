@@ -4,6 +4,7 @@ export {
   daysBetween,
   formatDaysLeft,
   formatDayMonth,
+  formatDayMonthYear,
   formatPeriodRange,
   formatRelativeDay,
   formatShortDate,
@@ -27,8 +28,8 @@ export type {
 export { totalsByDay, totalsByCategory, totalSpent } from "./totals";
 export { compareToPrevious } from "./comparison";
 export type { Comparison } from "./comparison";
-export { fundBalance, fundHistory } from "./funds";
-export type { FundMovement, FundEntry } from "./funds";
+export { fundBalance, fundHistory, fundProgressPercent, splitDifference } from "./funds";
+export type { FundMovement, FundEntry, SplitDifference } from "./funds";
 export { scheduleBetween, dueOccurrences, amountOn, withPriceChange } from "./recurring";
 export type { Frequency, Price, Rule } from "./recurring";
 export { leftoverBreakdown, categoriesOverTwiceInThree, suggestedBudget } from "./leftover";

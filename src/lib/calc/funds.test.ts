@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { summarise, type PeriodBudget, type Txn } from "./budget";
-import { fundBalance, fundHistory, type FundMovement } from "./funds";
+import { fundBalance, fundHistory, fundProgressPercent, splitDifference, type FundMovement } from "./funds";
 import type { Period } from "./periods";
 
 const mv = (over: Partial<FundMovement> = {}): FundMovement => ({
@@ -58,5 +58,44 @@ describe("fund-paid expenses and summarise", () => {
     const budget: PeriodBudget = { incomePence: 600000, savingsPence: 0, unassignedCarryPence: 0, allocations: [] };
     const t = txn();
     expect(summarise(budget, [t], period, "2026-11-21")!.spentPence).toBe(0);
+  });
+});
+
+describe("fundProgressPercent", () => {
+  it("is the whole percent of the target saved, rounded down", () => {
+    expect(fundProgressPercent(33333, 100000)).toBe(33);
+    expect(fundProgressPercent(100000, 100000)).toBe(100);
+  });
+
+  it("can pass 100 when the fund is over its target", () => {
+    expect(fundProgressPercent(150000, 100000)).toBe(150);
+  });
+
+  it("is 0 for an empty or negative balance", () => {
+    expect(fundProgressPercent(0, 100000)).toBe(0);
+    expect(fundProgressPercent(-500, 100000)).toBe(0);
+  });
+
+  it("is null without a target (none, or £0)", () => {
+    expect(fundProgressPercent(5000, null)).toBeNull();
+    expect(fundProgressPercent(5000, 0)).toBeNull();
+  });
+});
+
+describe("splitDifference", () => {
+  it("is exact when the amounts add up to the savings", () => {
+    expect(splitDifference(30000, [20000, 10000])).toEqual({ state: "exact", pence: 0 });
+  });
+
+  it("says how much is left to place when the amounts are short", () => {
+    expect(splitDifference(30000, [20000, 5000])).toEqual({ state: "left", pence: 5000 });
+  });
+
+  it("says how much over when the amounts are more than the savings", () => {
+    expect(splitDifference(30000, [20000, 15000])).toEqual({ state: "over", pence: 5000 });
+  });
+
+  it("treats no amounts as all left to place", () => {
+    expect(splitDifference(30000, [])).toEqual({ state: "left", pence: 30000 });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, daysBetween, formatDaysLeft, formatDayMonth, formatPeriodRange, formatRelativeDay, formatShortDate, formatWeekdayDate, lastDayOfMonth, todayIn } from "./dates";
+import { addDays, daysBetween, formatDaysLeft, formatDayMonth, formatPeriodRange, formatRelativeDay, formatShortDate, formatDayMonthYear, formatWeekdayDate, lastDayOfMonth, todayIn } from "./dates";
 
 describe("dates", () => {
   it("addDays crosses year end", () => {
@@ -63,5 +63,11 @@ describe("formatRelativeDay", () => {
     expect(formatRelativeDay("2025-11-21", "2026-11-21")).toBe("Friday 21 November 2025");
     expect(formatRelativeDay("2027-01-01", "2026-12-31")).toBe("Tomorrow");
     expect(formatRelativeDay("2027-01-02", "2026-12-31")).toBe("Saturday 2 January 2027");
+  });
+});
+
+describe("formatDayMonthYear", () => {
+  it("is the day, short month and year", () => {
+    expect(formatDayMonthYear("2027-07-31")).toBe("31 Jul 2027");
   });
 });
