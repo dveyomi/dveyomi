@@ -1,16 +1,8 @@
 "use client";
 
 import { AmountInput, Card, Select } from "@/components/ui";
-import { formatWeekdayDate, periodContaining, type IsoDate } from "@/lib/calc";
+import { formatWeekdayDate, periodContaining, startDayLabel, type IsoDate } from "@/lib/calc";
 import { StepHeading } from "./StepHeading";
-
-/** "First day of the month" for 1, otherwise an ordinal such as "25th". */
-export function startDayLabel(day: number): string {
-  if (day === 1) return "First day of the month";
-  const tens = day % 100;
-  const suffix = tens >= 11 && tens <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as const)[day % 10 as 1 | 2 | 3] ?? "th";
-  return `${day}${suffix}`;
-}
 
 const dayOptions = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: startDayLabel(i + 1) }));
 

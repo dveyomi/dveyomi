@@ -373,6 +373,8 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
               subtitle="Static row, no action"
               trailing={<Money pence={125000} />}
             />
+            <ListRow icon="download" title="Export my data" subtitle="Download link (download)" href="#" download />
+            <ListRow icon="trash" title="Delete my account" subtitle="Destructive action (tone danger)" tone="danger" onClick={() => {}} />
             <ListRow
               icon="calendar"
               title="A very long merchant name that has to truncate on a phone"

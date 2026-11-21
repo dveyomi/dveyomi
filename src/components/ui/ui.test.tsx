@@ -14,6 +14,7 @@ import {
   SeriesSwatch,
   Gauge,
   IconButton,
+  ListRow,
   Money,
   Notice,
   ProgressBar,
@@ -643,5 +644,22 @@ describe("FileDrop", () => {
     render(<FileDrop label="Bank statement" hint="A .csv file" accept=".csv" error="Too big" onFile={() => {}} />);
     expect(screen.getByLabelText("Bank statement")).toHaveAccessibleDescription("Too big");
     expect(screen.getByRole("alert")).toHaveTextContent("Too big");
+  });
+});
+
+describe("ListRow download", () => {
+  it("is a plain link with the download attribute, not a client-side navigation", () => {
+    render(<ListRow icon="download" title="Export my data" download href="/api/export" />);
+    const link = screen.getByRole("link", { name: /Export my data/ });
+    expect(link).toHaveAttribute("href", "/api/export");
+    expect(link).toHaveAttribute("download");
+  });
+});
+
+describe("ListRow tone", () => {
+  it("colours a danger row's title with the text-safe danger token", () => {
+    render(<ListRow icon="trash" title="Delete my account" tone="danger" onClick={() => {}} />);
+    const title = screen.getByText("Delete my account");
+    expect(title.className).toContain("text-danger-fg");
   });
 });

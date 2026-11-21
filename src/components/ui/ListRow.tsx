@@ -11,11 +11,15 @@ type ListRowProps = {
   trailing?: ReactNode;
   /** Makes the row a link. */
   href?: string;
+  /** With href: a plain link that downloads the file instead of navigating (e.g. an export). */
+  download?: boolean;
   /** Makes the row a button (ignored when href is set). */
   onClick?: () => void;
+  /** "danger" colours the title for a destructive action, such as deleting an account. */
+  tone?: "neutral" | "danger";
 };
 
-export function ListRow({ title, subtitle, icon, trailing, href, onClick }: ListRowProps) {
+export function ListRow({ title, subtitle, icon, trailing, href, download = false, onClick, tone = "neutral" }: ListRowProps) {
   const interactive = Boolean(href || onClick);
   const content = (
     <>
@@ -25,7 +29,7 @@ export function ListRow({ title, subtitle, icon, trailing, href, onClick }: List
         </span>
       ) : null}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-body text-text">{title}</span>
+        <span className={`truncate text-body ${tone === "danger" ? "text-danger-fg" : "text-text"}`}>{title}</span>
         {subtitle ? <span className="truncate text-caption text-muted">{subtitle}</span> : null}
       </span>
       {trailing ? <span className="shrink-0 text-right text-body text-text">{trailing}</span> : null}
@@ -38,6 +42,13 @@ export function ListRow({ title, subtitle, icon, trailing, href, onClick }: List
   );
   const row = `flex w-full items-center gap-3 rounded-sm px-2 py-3 text-left ${interactive ? `transition-colors hover:bg-card-raised ${focusRing}` : ""}`;
 
+  if (href && download) {
+    return (
+      <a href={href} download className={row}>
+        {content}
+      </a>
+    );
+  }
   if (href) {
     return (
       <Link href={href} className={row}>

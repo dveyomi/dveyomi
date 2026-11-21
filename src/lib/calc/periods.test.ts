@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, daysBetween } from "./dates";
-import { daysLeft, periodContaining, previousPeriod } from "./periods";
+import { daysLeft, periodContaining, periodStartingOn, previousPeriod, startDayLabel } from "./periods";
 
 describe("periodContaining", () => {
   it("start day 25", () => {
@@ -89,4 +89,33 @@ describe("every date in exactly one period", () => {
       });
     }
   }
+});
+
+describe("periodStartingOn", () => {
+  it("runs from the given date to the day before the start day comes round", () => {
+    // After moving from the 1st to the 15th, the next budget starts 1 Dec and ends 14 Dec.
+    expect(periodStartingOn("2026-12-01", 15)).toEqual({ start: "2026-12-01", end: "2026-12-14", nextStart: "2026-12-15" });
+  });
+
+  it("is a whole period when the date is itself a start day", () => {
+    expect(periodStartingOn("2026-12-01", 1)).toEqual(periodContaining("2026-12-01", 1));
+    expect(periodStartingOn("2026-12-15", 15)).toEqual({ start: "2026-12-15", end: "2027-01-14", nextStart: "2027-01-15" });
+  });
+
+  it("starting the day after a start day runs to the next one", () => {
+    expect(periodStartingOn("2026-12-02", 1)).toEqual({ start: "2026-12-02", end: "2026-12-31", nextStart: "2027-01-01" });
+  });
+
+  it("clamps start day 31 in February", () => {
+    expect(periodStartingOn("2027-02-01", 31)).toEqual({ start: "2027-02-01", end: "2027-02-27", nextStart: "2027-02-28" });
+  });
+});
+
+describe("startDayLabel", () => {
+  it("is 'First day of the month' for 1 and an ordinal otherwise", () => {
+    expect(startDayLabel(1)).toBe("First day of the month");
+    expect([2, 3, 4, 11, 12, 13, 21, 22, 23, 31].map(startDayLabel)).toEqual([
+      "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "31st",
+    ]);
+  });
 });

@@ -13,7 +13,7 @@ export {
   todayIn,
 } from "./dates";
 export type { IsoDate } from "./dates";
-export { periodContaining, periodStartingInMonth, daysLeft, previousPeriod } from "./periods";
+export { periodContaining, periodStartingInMonth, periodStartingOn, daysLeft, previousPeriod, startDayLabel } from "./periods";
 export type { Period } from "./periods";
 export { summarise } from "./budget";
 export { percentLeft, leftToSpendPercent, overBudgetPence } from "./figures";

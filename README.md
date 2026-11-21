@@ -59,3 +59,23 @@ At deploy:
 The route answers 401 unless the request carries `Authorization: Bearer <CRON_SECRET>`. Check runs with
 `select * from cron.job_run_details order by start_time desc limit 5;` and the responses with
 `select * from net._http_response order by created desc limit 5;`.
+
+## Backups
+
+Turn on backups for the hosted Supabase project before real data goes in: daily backups (Database →
+Backups), and Point-in-Time Recovery if the plan allows it. This is a project setting, not code. The
+privacy page tells users daily backups are kept.
+
+## Deploy checklist
+
+- **Environment variables** (server): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`.
+- **Service role stays on the server.** `SUPABASE_SERVICE_ROLE_KEY` is never `NEXT_PUBLIC_`; only
+  `src/lib/supabase/admin.ts` (marked `server-only`) reads it, for the hourly recurring job and for
+  account deletion (`POST /api/account/delete`).
+- **Vault secrets** `app_url` and `cron_secret` (see "Recurring payments: the hourly job" above).
+- **Google OAuth redirect URLs:** in Supabase Auth → URL Configuration, set the Site URL to the app's URL
+  and add `https://<your app>/auth/callback` to the redirect allow list (plus any preview URLs); the
+  Google client in Google Cloud keeps Supabase's own callback, `https://<project>.supabase.co/auth/v1/callback`.
+- **Backups** on (see above).
+- **Region:** create the project in an EU or UK region.

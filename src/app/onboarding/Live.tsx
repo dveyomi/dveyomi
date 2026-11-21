@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { Card, Money } from "@/components/ui";
-import { allocationTotals, formatGBP, formatWeekdayDate, periodContaining, type IsoDate } from "@/lib/calc";
+import { allocationTotals, formatGBP, formatWeekdayDate, periodContaining, startDayLabel, type IsoDate } from "@/lib/calc";
 import type { OnboardingInput } from "@/lib/data/onboarding";
-import { startDayLabel } from "./Income";
 import { StepHeading } from "./StepHeading";
 
 /** Step 4: a short summary of the budget about to go live. */

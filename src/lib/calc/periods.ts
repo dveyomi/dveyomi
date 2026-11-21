@@ -45,3 +45,21 @@ export function daysLeft(period: Period, today: IsoDate): number {
 export function previousPeriod(period: Period, startDay: number): Period {
   return periodContaining(addDays(period.start, -1), startDay);
 }
+
+/**
+ * The period that starts on `start` and runs until the start day next comes
+ * round. After a start-day change the next budget is this one: it starts the
+ * day after the current one ends and ends the day before the new start day.
+ */
+export function periodStartingOn(start: IsoDate, startDay: number): Period {
+  const { end, nextStart } = periodContaining(start, startDay);
+  return { start, end, nextStart };
+}
+
+/** "First day of the month" for 1, otherwise an ordinal such as "25th". */
+export function startDayLabel(day: number): string {
+  if (day === 1) return "First day of the month";
+  const tens = day % 100;
+  const suffix = tens >= 11 && tens <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as const)[day % 10 as 1 | 2 | 3] ?? "th";
+  return `${day}${suffix}`;
+}

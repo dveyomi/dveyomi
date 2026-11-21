@@ -31,17 +31,23 @@ export async function createClient() {
 }
 
 /**
- * The signed-in user's id from verified JWT claims (never getSession()), or null.
- * Every page, action and data function authorises itself with this (plus RLS);
- * none may rely on the proxy or the (app) layout's redirect.
+ * The verified JWT claims of the signed-in user (never getSession()), or null.
+ * Read once per request; getUserId and the Settings account card share it.
  */
-export const getUserId = cache(async (): Promise<string | null> => {
+export const getClaims = cache(async () => {
   // Verifying a token reads the clock, so this is request-time work, never prerendered.
   await connection();
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
-  return data?.claims.sub ?? null;
+  return data?.claims ?? null;
 });
+
+/**
+ * The signed-in user's id from verified JWT claims, or null.
+ * Every page, action and data function authorises itself with this (plus RLS);
+ * none may rely on the proxy or the (app) layout's redirect.
+ */
+export const getUserId = cache(async (): Promise<string | null> => (await getClaims())?.sub ?? null);
 
 export type Profile = { timezone: string; timezoneDetected: boolean };
 

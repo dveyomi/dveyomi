@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Card, Icon } from "@/components/ui";
+import { DeletedNotice } from "./DeletedNotice";
 import { GoogleSignIn, GoogleSignInFallback } from "./GoogleSignIn";
 
 export const metadata: Metadata = { title: "Sign in · Personal Finance OS" };
 
-export default function LoginPage() {
+export default function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <main className="mx-auto flex w-full max-w-phone flex-1 flex-col justify-center gap-8 px-4 py-10 md:max-w-md">
       <div className="flex flex-col items-center gap-4 text-center">
@@ -15,6 +16,9 @@ export default function LoginPage() {
         <h1 translate="no" className="text-balance text-display font-semibold text-text">Personal Finance OS</h1>
         <p className="text-body text-muted">Know what is safe to spend, every day.</p>
       </div>
+      <Suspense fallback={null}>
+        <DeletedNotice searchParams={searchParams} />
+      </Suspense>
       <Card>
         <Suspense fallback={<GoogleSignInFallback />}>
           <GoogleSignIn />
