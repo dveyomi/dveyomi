@@ -4,7 +4,9 @@
 -- from auth.users. Every table with an id also has unique (id, user_id), and
 -- every cross-table reference is a composite foreign key (x_id, user_id), so a
 -- row can never point at another user's row. Nullable references use MATCH
--- SIMPLE (the default), so a null x_id is allowed.
+-- SIMPLE (the default), so a null x_id is allowed. Natural unique keys lead
+-- with user_id, so a cross-user insert fails on the foreign key rather than
+-- revealing that another user's row exists.
 --
 -- Money is integer pence (bigint). Calendar dates are `date`.
 
@@ -71,7 +73,7 @@ create table public.allocations (
   category_id uuid not null,
   amount_pence bigint not null check (amount_pence >= 0),
   unique (id, user_id),
-  unique (period_id, category_id),
+  unique (user_id, period_id, category_id),
   foreign key (period_id, user_id) references public.budget_periods (id, user_id) on delete cascade,
   foreign key (category_id, user_id) references public.categories (id, user_id)
 );
@@ -102,10 +104,11 @@ create table public.fund_movements (
 
 -- one savings prompt per period
 create table public.savings_prompts (
-  period_id uuid primary key,
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  period_id uuid not null,
   status text not null check (status in ('waiting', 'confirmed')),
   split jsonb not null default '{}'::jsonb,
+  primary key (user_id, period_id),
   foreign key (period_id, user_id) references public.budget_periods (id, user_id) on delete cascade
 );
 
@@ -113,12 +116,13 @@ create table public.savings_prompts (
 create table public.leftover_movements (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  period_id uuid not null unique,
+  period_id uuid not null,
   destination text not null check (destination in ('fund', 'next_period', 'unassigned')),
   fund_id uuid,
   amount_pence bigint not null check (amount_pence > 0),
   check ((destination = 'fund') = (fund_id is not null)),
   unique (id, user_id),
+  unique (user_id, period_id),
   foreign key (period_id, user_id) references public.budget_periods (id, user_id) on delete cascade,
   foreign key (fund_id, user_id) references public.funds (id, user_id)
 );
@@ -161,7 +165,7 @@ create table public.recurring_prices (
   effective_from date not null,
   amount_pence bigint not null check (amount_pence >= 0),
   unique (id, user_id),
-  unique (rule_id, effective_from),
+  unique (user_id, rule_id, effective_from),
   foreign key (rule_id, user_id) references public.recurring_rules (id, user_id) on delete cascade
 );
 
@@ -202,27 +206,21 @@ create table public.transactions (
 
 -- a recurring payment is recorded at most once per due date
 create unique index transactions_recurring_rule_date_key
-  on public.transactions (recurring_rule_id, date)
+  on public.transactions (user_id, recurring_rule_id, date)
   where recurring_rule_id is not null;
 
 -- indexes --------------------------------------------------------------------
--- user_id for RLS filtering (where no unique constraint already leads with it),
--- and each composite foreign key for joins and referential checks.
+-- user_id for RLS filtering and each composite foreign key for joins and
+-- referential checks, except where a primary key or unique constraint above
+-- already covers the same columns.
 
-create index allocations_user_id_idx on public.allocations (user_id);
 create index allocations_category_idx on public.allocations (category_id, user_id);
-create index allocations_period_idx on public.allocations (period_id, user_id);
 
 create index funds_user_id_idx on public.funds (user_id);
 
 create index fund_movements_user_id_idx on public.fund_movements (user_id);
 create index fund_movements_fund_idx on public.fund_movements (fund_id, user_id);
 
-create index savings_prompts_user_id_idx on public.savings_prompts (user_id);
-create index savings_prompts_period_idx on public.savings_prompts (period_id, user_id);
-
-create index leftover_movements_user_id_idx on public.leftover_movements (user_id);
-create index leftover_movements_period_idx on public.leftover_movements (period_id, user_id);
 create index leftover_movements_fund_idx on public.leftover_movements (fund_id, user_id);
 
 create index trips_user_id_idx on public.trips (user_id);
@@ -230,9 +228,6 @@ create index trips_user_id_idx on public.trips (user_id);
 create index recurring_rules_user_id_idx on public.recurring_rules (user_id);
 create index recurring_rules_category_idx on public.recurring_rules (category_id, user_id);
 create index recurring_rules_fund_idx on public.recurring_rules (fund_id, user_id);
-
-create index recurring_prices_user_id_idx on public.recurring_prices (user_id);
-create index recurring_prices_rule_idx on public.recurring_prices (rule_id, user_id);
 
 create index import_batches_user_id_idx on public.import_batches (user_id);
 

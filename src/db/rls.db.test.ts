@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createSignedInUser, deleteUser, type TestUser } from "./testClients";
+import { createSignedInUser, deleteUser, queryAsPostgres, type TestUser } from "./testClients";
 
 type Row = { id: string };
 
@@ -17,6 +17,7 @@ let fundA: Row;
 let tripA: Row;
 let ruleA: Row;
 let txnA: Row;
+let periodA: Row;
 // B's own category, so each cross-user insert below has exactly one foreign reference
 let catB: Row;
 
@@ -44,6 +45,12 @@ beforeAll(async () => {
     date: "2026-11-20",
     category_id: catA.id,
   });
+  periodA = await insertOne(a, "budget_periods", {
+    start_date: "2026-11-01",
+    end_date: "2026-11-30",
+    income_pence: 300000,
+    savings_pence: 50000,
+  });
   catB = await insertOne(b, "categories", { name: "Groceries", kind: "need" });
 });
 
@@ -60,18 +67,27 @@ describe("profiles", () => {
       { user_id: a.id, budget_start_day: 1, timezone: "Europe/London", currency: "GBP" },
     ]);
   });
+
+  it("cannot be deleted by their owner", async () => {
+    const { error } = await a.client.from("profiles").delete().eq("user_id", a.id);
+    expect(error?.code).toBe("42501"); // no delete privilege
+    const check = await a.client.from("profiles").select("user_id");
+    expect(check.data).toHaveLength(1);
+  });
 });
 
 describe("row-level security", () => {
+  const idOf = (table: string) =>
+    ({ transactions: txnA.id, funds: fundA.id, categories: catA.id })[table] as string;
+
   it.each(["transactions", "funds", "categories"])("A can read their own %s", async (table) => {
-    const { data, error } = await a.client.from(table).select("id");
+    const { data, error } = await a.client.from(table).select("id").eq("id", idOf(table));
     expect(error).toBeNull();
-    expect(data).toHaveLength(1);
+    expect(data).toEqual([{ id: idOf(table) }]);
   });
 
   it.each(["transactions", "funds", "categories"])("B selecting A's %s gets zero rows", async (table) => {
-    const ids = { transactions: txnA.id, funds: fundA.id, categories: catA.id } as Record<string, string>;
-    const { data, error } = await b.client.from(table).select("id").eq("id", ids[table]);
+    const { data, error } = await b.client.from(table).select("id").eq("id", idOf(table));
     expect(error).toBeNull();
     expect(data).toEqual([]);
   });
@@ -126,6 +142,14 @@ describe("composite foreign keys", () => {
     expect(error?.code).toBe("23503");
   });
 
+  it("B inserting a savings prompt for A's period errors on the foreign key, not A's unique key", async () => {
+    const own = await a.client.from("savings_prompts").insert({ period_id: periodA.id, status: "waiting" });
+    expect(own.error).toBeNull();
+    // A unique violation (23505) here would reveal that A's period has a prompt.
+    const { error } = await b.client.from("savings_prompts").insert({ period_id: periodA.id, status: "waiting" });
+    expect(error?.code).toBe("23503");
+  });
+
   it("B can insert a transaction referencing only their own rows", async () => {
     const { error } = await b.client.from("transactions").insert(base());
     expect(error).toBeNull();
@@ -146,5 +170,24 @@ describe("transaction constraints", () => {
     expect(first.error).toBeNull();
     const second = await a.client.from("transactions").insert(row);
     expect(second.error?.code).toBe("23505");
+  });
+});
+
+describe("table privileges", () => {
+  it("authenticated has exactly select/insert/update/delete (profiles: no delete); anon has none", () => {
+    const rows = queryAsPostgres<{ table_name: string; anon: string | null; authenticated: string | null }>(`
+      select t.table_name,
+        (select string_agg(privilege_type, ',' order by privilege_type) from information_schema.role_table_grants g
+          where g.table_schema = 'public' and g.table_name = t.table_name and g.grantee = 'anon') as anon,
+        (select string_agg(privilege_type, ',' order by privilege_type) from information_schema.role_table_grants g
+          where g.table_schema = 'public' and g.table_name = t.table_name and g.grantee = 'authenticated') as authenticated
+      from information_schema.tables t
+      where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
+      order by t.table_name`);
+    expect(rows).toHaveLength(13);
+    for (const row of rows) {
+      const expected = row.table_name === "profiles" ? "INSERT,SELECT,UPDATE" : "DELETE,INSERT,SELECT,UPDATE";
+      expect(row).toEqual({ table_name: row.table_name, anon: null, authenticated: expected });
+    }
   });
 });

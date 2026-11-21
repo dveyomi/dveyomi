@@ -4,12 +4,18 @@
 -- the authenticated role, keyed on (select auth.uid()) = user_id (the subselect
 -- lets Postgres evaluate auth.uid() once per statement). Insert and update use
 -- `with check`, so a row cannot be created for, or moved to, another user.
--- anon gets no table privileges at all.
+--
+-- Privileges are reset per table (Supabase's default grants include TRUNCATE,
+-- REFERENCES and TRIGGER): anon gets nothing and authenticated gets only the
+-- statements it has policies for.
+--
+-- profiles has no delete grant or policy: a profile goes only with its account,
+-- which is deleted with the service role.
 
 -- profiles
 alter table public.profiles enable row level security;
-revoke all on public.profiles from anon;
-grant select, insert, update, delete on public.profiles to authenticated;
+revoke all on public.profiles from anon, authenticated;
+grant select, insert, update on public.profiles to authenticated;
 
 create policy "profiles: owner select" on public.profiles for select to authenticated
   using ((select auth.uid()) = user_id);
@@ -18,12 +24,10 @@ create policy "profiles: owner insert" on public.profiles for insert to authenti
 create policy "profiles: owner update" on public.profiles for update to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
-create policy "profiles: owner delete" on public.profiles for delete to authenticated
-  using ((select auth.uid()) = user_id);
 
 -- categories
 alter table public.categories enable row level security;
-revoke all on public.categories from anon;
+revoke all on public.categories from anon, authenticated;
 grant select, insert, update, delete on public.categories to authenticated;
 
 create policy "categories: owner select" on public.categories for select to authenticated
@@ -38,7 +42,7 @@ create policy "categories: owner delete" on public.categories for delete to auth
 
 -- budget_periods
 alter table public.budget_periods enable row level security;
-revoke all on public.budget_periods from anon;
+revoke all on public.budget_periods from anon, authenticated;
 grant select, insert, update, delete on public.budget_periods to authenticated;
 
 create policy "budget_periods: owner select" on public.budget_periods for select to authenticated
@@ -53,7 +57,7 @@ create policy "budget_periods: owner delete" on public.budget_periods for delete
 
 -- allocations
 alter table public.allocations enable row level security;
-revoke all on public.allocations from anon;
+revoke all on public.allocations from anon, authenticated;
 grant select, insert, update, delete on public.allocations to authenticated;
 
 create policy "allocations: owner select" on public.allocations for select to authenticated
@@ -68,7 +72,7 @@ create policy "allocations: owner delete" on public.allocations for delete to au
 
 -- funds
 alter table public.funds enable row level security;
-revoke all on public.funds from anon;
+revoke all on public.funds from anon, authenticated;
 grant select, insert, update, delete on public.funds to authenticated;
 
 create policy "funds: owner select" on public.funds for select to authenticated
@@ -83,7 +87,7 @@ create policy "funds: owner delete" on public.funds for delete to authenticated
 
 -- fund_movements
 alter table public.fund_movements enable row level security;
-revoke all on public.fund_movements from anon;
+revoke all on public.fund_movements from anon, authenticated;
 grant select, insert, update, delete on public.fund_movements to authenticated;
 
 create policy "fund_movements: owner select" on public.fund_movements for select to authenticated
@@ -98,7 +102,7 @@ create policy "fund_movements: owner delete" on public.fund_movements for delete
 
 -- savings_prompts
 alter table public.savings_prompts enable row level security;
-revoke all on public.savings_prompts from anon;
+revoke all on public.savings_prompts from anon, authenticated;
 grant select, insert, update, delete on public.savings_prompts to authenticated;
 
 create policy "savings_prompts: owner select" on public.savings_prompts for select to authenticated
@@ -113,7 +117,7 @@ create policy "savings_prompts: owner delete" on public.savings_prompts for dele
 
 -- leftover_movements
 alter table public.leftover_movements enable row level security;
-revoke all on public.leftover_movements from anon;
+revoke all on public.leftover_movements from anon, authenticated;
 grant select, insert, update, delete on public.leftover_movements to authenticated;
 
 create policy "leftover_movements: owner select" on public.leftover_movements for select to authenticated
@@ -128,7 +132,7 @@ create policy "leftover_movements: owner delete" on public.leftover_movements fo
 
 -- trips
 alter table public.trips enable row level security;
-revoke all on public.trips from anon;
+revoke all on public.trips from anon, authenticated;
 grant select, insert, update, delete on public.trips to authenticated;
 
 create policy "trips: owner select" on public.trips for select to authenticated
@@ -143,7 +147,7 @@ create policy "trips: owner delete" on public.trips for delete to authenticated
 
 -- recurring_rules
 alter table public.recurring_rules enable row level security;
-revoke all on public.recurring_rules from anon;
+revoke all on public.recurring_rules from anon, authenticated;
 grant select, insert, update, delete on public.recurring_rules to authenticated;
 
 create policy "recurring_rules: owner select" on public.recurring_rules for select to authenticated
@@ -158,7 +162,7 @@ create policy "recurring_rules: owner delete" on public.recurring_rules for dele
 
 -- recurring_prices
 alter table public.recurring_prices enable row level security;
-revoke all on public.recurring_prices from anon;
+revoke all on public.recurring_prices from anon, authenticated;
 grant select, insert, update, delete on public.recurring_prices to authenticated;
 
 create policy "recurring_prices: owner select" on public.recurring_prices for select to authenticated
@@ -173,7 +177,7 @@ create policy "recurring_prices: owner delete" on public.recurring_prices for de
 
 -- import_batches
 alter table public.import_batches enable row level security;
-revoke all on public.import_batches from anon;
+revoke all on public.import_batches from anon, authenticated;
 grant select, insert, update, delete on public.import_batches to authenticated;
 
 create policy "import_batches: owner select" on public.import_batches for select to authenticated
@@ -188,7 +192,7 @@ create policy "import_batches: owner delete" on public.import_batches for delete
 
 -- transactions
 alter table public.transactions enable row level security;
-revoke all on public.transactions from anon;
+revoke all on public.transactions from anon, authenticated;
 grant select, insert, update, delete on public.transactions to authenticated;
 
 create policy "transactions: owner select" on public.transactions for select to authenticated

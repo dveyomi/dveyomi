@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // Connection details for the local Supabase stack. Taken from SUPABASE_URL /
@@ -9,7 +9,16 @@ function localStack(): { url: string; anonKey: string; serviceRoleKey: string } 
   if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_SERVICE_ROLE_KEY) {
     return { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY };
   }
-  const out = execSync("npx supabase status -o env", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  let out: string;
+  try {
+    out = execSync("npx supabase status -o env", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    throw new Error(
+      "Local Supabase stack is not running. Start it with " +
+        "`SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io npx supabase start`, " +
+        "or set SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY.",
+    );
+  }
   const vars = Object.fromEntries(
     out
       .split("\n")
@@ -47,4 +56,17 @@ export async function deleteUser(user: TestUser | undefined): Promise<void> {
   if (!user) return;
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) throw error;
+}
+
+/**
+ * Runs SQL as the postgres superuser against the local stack (via
+ * `npx supabase db query`) and returns the rows. For checks the Data API
+ * cannot express, such as table privileges.
+ */
+export function queryAsPostgres<T>(sql: string): T[] {
+  const out = execFileSync("npx", ["supabase", "db", "query", "--output-format", "json", sql], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  return (JSON.parse(out) as { rows: T[] }).rows;
 }
