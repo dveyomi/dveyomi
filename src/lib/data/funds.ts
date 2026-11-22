@@ -7,7 +7,8 @@ import {
   type IsoDate,
   type Txn,
 } from "@/lib/calc";
-import type { FundDetails, FundMovementInput, SplitInputLine } from "@/lib/validation/funds";
+import type { FundDetails, FundMovementInput, SplitInputLine, WithdrawDestination } from "@/lib/validation/funds";
+import { ensureCurrentPeriod } from "./ensurePeriod";
 import { allRows } from "./paging";
 import type { Db } from "./types";
 
@@ -92,6 +93,14 @@ export class InsufficientFundsError extends Error {
   constructor(readonly balancePence: number) {
     super("You can't withdraw more than the fund holds.");
     this.name = "InsufficientFundsError";
+  }
+}
+
+/** A move between funds named the same fund twice. */
+export class SameFundError extends Error {
+  constructor() {
+    super("Choose a different fund to move the money to.");
+    this.name = "SameFundError";
   }
 }
 
@@ -266,14 +275,14 @@ async function balanceOf(supabase: Db, fundId: string): Promise<number | null> {
 
 /**
  * Records money added to or taken out of a fund outside the savings prompt.
- * It is fund-only bookkeeping: no budget figure changes. Throws
+ * It is fund-only bookkeeping: no budget figure changes. A withdrawal goes
+ * through withdrawFromFund ("out"), so its balance check is atomic. Throws
  * InsufficientFundsError for a withdrawal larger than the balance, and
  * FundNotFoundError when the user has no such fund.
  */
 export async function addFundMovement(supabase: Db, fundId: string, input: MovementInput): Promise<void> {
-  const balance = await balanceOf(supabase, fundId);
-  if (balance === null) throw new FundNotFoundError();
-  if (input.kind === "withdrawal" && input.amountPence > balance) throw new InsufficientFundsError(Math.max(0, balance));
+  if (input.kind === "withdrawal") return withdrawFromFund(supabase, input.date, fundId, input, "out");
+  if ((await balanceOf(supabase, fundId)) === null) throw new FundNotFoundError();
   const { error } = await supabase.from("fund_movements").insert({
     fund_id: fundId,
     date: input.date,
@@ -282,4 +291,68 @@ export async function addFundMovement(supabase: Db, fundId: string, input: Movem
     note: input.note,
   });
   if (error) throw error;
+}
+
+export type { WithdrawDestination } from "@/lib/validation/funds";
+
+/** A withdrawal refused for the balance: the fund's balance now, for the message. */
+async function insufficient(supabase: Db, fundId: string): Promise<InsufficientFundsError> {
+  return new InsufficientFundsError(Math.max(0, (await balanceOf(supabase, fundId)) ?? 0));
+}
+
+/**
+ * Takes money out of a fund in one transaction (`withdraw_from_fund`), with
+ * the balance checked there. "spending" also adds it to the current period's
+ * spending money (its unassigned carry, with a from_fund adjustment the
+ * Budget tab lists) and notes "Moved to <Month> spending" on the withdrawal;
+ * "out" changes only the fund. Throws InsufficientFundsError for more than
+ * the fund holds and FundNotFoundError for a fund that isn't the user's.
+ */
+export async function withdrawFromFund(
+  supabase: Db,
+  today: IsoDate,
+  fundId: string,
+  input: MovementInput,
+  destination: WithdrawDestination,
+): Promise<void> {
+  const period = destination === "spending" ? await ensureCurrentPeriod(supabase, today) : null;
+  if (destination === "spending" && !period) throw new Error("withdrawFromFund: no budget to add the money to");
+  const { error } = await supabase.rpc("withdraw_from_fund", {
+    p_fund_id: fundId,
+    p_date: input.date,
+    p_amount_pence: input.amountPence,
+    ...(input.note ? { p_note: input.note } : {}),
+    ...(period ? { p_to_period_id: period.id } : {}),
+  });
+  if (!error) return;
+  if (error.code === "PT404") throw new FundNotFoundError();
+  if (error.code === "PT422") throw await insufficient(supabase, fundId);
+  throw error;
+}
+
+/**
+ * Moves money from one fund to another in one transaction
+ * (`move_between_funds`): a withdrawal noted "To <fund>" and a contribution
+ * noted "From <fund>", same date. The budget is untouched. Throws
+ * SameFundError, InsufficientFundsError (more than the first fund holds) and
+ * FundNotFoundError (either fund isn't the user's).
+ */
+export async function moveBetweenFunds(
+  supabase: Db,
+  fromId: string,
+  toId: string,
+  input: Pick<MovementInput, "amountPence" | "date" | "note">,
+): Promise<void> {
+  if (fromId === toId) throw new SameFundError();
+  const { error } = await supabase.rpc("move_between_funds", {
+    p_from_id: fromId,
+    p_to_id: toId,
+    p_date: input.date,
+    p_amount_pence: input.amountPence,
+    ...(input.note ? { p_note: input.note } : {}),
+  });
+  if (!error) return;
+  if (error.code === "PT404") throw new FundNotFoundError();
+  if (error.code === "PT422") throw await insufficient(supabase, fromId);
+  throw error;
 }

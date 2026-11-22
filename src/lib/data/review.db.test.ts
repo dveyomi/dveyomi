@@ -171,6 +171,7 @@ describe("recordLeftover", () => {
       pending: null,
       carried: [{ fromLabel: "October", amountPence: 25000 }],
       nudgePence: 25000,
+      adjustments: [],
     });
   });
 
@@ -184,6 +185,7 @@ describe("recordLeftover", () => {
       pending: null,
       carried: [{ fromLabel: "October", amountPence: 112000 }],
       nudgePence: null,
+      adjustments: [],
     });
   });
 
@@ -353,6 +355,7 @@ describe("loadReviewStatus", () => {
       pending: { periodId: october, monthLabel: "October" },
       carried: [],
       nudgePence: null,
+      adjustments: [],
     });
   });
 });

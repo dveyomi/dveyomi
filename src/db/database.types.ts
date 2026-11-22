@@ -97,6 +97,62 @@ export type Database = {
         };
         Relationships: [];
       };
+      carry_adjustments: {
+        Row: {
+          amount_pence: number;
+          created_at: string;
+          fund_id: string | null;
+          id: string;
+          period_id: string;
+          reason: string;
+          source_period_id: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          amount_pence: number;
+          created_at?: string;
+          fund_id?: string | null;
+          id?: string;
+          period_id: string;
+          reason: string;
+          source_period_id?: string | null;
+          user_id?: string;
+        };
+        Update: {
+          amount_pence?: number;
+          created_at?: string;
+          fund_id?: string | null;
+          id?: string;
+          period_id?: string;
+          reason?: string;
+          source_period_id?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "carry_adjustments_fund_id_user_id_fkey";
+            columns: ["fund_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "funds";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "carry_adjustments_period_id_user_id_fkey";
+            columns: ["period_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "budget_periods";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "carry_adjustments_source_period_id_user_id_fkey";
+            columns: ["source_period_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "budget_periods";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
       categories: {
         Row: {
           colour: string | null;
@@ -590,6 +646,10 @@ export type Database = {
       };
       delete_category: { Args: { p_category_id: string; p_period_id: string }; Returns: undefined };
       import_expenses: { Args: { p_filename: string; p_rows: Json; p_today: string }; Returns: Json };
+      move_between_funds: {
+        Args: { p_amount_pence: number; p_date: string; p_from_id: string; p_note?: string; p_to_id: string };
+        Returns: undefined;
+      };
       raise_allocation: {
         Args: { p_amount_pence: number; p_category_id: string; p_next_end: string; p_period_id: string };
         Returns: undefined;
@@ -659,6 +719,10 @@ export type Database = {
         Returns: string;
       };
       undo_import: { Args: { p_batch_id: string }; Returns: number };
+      withdraw_from_fund: {
+        Args: { p_amount_pence: number; p_date: string; p_fund_id: string; p_note?: string; p_to_period_id?: string };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;

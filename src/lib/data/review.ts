@@ -5,6 +5,7 @@ import {
   freedInPeriod,
   leftoverBreakdown,
   suggestedBudget,
+  sumPence,
   type Frequency,
   type IsoDate,
   type LeftoverSource,
@@ -66,7 +67,16 @@ export type ReviewStatus = {
   carried: { fromLabel: string; amountPence: number }[];
   /** "Give every pound a job": the amount kept unassigned into this period, until dismissed or the budget is edited. */
   nudgePence: number | null;
+  /** Later changes to this period's unassigned carry (carry_adjustments), netted per reviewed month and per fund; none that net to £0. */
+  adjustments: CarryAdjustmentLine[];
 };
+
+/**
+ * One line under the gauge: a reviewed month's late changes ("Adjustment for
+ * October", the change to this period's money, so −£40.00 for £40 more
+ * spent), or money moved in from a fund ("from Emergency fund", positive).
+ */
+export type CarryAdjustmentLine = { kind: "late_change" | "from_fund"; label: string; amountPence: number };
 
 /** The period was reviewed already (a second record changes nothing). */
 export class AlreadyReviewedError extends Error {
@@ -119,11 +129,10 @@ async function freedByPauses(supabase: Db, period: Period): Promise<number> {
   if (rulesRes.error) throw rulesRes.error;
   if (paidRes.error) throw paidRes.error;
   const paid = Map.groupBy(paidRes.data, (t) => t.recurring_rule_id!);
-  return rulesRes.data
-    .filter((r) => r.recurring_prices.length > 0)
-    .reduce(
-      (sum, r) =>
-        sum +
+  return sumPence(
+    rulesRes.data
+      .filter((r) => r.recurring_prices.length > 0)
+      .map((r) =>
         freedInPeriod(
           {
             frequency: r.frequency as Frequency,
@@ -136,8 +145,8 @@ async function freedByPauses(supabase: Db, period: Period): Promise<number> {
           period,
           (paid.get(r.id) ?? []).map((t) => t.date),
         ),
-      0,
-    );
+      ),
+  );
 }
 
 /**
@@ -231,15 +240,18 @@ export async function loadReviewStatus(supabase: Db, today: IsoDate): Promise<Re
   if (pendingRes.error) throw pendingRes.error;
   if (currentRes.error) throw currentRes.error;
   const pending = pendingRes.data ? { periodId: pendingRes.data.id, monthLabel: monthOf(pendingRes.data.start_date) } : null;
-  if (!currentRes.data) return { pending, carried: [], nudgePence: null };
+  if (!currentRes.data) return { pending, carried: [], nudgePence: null, adjustments: [] };
 
-  const movesRes = await supabase
-    .from("leftover_movements")
-    .select("period_id, destination, amount_pence, nudge_dismissed_at")
-    .eq("carried_to_period_id", currentRes.data.id);
+  const [movesRes, adjustments] = await Promise.all([
+    supabase
+      .from("leftover_movements")
+      .select("period_id, destination, amount_pence, nudge_dismissed_at")
+      .eq("carried_to_period_id", currentRes.data.id),
+    loadAdjustments(supabase, currentRes.data.id),
+  ]);
   if (movesRes.error) throw movesRes.error;
   const moves = movesRes.data;
-  if (moves.length === 0) return { pending, carried: [], nudgePence: null };
+  if (moves.length === 0) return { pending, carried: [], nudgePence: null, adjustments };
 
   const fromRes = await supabase
     .from("budget_periods")
@@ -257,8 +269,44 @@ export async function loadReviewStatus(supabase: Db, today: IsoDate): Promise<Re
   return {
     pending,
     carried,
-    nudgePence: nudging.length > 0 ? nudging.reduce((sum, m) => sum + m.amount_pence, 0) : null,
+    nudgePence: nudging.length > 0 ? sumPence(nudging.map((m) => m.amount_pence)) : null,
+    adjustments,
   };
+}
+
+/** The period's carry adjustments as lines: late changes per reviewed month (oldest first), then money from each fund (by name). */
+async function loadAdjustments(supabase: Db, periodId: string): Promise<CarryAdjustmentLine[]> {
+  const { data, error } = await supabase
+    .from("carry_adjustments")
+    .select("reason, amount_pence, source_period_id, fund_id, source:budget_periods!carry_adjustments_source_period_id_user_id_fkey(start_date), funds(name)")
+    .eq("period_id", periodId)
+    .order("created_at");
+  if (error) throw error;
+  const late = Map.groupBy(
+    data.filter((a) => a.reason === "late_change" && a.source),
+    (a) => a.source!.start_date,
+  );
+  const fromFunds = Map.groupBy(
+    data.filter((a) => a.reason === "from_fund"),
+    (a) => a.funds?.name ?? "",
+  );
+  const lines: CarryAdjustmentLine[] = [
+    ...[...late]
+      .toSorted(([a], [b]) => (a < b ? -1 : 1))
+      .map(([start, rows]) => ({
+        kind: "late_change" as const,
+        label: `Adjustment for ${monthOf(start)}`,
+        amountPence: sumPence(rows.map((r) => r.amount_pence)),
+      })),
+    ...[...fromFunds]
+      .toSorted(([a], [b]) => a.localeCompare(b))
+      .map(([name, rows]) => ({
+        kind: "from_fund" as const,
+        label: name ? `from ${name} fund` : "from a fund",
+        amountPence: sumPence(rows.map((r) => r.amount_pence)),
+      })),
+  ];
+  return lines.filter((l) => l.amountPence !== 0);
 }
 
 /**

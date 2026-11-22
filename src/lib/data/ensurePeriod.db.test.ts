@@ -280,3 +280,36 @@ describe("loadBudgetView", () => {
     expect(view.period).toEqual({ start: "2026-11-01", end: "2026-11-30", nextStart: "2026-12-01" });
   });
 });
+
+describe("budget_periods constraints", () => {
+  it("refuses a period that overlaps another of the user's (exclusion constraint)", async () => {
+    const u = await signIn();
+    await insertPeriod(u, { start: "2026-11-01", end: "2026-11-30" });
+    const { error } = await u.client
+      .from("budget_periods")
+      .insert({ start_date: "2026-11-15", end_date: "2026-12-14", income_pence: 1, savings_pence: 0 });
+    expect(error?.code).toBe("23P01");
+    // Touching ends are fine: [1 Dec, 31 Dec] starts the day after.
+    await insertPeriod(u, { start: "2026-12-01", end: "2026-12-31" });
+  });
+
+  it("lets another user's periods overlap", async () => {
+    const u = await signIn();
+    await insertPeriod(u, { start: "2026-11-01", end: "2026-11-30" });
+    const other = await createSignedInUser("period-other");
+    try {
+      await insertPeriod(other, { start: "2026-11-01", end: "2026-11-30" });
+    } finally {
+      await deleteUser(other);
+    }
+  });
+
+  it("lets the unassigned carry go below zero, within ±£1bn", async () => {
+    const u = await signIn();
+    const id = await insertPeriod(u, { start: "2026-11-01", end: "2026-11-30" });
+    const neg = await u.client.from("budget_periods").update({ unassigned_carry_pence: -5000 }).eq("id", id);
+    expect(neg.error).toBeNull();
+    const huge = await u.client.from("budget_periods").update({ unassigned_carry_pence: -100000000001 }).eq("id", id);
+    expect(huge.error?.code).toBe("23514");
+  });
+});

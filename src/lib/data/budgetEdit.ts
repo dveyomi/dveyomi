@@ -49,6 +49,14 @@ export class CategoryInUseError extends Error {
   }
 }
 
+/** "This month" tried to change savings that were already moved into funds (save_budget PT409). */
+export class SavingsMovedError extends Error {
+  constructor() {
+    super("This month's savings are already moved, so change them from next month.");
+    this.name = "SavingsMovedError";
+  }
+}
+
 /** The user has no budget yet, so there is nothing to edit. */
 export class NoBudgetError extends Error {
   constructor() {
@@ -140,8 +148,9 @@ const isUniqueViolation = (e: { code?: string } | null) => e?.code === "23505";
  * savings and the allocations of the categories kept, for the periods the
  * scope covers. New categories are created (or one with the same name
  * outside the budget is brought back); renamed and re-kinded ones are
- * updated. Throws NameTakenError when a name belongs to another category.
- * Afterwards the unassigned-leftover nudge is dismissed.
+ * updated. Throws NameTakenError when a name belongs to another category,
+ * and SavingsMovedError when "This month" changes savings already moved into
+ * funds (scope "next" can). Afterwards the unassigned-leftover nudge is dismissed.
  */
 export async function saveBudget(supabase: Db, today: IsoDate, input: BudgetEditInput): Promise<void> {
   const { periodId, nextEnd } = await editTarget(supabase, today);
@@ -161,6 +170,7 @@ export async function saveBudget(supabase: Db, today: IsoDate, input: BudgetEdit
   });
   if (isUniqueViolation(error)) throw new NameTakenError();
   if (error?.code === "P0002") throw new BudgetChangedError();
+  if (error?.code === "PT409") throw new SavingsMovedError();
   if (error) throw error;
   // Editing the budget answers "Give every pound a job". The save is already committed, so a
   // failure here only leaves the nudge showing.
