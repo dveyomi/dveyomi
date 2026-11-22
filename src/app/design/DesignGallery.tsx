@@ -32,6 +32,8 @@ import {
   TextField,
   Toggle,
 } from "@/components/ui";
+import { Calendar } from "@/components/Calendar";
+import { periodStartingInMonth } from "@/lib/calc";
 
 const colours = [
   ["--bg", "bg-bg"],
@@ -103,6 +105,24 @@ const categories = [
   { value: "eating-out", label: "Eating out" },
   { value: "transport", label: "Transport" },
 ];
+
+/** A sample month for the Calendar: every tile state, with today on the 18th. */
+const calendarPeriod = periodStartingInMonth("2026-11", 1);
+const calendarToday = "2026-11-18";
+const calendarTotals = new Map<string, number>([
+  ["2026-11-01", 9600],
+  ["2026-11-02", 3800],
+  ["2026-11-05", 6675],
+  ["2026-11-06", 18200],
+  ["2026-11-07", 4230],
+  ["2026-11-10", 3500],
+  ["2026-11-12", 4599],
+  ["2026-11-14", 6190],
+  ["2026-11-15", 2785],
+  ["2026-11-18", 6500],
+  ["2026-11-25", 120000],
+]);
+const calendarCounts = new Map([...calendarTotals.keys()].map((d, i) => [d, (i % 3) + 1]));
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -351,6 +371,23 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
             </Card>
           </div>
         </Widths>
+      </Section>
+
+      <Section title="Calendar">
+        <Label>
+          The Expenses calendar: Monday-first day tiles with the day&apos;s total. Tile states: spent (lime tint), no
+          spending, today (ring), future (muted date), a large total (short form on phones). Phone and desktop layouts
+          follow the screen width, so resize the window to see both.
+        </Label>
+        <Card>
+          <Calendar
+            period={calendarPeriod}
+            today={calendarToday}
+            dayTotals={calendarTotals}
+            dayCounts={calendarCounts}
+            onSelect={() => {}}
+          />
+        </Card>
       </Section>
 
       <Section title="Card and ListRow">
