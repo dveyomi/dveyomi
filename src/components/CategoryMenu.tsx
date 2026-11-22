@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteCategoryAction, removeFromBudgetAction, renameCategoryAction } from "@/app/(app)/budget/actions";
@@ -16,16 +17,14 @@ type CategoryMenuProps = {
   inBudget: boolean;
 };
 
-const reasons: Record<CategoryUse, string> = {
-  expenses: "It has expenses",
-  recurring: "It has a recurring payment",
-  history: "It's in past budgets",
-};
 
 type Open = "menu" | "rename" | "delete" | null;
 
 /** The ⋯ menu on a category's detail screen: edit budget, rename, delete (or remove from budget). */
 export function CategoryMenu({ categoryId, name, inUse, inBudget }: CategoryMenuProps) {
+  const { m } = useI18n();
+  const c = m.category;
+  const reasons: Record<CategoryUse, string> = c.reasons;
   const router = useRouter();
   const [open, setOpen] = useState<Open>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,22 +45,22 @@ export function CategoryMenu({ categoryId, name, inUse, inBudget }: CategoryMenu
 
   return (
     <>
-      <IconButton icon="more" label="More actions" onClick={() => setOpen("menu")} />
+      <IconButton icon="more" label={c.moreActions} onClick={() => setOpen("menu")} />
       <BottomSheet open={open === "menu"} onClose={close} title={name}>
         <div className="flex flex-col gap-3">
           <ButtonLink href={`/budget/edit?category=${categoryId}`} variant="secondary" icon="edit" fullWidth>
-            Edit budget
+            {c.editBudget}
           </ButtonLink>
           <Button variant="secondary" fullWidth onClick={() => setOpen("rename")}>
-            Rename
+            {c.rename}
           </Button>
           <Button variant="secondary" fullWidth onClick={() => setOpen("delete")}>
-            Delete category
+            {c.deleteCategory}
           </Button>
         </div>
       </BottomSheet>
 
-      <BottomSheet open={open === "rename"} onClose={close} title="Rename category">
+      <BottomSheet open={open === "rename"} onClose={close} title={c.renameTitle}>
         <RenameForm
           name={name}
           error={error}
@@ -73,9 +72,9 @@ export function CategoryMenu({ categoryId, name, inUse, inBudget }: CategoryMenu
       {inUse === null ? (
         <ConfirmDialog
           open={open === "delete"}
-          title={`Delete ${name}?`}
-          body={error ?? "It isn't used anywhere else, so nothing else changes. This can't be undone."}
-          confirmLabel={pending ? "Deleting…" : "Delete"}
+          title={c.deleteTitle(name)}
+          body={error ?? c.deleteBody}
+          confirmLabel={pending ? c.deleting : m.common.delete}
           tone="danger"
           onConfirm={() => run(() => deleteCategoryAction(categoryId))}
           onCancel={close}
@@ -83,24 +82,23 @@ export function CategoryMenu({ categoryId, name, inUse, inBudget }: CategoryMenu
       ) : inBudget ? (
         <ConfirmDialog
           open={open === "delete"}
-          title={`${name} is in use`}
+          title={c.inUseTitle(name)}
           body={
             error ??
-            `${reasons[inUse]}, so it can't be deleted. Remove it from your budget instead: past spending keeps its category, and new spending shows as no budget yet.`
+            c.inUseRemove(reasons[inUse])
           }
-          confirmLabel={pending ? "Removing…" : "Remove from budget"}
+          confirmLabel={pending ? c.removing : c.removeFromBudget}
           onConfirm={() => run(() => removeFromBudgetAction(categoryId))}
           onCancel={close}
         />
       ) : (
-        <BottomSheet open={open === "delete"} onClose={close} title={`${name} is in use`} role="alertdialog">
+        <BottomSheet open={open === "delete"} onClose={close} title={c.inUseTitle(name)} role="alertdialog">
           <p className="text-body text-muted">
-            {reasons[inUse]}, so it can&apos;t be deleted: the past keeps its category. It has no budget this
-            period, so there&apos;s nothing to remove.
+            {c.inUseNothing(reasons[inUse])}
           </p>
           <div className="mt-6 flex md:justify-end">
             <Button variant="secondary" fullWidth onClick={close} className="md:w-auto">
-              OK
+              {c.ok}
             </Button>
           </div>
         </BottomSheet>
@@ -120,6 +118,7 @@ function RenameForm({
   pending: boolean;
   onSave: (name: string) => void;
 }) {
+  const { m } = useI18n();
   const [value, setValue] = useState(name);
   return (
     <form
@@ -130,7 +129,7 @@ function RenameForm({
       }}
     >
       <TextField
-        label="Name"
+        label={m.category.name}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         maxLength={MAX_NAME_LENGTH}
@@ -139,7 +138,7 @@ function RenameForm({
         error={error}
       />
       <Button type="submit" variant="primary" fullWidth disabled={pending}>
-        {pending ? "Saving…" : "Save"}
+        {pending ? m.common.saving : m.common.save}
       </Button>
     </form>
   );

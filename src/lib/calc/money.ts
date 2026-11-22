@@ -1,4 +1,67 @@
-/** Money is integer pence everywhere. */
+/** Money is integer pence (hundredths) everywhere, in whichever currency the user chose. */
+
+import { CURRENCIES, type CurrencyCode, type Locale } from "@/lib/locale";
+
+const group = (n: number) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const escape = (s: string) => s.replace(/[$]/g, "\\$");
+
+/** Format hundredths in `currency`: "£4,301.78", or whole dollars for TWD ("NT$1,250"). */
+export function formatMoney(pence: number, currency: CurrencyCode = "GBP"): string {
+  if (currency === "GBP") return formatGBP(pence);
+  const sign = pence < 0 ? "-" : "";
+  return `${sign}${CURRENCIES[currency].symbol}${group(divRound(Math.abs(pence), 100))}`;
+}
+
+/** Like formatMoney with an explicit sign: "+" in, "−" (a minus sign) out, no sign for none. */
+export function formatSignedMoney(pence: number, currency: CurrencyCode = "GBP"): string {
+  if (pence === 0) return formatMoney(0, currency);
+  return `${pence > 0 ? "+" : "−"}${formatMoney(Math.abs(pence), currency)}`;
+}
+
+/** A user-typed amount in `currency` as positive hundredths, or null. TWD takes whole dollars only. */
+export function parseAmount(input: string, currency: CurrencyCode = "GBP"): number | null {
+  if (currency === "GBP") return parsePence(input);
+  const raw = input.trim().replace(new RegExp(`^(${escape(CURRENCIES[currency].symbol)}|\\$)`), "");
+  if (!/^(\d{1,3}(,\d{3})+|\d+)$/.test(raw)) return null;
+  const pence = Number(raw.replace(/,/g, "")) * 100;
+  return Number.isSafeInteger(pence) && pence > 0 ? pence : null;
+}
+
+/** Like parseAmount for an optional amount: empty or zero is 0; invalid text is null. */
+export function parseOptionalAmount(input: string, currency: CurrencyCode = "GBP"): number | null {
+  if (currency === "GBP") return parseOptionalPence(input);
+  const t = input.trim().replace(new RegExp(`^(${escape(CURRENCIES[currency].symbol)}|\\$)`), "");
+  return t === "" || /^0+$/.test(t) ? 0 : parseAmount(t, currency);
+}
+
+/** Hundredths as the text an amount field starts from: "12.50" for GBP, "1250" for TWD. */
+export function amountToInputText(pence: number, currency: CurrencyCode = "GBP"): string {
+  if (currency === "GBP") return penceToInputText(pence);
+  return `${pence < 0 ? "-" : ""}${divRound(Math.abs(pence), 100)}`;
+}
+
+/** One decimal, dropping ".0": 12 tenths -> "1.2", 10 -> "1". */
+const tenthsText = (tenths: number) => (tenths % 10 === 0 ? `${tenths / 10}` : `${Math.floor(tenths / 10)}.${tenths % 10}`);
+
+/**
+ * A compact amount for tight spaces (calendar tiles). Under 1,000 major units
+ * it is the whole amount (GBP keeps exact pence under £100); from there,
+ * thousands to one decimal: "k" in English, 千 then 萬 (ten thousand) in Chinese.
+ */
+export function formatMoneyShort(pence: number, currency: CurrencyCode = "GBP", locale: Locale = "en-GB"): string {
+  if (locale === "en-GB" && currency === "GBP") return formatGBPShort(pence);
+  const sign = pence < 0 ? "-" : "";
+  const abs = Math.abs(pence);
+  const symbol = CURRENCIES[currency].symbol;
+  if (currency === "GBP" && abs < 10_000) return formatGBP(pence);
+  const units = divRound(abs, 100);
+  if (units < 1000) return `${sign}${symbol}${units}`;
+  if (locale === "zh-TW") {
+    if (units < 10_000) return `${sign}${symbol}${tenthsText(divRound(abs, 10_000))}千`;
+    return `${sign}${symbol}${tenthsText(divRound(abs, 100_000))}萬`;
+  }
+  return `${sign}${symbol}${tenthsText(divRound(abs, 10_000))}k`;
+}
 
 /** Parse a user-entered GBP amount into positive integer pence, or null if invalid. */
 export function parsePence(input: string): number | null {

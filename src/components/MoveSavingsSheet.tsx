@@ -1,9 +1,10 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useId, useState } from "react";
 import { confirmSavingsAction } from "@/app/(app)/budget/fundActions";
-import { AmountInput, BottomSheet, Button, Money, Notice, TextField } from "@/components/ui";
-import { formatGBP, formatPeriodRange, parseOptionalPence, penceToInputText, splitDifference } from "@/lib/calc";
+import { AmountInput, BottomSheet, Button, Notice, TextField } from "@/components/ui";
+import { splitDifference } from "@/lib/calc";
 import type { FundView, WaitingPrompt } from "@/lib/data/funds";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
 import type { SplitInputLine } from "@/lib/validation/funds";
@@ -18,11 +19,6 @@ type MoveSavingsSheetProps = {
 
 type NewFund = { name: string; target: string; amount: string };
 
-const PREFILL_NOTE = {
-  last_period: "Pre-filled with last period's split.",
-  setup: "Pre-filled with the split you chose at setup.",
-  none: null,
-} as const;
 
 /**
  * "Move your savings" (§5.4): the period's savings split across funds,
@@ -30,8 +26,10 @@ const PREFILL_NOTE = {
  * of it to a new fund. Confirm stays off until the split adds up exactly.
  */
 export function MoveSavingsSheet({ prompt, funds, onClose, onDone }: MoveSavingsSheetProps) {
+  const { fmt, m } = useI18n();
+  const sv = m.saving;
   const [amounts, setAmounts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(prompt.prefill.map((l) => [l.fundId, penceToInputText(l.amountPence)])),
+    Object.fromEntries(prompt.prefill.map((l) => [l.fundId, fmt.inputText(l.amountPence)])),
   );
   const [newFund, setNewFund] = useState<NewFund | null>(() =>
     funds.length === 0 ? { name: "", target: "", amount: "" } : null,
@@ -40,9 +38,9 @@ export function MoveSavingsSheet({ prompt, funds, onClose, onDone }: MoveSavings
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fundPence = funds.map((f) => ({ fundId: f.id, amountPence: parseOptionalPence(amounts[f.id] ?? "") }));
-  const newPence = newFund ? parseOptionalPence(newFund.amount) : 0;
-  const newTarget = newFund ? parseOptionalPence(newFund.target) : 0;
+  const fundPence = funds.map((f) => ({ fundId: f.id, amountPence: fmt.parseOptional(amounts[f.id] ?? "") }));
+  const newPence = newFund ? fmt.parseOptional(newFund.amount) : 0;
+  const newTarget = newFund ? fmt.parseOptional(newFund.target) : 0;
   const allValid = fundPence.every((l) => l.amountPence !== null) && newPence !== null && newTarget !== null;
   const diff = splitDifference(prompt.savingsPence, [...fundPence.map((l) => l.amountPence ?? 0), newPence ?? 0]);
   const newNameOk = !newFund || (newFund.name.trim().length > 0 && newFund.name.trim().length <= MAX_NAME_LENGTH);
@@ -68,21 +66,21 @@ export function MoveSavingsSheet({ prompt, funds, onClose, onDone }: MoveSavings
       }
       onDone();
     } catch {
-      setError("We couldn't move your savings. Check your connection and try again.");
+      setError(sv.moveFailed);
     } finally {
       setBusy(false);
     }
   }
 
-  const note = PREFILL_NOTE[prompt.prefillFrom];
+  const note = prompt.prefillFrom === "none" ? null : sv.prefill[prompt.prefillFrom];
   return (
-    <BottomSheet open onClose={onClose} title="Move your savings">
+    <BottomSheet open onClose={onClose} title={sv.moveYourSavings}>
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">
           <p className="text-title font-semibold text-text">
-            <Money pence={prompt.savingsPence} /> to move
+            {sv.toMove(fmt.money(prompt.savingsPence))}
           </p>
-          <p className="text-caption text-muted">Savings for {formatPeriodRange(prompt.start, prompt.end)}.</p>
+          <p className="text-caption text-muted">{sv.savingsFor(fmt.periodRange(prompt.start, prompt.end))}</p>
           {note ? <p className="text-caption text-muted">{note}</p> : null}
         </div>
 
@@ -98,7 +96,7 @@ export function MoveSavingsSheet({ prompt, funds, onClose, onDone }: MoveSavings
               <AmountInput
                 key={f.id}
                 label={f.name}
-                hint={`Balance ${formatGBP(f.balancePence)}`}
+                hint={sv.balanceHint(fmt.money(f.balancePence))}
                 value={amounts[f.id] ?? ""}
                 onChange={(t) => setAmounts((a) => ({ ...a, [f.id]: t }))}
                 allowZero
@@ -109,37 +107,37 @@ export function MoveSavingsSheet({ prompt, funds, onClose, onDone }: MoveSavings
 
         {newFund ? (
           <fieldset className="flex flex-col gap-4 rounded-md border border-border p-4">
-            <legend className="px-1 text-caption font-medium text-muted">New fund</legend>
+            <legend className="px-1 text-caption font-medium text-muted">{sv.newFund}</legend>
             <TextField
-              label="New fund name"
+              label={sv.newFundName}
               value={newFund.name}
               onChange={(e) => setNewFund({ ...newFund, name: e.target.value })}
               maxLength={MAX_NAME_LENGTH}
               autoComplete="off"
-              placeholder="e.g. New car…"
-              hint={`Required, up to ${MAX_NAME_LENGTH} characters.`}
+              placeholder={sv.newFundPlaceholder}
+              hint={sv.newFundHint(MAX_NAME_LENGTH)}
             />
             <AmountInput
-              label="Target (optional)"
+              label={sv.targetOptional}
               value={newFund.target}
               onChange={(target) => setNewFund({ ...newFund, target })}
               allowZero
             />
             <AmountInput
-              label="Amount for the new fund"
+              label={sv.newFundAmount}
               value={newFund.amount}
               onChange={(amount) => setNewFund({ ...newFund, amount })}
               allowZero
             />
             {funds.length > 0 ? (
               <Button variant="ghost" onClick={() => setNewFund(null)}>
-                Remove the new fund
+                {sv.removeNewFund}
               </Button>
             ) : null}
           </fieldset>
         ) : (
           <Button variant="secondary" onClick={() => setNewFund({ name: "", target: "", amount: "" })}>
-            Send to a new fund
+            {sv.sendToNewFund}
           </Button>
         )}
 
@@ -149,14 +147,14 @@ export function MoveSavingsSheet({ prompt, funds, onClose, onDone }: MoveSavings
           className={`text-body font-semibold ${diff.state === "exact" ? "text-positive-fg" : diff.state === "over" ? "text-danger-fg" : "text-warning-fg"}`}
         >
           {diff.state === "exact"
-            ? `All ${formatGBP(prompt.savingsPence)} placed`
+            ? sv.allPlaced(fmt.money(prompt.savingsPence))
             : diff.state === "over"
-              ? `${formatGBP(diff.pence)} over`
-              : `${formatGBP(diff.pence)} left to place`}
+              ? sv.over(fmt.money(diff.pence))
+              : sv.leftToPlace(fmt.money(diff.pence))}
         </p>
 
         <Button variant="primary" size="lg" fullWidth disabled={!canConfirm} aria-describedby={statusId} onClick={() => void confirm()}>
-          {busy ? "Moving…" : "Confirm"}
+          {busy ? sv.moving : sv.confirm}
         </Button>
       </div>
     </BottomSheet>

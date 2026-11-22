@@ -1,5 +1,7 @@
 "use server";
 
+import { localizeError } from "@/i18n/errors";
+import { getServerI18n } from "@/i18n/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NameTakenError } from "@/lib/data/budgetEdit";
@@ -27,13 +29,13 @@ const targetOf = (t: unknown): Target => (isRecord(t) ? t : {});
 
 const DEFAULT_RETURN = "/expenses";
 
-const knownError = (e: unknown): string | null =>
+const knownError = async (e: unknown): Promise<string | null> =>
   e instanceof MissingReferenceError ||
   e instanceof TransactionNotFoundError ||
   e instanceof NotRecurringError ||
   e instanceof RuleNotFoundError ||
   e instanceof RecurringChangedError
-    ? e.message
+    ? localizeError(e, await getServerI18n())
     : null;
 
 /**
@@ -50,22 +52,22 @@ const knownError = (e: unknown): string | null =>
 export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promise<ExpenseActionResult> {
   if (!(await getUserId())) redirect("/login");
   const target = targetOf(rawTarget);
-  if (target.id !== undefined && !isId(target.id)) return { error: "This expense wasn't recognised." };
+  if (target.id !== undefined && !isId(target.id)) return { error: (await getServerI18n()).m.actions.expenseNotRecognised };
   const id = target.id as string | undefined;
 
-  const checked = validateExpense(raw, await getToday());
+  const checked = validateExpense(raw, await getToday(), await getServerI18n());
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
 
   const { repeat, ...edit } = checked.input;
   try {
     await saveExpense(await createClient(), id ?? null, id ? edit : { ...edit, ...(repeat ? { repeat } : {}) });
   } catch (e) {
-    if (e instanceof NameTakenError) return { error: e.message, field: "newCategory" };
-    if (e instanceof DuplicateOccurrenceError) return { error: e.message, field: "date" };
-    const known = knownError(e);
+    if (e instanceof NameTakenError) return { error: localizeError(e, await getServerI18n()), field: "newCategory" };
+    if (e instanceof DuplicateOccurrenceError) return { error: localizeError(e, await getServerI18n()), field: "date" };
+    const known = await knownError(e);
     if (known) return { error: known };
     console.error("saveExpense failed", e);
-    return { error: "We couldn't save this expense. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.actions.failed((await getServerI18n()).m.actions.what.saveExpense) };
   }
   revalidatePath("/", "layout");
   redirect(safeNext(target.returnTo, DEFAULT_RETURN));
@@ -75,15 +77,15 @@ export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promis
 export async function deleteExpenseAction(rawTarget: Target): Promise<ExpenseActionResult> {
   if (!(await getUserId())) redirect("/login");
   const target = targetOf(rawTarget);
-  if (!isId(target.id)) return { error: "This expense wasn't recognised." };
+  if (!isId(target.id)) return { error: (await getServerI18n()).m.actions.expenseNotRecognised };
 
   try {
     await deleteTransaction(await createClient(), target.id);
   } catch (e) {
-    const known = knownError(e);
+    const known = await knownError(e);
     if (known) return { error: known };
     console.error("deleteTransaction failed", e);
-    return { error: "We couldn't delete this expense. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.actions.failed((await getServerI18n()).m.actions.what.deleteExpense) };
   }
   revalidatePath("/", "layout");
   redirect(safeNext(target.returnTo, DEFAULT_RETURN));
@@ -96,15 +98,15 @@ export async function deleteExpenseAction(rawTarget: Target): Promise<ExpenseAct
  */
 export async function removeExpenseAction(id: unknown): Promise<{ error?: string }> {
   if (!(await getUserId())) redirect("/login");
-  if (!isId(id)) return { error: "This expense wasn't recognised." };
+  if (!isId(id)) return { error: (await getServerI18n()).m.actions.expenseNotRecognised };
 
   try {
     await deleteTransaction(await createClient(), id);
   } catch (e) {
-    const known = knownError(e);
+    const known = await knownError(e);
     if (known) return { error: known };
     console.error("deleteTransaction failed", e);
-    return { error: "We couldn't delete this expense. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.actions.failed((await getServerI18n()).m.actions.what.deleteExpense) };
   }
   revalidatePath("/", "layout");
   return {};

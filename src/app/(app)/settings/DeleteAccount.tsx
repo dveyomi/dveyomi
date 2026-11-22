@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useState, type FormEvent } from "react";
 import { BottomSheet, Button, ListRow, Notice, TextField } from "@/components/ui";
 import { DELETE_CONFIRMATION } from "@/lib/validation/settings";
@@ -10,7 +11,6 @@ function isDeletedLanding(url: string): boolean {
   return landing.pathname === "/login" && landing.searchParams.get("deleted") === "1";
 }
 
-const FAILED = "We couldn't delete your account. Nothing was removed. Check your connection and try again.";
 
 /**
  * "Delete my account" and its confirmation: typing DELETE enables the button,
@@ -18,6 +18,9 @@ const FAILED = "We couldn't delete your account. Nothing was removed. Check your
  * user out and redirects to /login?deleted=1; the page follows it.
  */
 export function DeleteAccount() {
+  const { m } = useI18n();
+  const sp = m.settingsPage;
+  const FAILED = sp.deleteFailed;
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);
@@ -55,19 +58,18 @@ export function DeleteAccount() {
     <>
       <ListRow
         icon="trash"
-        title="Delete my account"
-        subtitle="Remove your account and all your data"
+        title={sp.deleteRow}
+        subtitle={sp.deleteRowSubtitle}
         tone="danger"
         onClick={() => setOpen(true)}
       />
-      <BottomSheet open={open} onClose={close} title="Delete your account?" role="alertdialog">
+      <BottomSheet open={open} onClose={close} title={sp.deleteTitle} role="alertdialog">
         <form onSubmit={submit} className="flex flex-col gap-5">
           <p className="text-body text-muted">
-            This permanently deletes your account and everything in it: budgets, expenses, savings funds, trips and
-            recurring payments. It can&apos;t be undone. To keep a copy, export your data first.
+            {sp.deleteBody}
           </p>
           <TextField
-            label="Type DELETE to confirm"
+            label={sp.typeDelete}
             name="confirm"
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
@@ -83,7 +85,7 @@ export function DeleteAccount() {
           ) : null}
           <div className="flex flex-col-reverse gap-3 md:flex-row md:justify-end">
             <Button variant="secondary" onClick={close} disabled={pending}>
-              Keep my account
+              {sp.keepAccount}
             </Button>
             <Button
               type="submit"
@@ -91,7 +93,7 @@ export function DeleteAccount() {
               disabled={typed !== DELETE_CONFIRMATION || pending}
               aria-busy={pending}
             >
-              {pending ? "Deleting…" : "Delete account"}
+              {pending ? sp.deleting : sp.deleteAccount}
             </Button>
           </div>
         </form>

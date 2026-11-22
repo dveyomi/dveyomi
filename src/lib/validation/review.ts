@@ -1,5 +1,6 @@
 import { isId } from "./budgetEdit";
-import { checkName, isPence, isRecord } from "./common";
+import { DEFAULT_I18N, type I18n } from "@/i18n/format";
+import { amountLimits, checkName, isAmount, isRecord } from "./common";
 
 /**
  * Where an ended period's leftover goes (one whole amount, spec §5.9). The
@@ -19,23 +20,31 @@ export type LeftoverChoiceCheck = { ok: true; choice: LeftoverChoice | null } | 
  * new one (trimmed, 1–50 characters). Anything else, an amount included, is
  * ignored.
  */
-export function validateLeftoverChoice(raw: unknown): LeftoverChoiceCheck {
+export function validateLeftoverChoice(raw: unknown, i18n: I18n = DEFAULT_I18N): LeftoverChoiceCheck {
+  const r = i18n.m.review;
   if (raw === null) return { ok: true, choice: null };
-  if (!isRecord(raw)) return { ok: false, error: "Choose where your leftover goes." };
+  if (!isRecord(raw)) return { ok: false, error: r.chooseLeftover };
   const { destination } = raw;
   if (destination === "next_period" || destination === "unassigned") return { ok: true, choice: { destination } };
-  if (destination !== "fund") return { ok: false, error: "Choose where your leftover goes." };
+  if (destination !== "fund") return { ok: false, error: r.chooseLeftover };
   if (raw.newFundName !== undefined) {
-    const name = checkName(raw.newFundName, "fund");
+    const name = checkName(raw.newFundName, "fund", i18n);
     return name.ok ? { ok: true, choice: { destination, newFundName: name.value } } : { ok: false, error: name.error };
   }
-  if (!isId(raw.fundId)) return { ok: false, error: "Choose a fund, or name a new one." };
+  if (!isId(raw.fundId)) return { ok: false, error: r.chooseFund };
   return { ok: true, choice: { destination, fundId: raw.fundId } };
 }
 
 /** A raised budget for one category: whole pence, £0.01 to £10m. */
-export function validateRaise(categoryId: unknown, amountPence: unknown): { ok: true } | { ok: false; error: string } {
-  if (!isId(categoryId)) return { ok: false, error: "That category wasn't found. Reload the page and try again." };
-  if (!isPence(amountPence, 1)) return { ok: false, error: "Enter an amount between £0.01 and £10,000,000.00." };
+export function validateRaise(
+  categoryId: unknown,
+  amountPence: unknown,
+  i18n: I18n = DEFAULT_I18N,
+): { ok: true } | { ok: false; error: string } {
+  if (!isId(categoryId)) return { ok: false, error: i18n.m.review.categoryNotFound };
+  if (!isAmount(amountPence, 1, i18n.currency)) {
+    const { min, max } = amountLimits(i18n, 1);
+    return { ok: false, error: i18n.m.validation.amountRange(min, max) };
+  }
   return { ok: true };
 }

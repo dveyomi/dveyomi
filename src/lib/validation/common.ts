@@ -1,3 +1,6 @@
+import { DEFAULT_I18N, type I18n } from "@/i18n/format";
+import type { CurrencyCode } from "@/lib/locale";
+
 /**
  * Input checks shared by the client (forms) and the server (actions and data
  * functions). Client-safe: imports nothing from the data layer.
@@ -16,14 +19,35 @@ export type Check<T> = { ok: true; value: T } | { ok: false; error: string; fiel
 /** Whether `v` is whole pence from `min` up to MAX_PENCE. */
 export const isPence = (v: unknown, min: number): v is number =>
   Number.isSafeInteger(v) && (v as number) >= min && (v as number) <= MAX_PENCE;
+/**
+ * Whether `v` is an amount the user's currency can hold, from `min` up to
+ * MAX_PENCE. TWD is whole dollars: a multiple of 100, and at least NT$1 when
+ * `min` is above zero.
+ */
+export function isAmount(v: unknown, min: number, currency: CurrencyCode = "GBP"): v is number {
+  if (currency === "GBP") return isPence(v, min);
+  return isPence(v, min > 0 ? Math.max(min, 100) : 0) && (v as number) % 100 === 0;
+}
+
+/** The smallest amount a field accepts (1p, or NT$1), the largest, and both written in the currency. */
+export function amountLimits(i18n: I18n, min: 0 | 1): { min: string; max: string } {
+  const smallest = min === 0 ? 0 : i18n.currency === "GBP" ? 1 : 100;
+  return { min: i18n.fmt.money(smallest), max: i18n.fmt.money(MAX_PENCE) };
+}
+
+/** The required-amount message for the currency, with an example the user could type. */
+export function amountRequiredError(i18n: I18n, gbpExample = "12.50"): string {
+  return i18n.m.validation.amountRequired[i18n.currency](i18n.currency === "GBP" ? gbpExample : "1250");
+}
+
 export const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
 /** A category or fund name: trimmed, 1 to MAX_NAME_LENGTH characters. */
-export function checkName(raw: unknown, what: "category" | "fund"): Check<string> {
-  if (typeof raw !== "string" || !raw.trim()) return { ok: false, error: `Give every ${what} a name.` };
+export function checkName(raw: unknown, what: "category" | "fund", i18n: I18n = DEFAULT_I18N): Check<string> {
+  if (typeof raw !== "string" || !raw.trim()) return { ok: false, error: i18n.m.names.required[what] };
   const name = raw.trim();
   if (name.length > MAX_NAME_LENGTH) {
-    return { ok: false, error: `${what === "category" ? "Category" : "Fund"} names can be up to ${MAX_NAME_LENGTH} characters.` };
+    return { ok: false, error: i18n.m.names.tooLong[what](MAX_NAME_LENGTH) };
   }
   return { ok: true, value: name };
 }

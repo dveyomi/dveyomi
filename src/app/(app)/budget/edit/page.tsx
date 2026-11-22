@@ -1,9 +1,13 @@
+import { getServerI18n } from "@/i18n/server";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui";
 import { EditContent } from "./EditContent";
 
-export const metadata: Metadata = { title: "Edit budget · Personal Finance OS" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getServerI18n();
+  return { title: m.shell.pageTitle(m.budget.editTitle) };
+}
 
 export default function Page({ searchParams }: PageProps<"/budget/edit">) {
   return (

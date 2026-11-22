@@ -1,44 +1,48 @@
+"use client";
+
+import { useI18n } from "@/i18n/client";
 import type { ReactNode } from "react";
 import { Card, Money } from "@/components/ui";
-import { allocationTotals, formatGBP, formatWeekdayDate, periodContaining, startDayLabel, type IsoDate } from "@/lib/calc";
+import { allocationTotals, periodContaining, type IsoDate } from "@/lib/calc";
 import type { OnboardingInput } from "@/lib/data/onboarding";
 import { StepHeading } from "./StepHeading";
 
 /** Step 4: a short summary of the budget about to go live. */
 export function Live({ input, today }: { input: OnboardingInput; today: IsoDate }) {
+  const { fmt, m } = useI18n();
+  const o = m.onboarding;
   const totals = allocationTotals(input.incomePence, input.savingsPence, input.categories);
-  const nextOn = formatWeekdayDate(periodContaining(today, input.startDay).nextStart);
-  const resets = input.startDay === 1 ? "on the first day of each month" : `on the ${startDayLabel(input.startDay)} of each month`;
+  const nextOn = fmt.weekdayDate(periodContaining(today, input.startDay).nextStart);
 
   return (
     <section aria-labelledby="step-heading" className="flex flex-col gap-6">
-      <StepHeading title="You're live" body={`Your budget resets ${resets}, next on ${nextOn}. You can change any of this later.`} />
+      <StepHeading title={o.liveTitle} body={o.liveBody(o.resets(input.startDay), nextOn)} />
 
       <Card>
         <dl className="flex flex-col divide-y divide-border">
-          <Row label="Monthly income" value={<Money pence={input.incomePence} />} />
-          <Row label="Pay yourself first" value={<Money pence={input.savingsPence} />} />
-          <Row label="To spend each month" value={<Money pence={totals.poolPence} />} strong />
-          <Row label="Needs" value={<Money pence={totals.needsPence} />} />
-          <Row label="Wants" value={<Money pence={totals.wantsPence} />} />
+          <Row label={o.monthlyIncome} value={<Money pence={input.incomePence} />} />
+          <Row label={o.payYourselfFirst} value={<Money pence={input.savingsPence} />} />
+          <Row label={o.toSpendEachMonth} value={<Money pence={totals.poolPence} />} strong />
+          <Row label={m.kinds.plural.need} value={<Money pence={totals.needsPence} />} />
+          <Row label={m.kinds.plural.want} value={<Money pence={totals.wantsPence} />} />
           {totals.overAllocatedPence > 0 ? (
-            <Row label="Over allocated" value={<span className="text-danger-fg">{formatGBP(totals.overAllocatedPence)}</span>} />
+            <Row label={o.overAllocated} value={<span className="text-danger-fg">{fmt.money(totals.overAllocatedPence)}</span>} />
           ) : (
-            <Row label="Left to allocate" value={<Money pence={totals.unallocatedPence} />} />
+            <Row label={o.leftToAllocate} value={<Money pence={totals.unallocatedPence} />} />
           )}
         </dl>
       </Card>
 
       {input.funds.length > 0 ? (
         <Card>
-          <h2 className="text-body font-semibold text-text">Savings funds</h2>
+          <h2 className="text-body font-semibold text-text">{o.funds}</h2>
           <dl className="mt-2 flex flex-col divide-y divide-border">
             {input.funds.map((f) => (
               <Row
                 key={f.name}
                 label={f.name}
-                sub={f.alreadySavedPence > 0 ? `${formatGBP(f.alreadySavedPence)} already saved` : undefined}
-                value={input.savingsPence > 0 ? <span><Money pence={f.amountPence} /> a month</span> : null}
+                sub={f.alreadySavedPence > 0 ? o.alreadySavedAmount(fmt.money(f.alreadySavedPence)) : undefined}
+                value={input.savingsPence > 0 ? <span><Money pence={f.amountPence} /> {o.aMonth}</span> : null}
               />
             ))}
           </dl>

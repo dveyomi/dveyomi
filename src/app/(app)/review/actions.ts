@@ -1,5 +1,7 @@
 "use server";
 
+import { localizeError } from "@/i18n/errors";
+import { getServerI18n } from "@/i18n/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NoBudgetError } from "@/lib/data/budgetEdit";
@@ -22,7 +24,7 @@ import { validateLeftoverChoice, validateRaise } from "@/lib/validation/review";
 
 /** The period-end review's actions. Inputs are untrusted: checked here; figures are worked out on the server. */
 
-const FAILED = { error: "We couldn't save that. Check your connection and try again." };
+const FAILED = async () => ({ error: (await getServerI18n()).m.checks.failed });
 
 /**
  * Records where an ended period's leftover goes, or where its overspend
@@ -31,12 +33,16 @@ const FAILED = { error: "We couldn't save that. Check your connection and try ag
  */
 export async function recordLeftoverAction(periodId: unknown, rawChoice: unknown): Promise<{ error: string }> {
   if (!(await getUserId())) redirect("/login");
-  if (!isId(periodId)) return { error: "That budget wasn't found. Reload the page and try again." };
+  if (!isId(periodId)) return { error: (await getServerI18n()).m.checks.budgetNotFound };
   const checked = validateLeftoverChoice(rawChoice);
   if (!checked.ok) return { error: checked.error };
   try {
     await recordLeftover(await createClient(), await getToday(), periodId, checked.choice);
   } catch (e) {
+    if (e instanceof FundShortError) {
+      const { m, fmt } = await getServerI18n();
+      return { error: m.errors.fundShort(e.fundName, fmt.money(Math.max(0, e.balancePence))) };
+    }
     if (
       e instanceof AlreadyReviewedError ||
       e instanceof PeriodNotEndedError ||
@@ -44,13 +50,12 @@ export async function recordLeftoverAction(periodId: unknown, rawChoice: unknown
       e instanceof LeftoverChangedError ||
       e instanceof FundNotFoundError ||
       e instanceof FundNameTakenError ||
-      e instanceof FundShortError ||
       e instanceof OverspendChoiceError
     ) {
-      return { error: e.message };
+      return { error: localizeError(e, await getServerI18n()) };
     }
     console.error("recordLeftover failed", e);
-    return FAILED;
+    return await FAILED();
   }
   revalidatePath("/", "layout");
   redirect("/budget?reviewed=1");
@@ -59,15 +64,15 @@ export async function recordLeftoverAction(periodId: unknown, rawChoice: unknown
 /** Raises a category's budget from the current period on (a review suggestion). */
 export async function applyRaiseAction(categoryId: unknown, amountPence: unknown): Promise<{ error?: string }> {
   if (!(await getUserId())) redirect("/login");
-  const checked = validateRaise(categoryId, amountPence);
+  const checked = validateRaise(categoryId, amountPence, await getServerI18n());
   if (!checked.ok) return { error: checked.error };
   try {
     await raiseBudget(await createClient(), await getToday(), categoryId as string, amountPence as number);
   } catch (e) {
-    if (e instanceof RaiseRefusedError) return { error: e.message };
+    if (e instanceof RaiseRefusedError) return { error: localizeError(e, await getServerI18n()) };
     if (e instanceof NoBudgetError) redirect("/onboarding");
     console.error("raiseBudget failed", e);
-    return FAILED;
+    return await FAILED();
   }
   revalidatePath("/", "layout");
   return {};

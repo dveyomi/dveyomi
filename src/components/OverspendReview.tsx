@@ -1,8 +1,9 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useState } from "react";
 import { AmountInput, Button, Card, Money, Notice } from "@/components/ui";
-import { allocationTotals, formatGBP, parsePence, penceToInputText } from "@/lib/calc";
+import { allocationTotals } from "@/lib/calc";
 import type { CurrentFigures, Overspend, RaiseSuggestion } from "@/lib/data/review";
 
 type OverspendReviewProps = {
@@ -21,29 +22,31 @@ type OverspendReviewProps = {
 export function OverspendReview({ monthLabel, raiseApplies, overspent, suggestions, current, apply }: OverspendReviewProps) {
   // The suggestions as first shown: once one is applied the refreshed page stops suggesting it,
   // but its confirmation stays for this visit.
+  const { m } = useI18n();
+  const r = m.review;
   const [shown] = useState(suggestions);
   return (
     <div className="flex flex-col gap-4">
       <Card as="section" className="flex flex-col gap-3">
         <h2 id="overspent-title" className="text-title font-semibold text-text">
-          Over budget
+          {r.overBudget}
         </h2>
         {overspent.length === 0 ? (
-          <p className="text-body text-muted">Nothing went over budget in {monthLabel}.</p>
+          <p className="text-body text-muted">{r.nothingOver(monthLabel)}</p>
         ) : (
           <>
-            <ul aria-label={`Over budget in ${monthLabel}`} className="flex flex-col divide-y divide-border">
+            <ul aria-label={r.overIn(monthLabel)} className="flex flex-col divide-y divide-border">
               {overspent.map((o) => (
                 <li key={o.categoryId} className="flex items-center justify-between gap-3 py-3 text-body">
                   <span className="min-w-0 truncate text-text">{o.name}</span>
                   <span className="flex items-baseline gap-1 text-danger-fg">
                     <Money pence={o.overPence} tone="neutral" />
-                    <span className="text-caption">over</span>
+                    <span className="text-caption">{r.over}</span>
                   </span>
                 </li>
               ))}
             </ul>
-            <p className="text-caption text-muted">Category budgets start fresh each month.</p>
+            <p className="text-caption text-muted">{r.freshEachMonth}</p>
           </>
         )}
       </Card>
@@ -52,10 +55,10 @@ export function OverspendReview({ monthLabel, raiseApplies, overspent, suggestio
         <Card as="section" className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <h2 id="raise-title" className="text-title font-semibold text-text">
-              Raise a budget?
+              {r.raiseTitle}
             </h2>
             <p className="text-caption text-muted">
-              {shown.length === 1 ? "This category" : "These categories"} went over in two of your last three budgets.
+              {r.raiseBody(shown.length)}
             </p>
           </div>
           {shown.map((s) => (
@@ -78,11 +81,13 @@ function RaiseRow({
   applies: OverspendReviewProps["raiseApplies"];
   apply: OverspendReviewProps["apply"];
 }) {
-  const [text, setText] = useState(() => penceToInputText(suggestion.suggestedPence));
+  const { fmt, m } = useI18n();
+  const r = m.review;
+  const [text, setText] = useState(() => fmt.inputText(suggestion.suggestedPence));
   const [applied, setApplied] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const pence = parsePence(text);
+  const pence = fmt.parse(text);
 
   const allocationsWith = (amountPence: number) => {
     const others = current.allocations.filter((a) => a.categoryId !== suggestion.categoryId);
@@ -109,7 +114,7 @@ function RaiseRow({
       <div role="status">
         <Notice tone="neutral">
           <p>
-            {suggestion.name} is now {formatGBP(applied)} from this budget on.
+            {r.raised(suggestion.name, fmt.money(applied))}
           </p>
         </Notice>
       </div>
@@ -119,23 +124,22 @@ function RaiseRow({
   return (
     <div className="flex flex-col gap-3 rounded-md border border-border p-4">
       <AmountInput
-        label={`New ${suggestion.name} budget`}
+        label={r.newBudget(suggestion.name)}
         value={text}
         onChange={(t) => {
           setText(t);
           setError(null);
         }}
-        hint={`Now ${formatGBP(suggestion.currentPence)}. Suggested from your average spending.`}
+        hint={r.nowSuggested(fmt.money(suggestion.currentPence))}
       />
       {after ? (
         after.overAllocatedPence > 0 ? (
           <p className="text-caption text-danger-fg">
-            Your budget would be over-allocated by <Money pence={after.overAllocatedPence} tone="neutral" />
+            {r.wouldBeOver(fmt.money(after.overAllocatedPence))}
           </p>
         ) : (
           <p className="text-caption text-muted">
-            Unallocated money: <Money pence={before.unallocatedPence} tone="neutral" /> →{" "}
-            <Money pence={after.unallocatedPence} tone="neutral" />
+            {r.unallocated(fmt.money(before.unallocatedPence), fmt.money(after.unallocatedPence))}
           </p>
         )
       ) : null}
@@ -145,12 +149,12 @@ function RaiseRow({
         </div>
       ) : null}
       <Button variant="secondary" onClick={onApply} disabled={busy || pence === null}>
-        {busy ? "Saving…" : `Raise ${suggestion.name} to ${pence === null ? "…" : formatGBP(pence)}`}
+        {busy ? m.common.saving : r.raiseTo(suggestion.name, pence === null ? "…" : fmt.money(pence))}
       </Button>
       <p className="text-caption text-muted">
         {applies.nextLabel
-          ? `Applies to ${applies.currentLabel} and your planned ${applies.nextLabel} budget.`
-          : `Applies to your ${applies.currentLabel} budget and the ones after it.`}
+          ? r.appliesWithNext(applies.currentLabel, applies.nextLabel)
+          : r.appliesFrom(applies.currentLabel)}
       </p>
     </div>
   );

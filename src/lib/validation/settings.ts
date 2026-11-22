@@ -1,4 +1,5 @@
 /** Settings input checks, shared by the Settings forms and the server. Client-safe. */
+import { CURRENCY_CODES, LOCALES, type CurrencyCode, type Locale } from "@/lib/locale";
 import { isTimeZone } from "@/lib/timezone";
 
 /** What the user types to confirm deleting their account. */
@@ -18,4 +19,14 @@ export function checkTimeZone(raw: unknown): string | null {
 /** True only for exactly "DELETE": no other case, no spaces. */
 export function isDeleteConfirmed(raw: unknown): boolean {
   return raw === DELETE_CONFIRMATION;
+}
+
+/** A language the app has, else null. */
+export function checkLocale(raw: unknown): Locale | null {
+  return LOCALES.find((l) => l === raw) ?? null;
+}
+
+/** A currency the app can show, else null. */
+export function checkCurrency(raw: unknown): CurrencyCode | null {
+  return CURRENCY_CODES.find((c) => c === raw) ?? null;
 }

@@ -1,12 +1,10 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { ButtonLink, Card, EmptyState, Money, RadioSegments, SegmentedTabs, Button } from "@/components/ui";
 import {
-  formatMonth,
-  formatMonthYear,
-  formatPeriodRange,
   shiftYearMonth,
   summariseExpenses,
   type ExpenseRange,
@@ -38,14 +36,6 @@ export function expensesHref({ range, month, view }: { range: ExpenseRange; mont
   return query ? `/expenses?${query}` : "/expenses";
 }
 
-const viewOptions = [
-  { value: "calendar" as const, label: "Calendar" },
-  { value: "analytics" as const, label: "Analytics" },
-];
-const rangeOptions = [
-  { value: "month" as const, label: "Month" },
-  { value: "period" as const, label: "Budget period" },
-];
 
 type ExpensesOverviewProps = {
   data: ExpensesView;
@@ -63,6 +53,16 @@ type ExpensesOverviewProps = {
 export function ExpensesOverview({ data, today, initialView, trips = [] }: ExpensesOverviewProps) {
   const router = useRouter();
   const tripsHeadingId = useId();
+  const { m, fmt } = useI18n();
+  const o = m.overview;
+  const viewOptions = [
+    { value: "calendar" as const, label: o.views.calendar },
+    { value: "analytics" as const, label: o.views.analytics },
+  ];
+  const rangeOptions = [
+    { value: "month" as const, label: o.ranges.month },
+    { value: "period" as const, label: o.ranges.period },
+  ];
   const [view, setView] = useState(initialView);
   const [openDay, setOpenDay] = useState<IsoDate | null>(null);
   const { range, window: win, categories } = data;
@@ -75,9 +75,9 @@ export function ExpensesOverview({ data, today, initialView, trips = [] }: Expen
   const names = new Map(categories.map((c) => [c.id, c.name]));
 
   const isPeriod = range === "period";
-  const title = isPeriod ? formatPeriodRange(current.start, current.end) : formatMonthYear(win.month);
+  const title = isPeriod ? fmt.periodRange(current.start, current.end) : fmt.monthYear(win.month);
   const unit = isPeriod ? "period" : "month";
-  const spentCaption = isPeriod ? "Spent this period" : `Spent in ${formatMonth(win.month)}`;
+  const spentCaption = isPeriod ? o.spentThisPeriod : o.spentIn(fmt.month(win.month));
   const returnTo = expensesHref({ range, month: win.month, view });
   const step = (delta: number) => expensesHref({ range, month: shiftYearMonth(win.month, delta), view });
   const inProgress = today >= current.start && today <= current.end;
@@ -91,18 +91,18 @@ export function ExpensesOverview({ data, today, initialView, trips = [] }: Expen
   const switcher = (
     <div className="flex items-center justify-between gap-2 px-1 md:px-0">
       <ButtonLink href={step(-1)} variant="secondary" icon="chevron-left">
-        <span className="sr-only">Previous {unit}</span>
+        <span className="sr-only">{o.previous[unit]}</span>
       </ButtonLink>
       <h2 className="min-w-0 truncate text-center text-title font-semibold text-text">{title}</h2>
       <ButtonLink href={step(1)} variant="secondary" icon="chevron-right">
-        <span className="sr-only">Next {unit}</span>
+        <span className="sr-only">{o.next[unit]}</span>
       </ButtonLink>
     </div>
   );
 
   const breakdown = (
     <Card as="section" className="flex flex-col gap-4">
-      <h2 className="text-caption font-semibold text-muted">Category breakdown</h2>
+      <h2 className="text-caption font-semibold text-muted">{o.breakdown}</h2>
       <CategoryBreakdown summary={summary} names={names} caption={spentCaption} />
     </Card>
   );
@@ -119,11 +119,11 @@ export function ExpensesOverview({ data, today, initialView, trips = [] }: Expen
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="md:w-72">
-          <SegmentedTabs label="Expenses view" options={viewOptions} value={view} onChange={changeView} />
+          <SegmentedTabs label={o.view} options={viewOptions} value={view} onChange={changeView} />
         </div>
         <div className="md:w-80">
           <RadioSegments
-            label="Show"
+            label={o.show}
             options={rangeOptions}
             value={range}
             onChange={(next) => router.push(expensesHref({ range: next, month: null, view }))}
@@ -131,7 +131,7 @@ export function ExpensesOverview({ data, today, initialView, trips = [] }: Expen
         </div>
       </div>
 
-      <div role="tabpanel" aria-label={view === "calendar" ? "Calendar" : "Analytics"}>
+      <div role="tabpanel" aria-label={o.views[view]}>
         {view === "calendar" ? (
           <div className="grid items-start gap-4 lg:grid-cols-3 lg:gap-6">
             <Card as="section" className="flex flex-col gap-4 px-1 md:px-5 lg:col-span-2">
@@ -150,8 +150,8 @@ export function ExpensesOverview({ data, today, initialView, trips = [] }: Expen
               {inWindow.length === 0 ? (
                 <EmptyState
                   icon="calendar"
-                  title={`No expenses this ${unit}`}
-                  body="Tap a day to add one, or use the + button."
+                  title={o.none[unit]}
+                  body={o.tapDay}
                 />
               ) : null}
             </Card>
@@ -159,9 +159,9 @@ export function ExpensesOverview({ data, today, initialView, trips = [] }: Expen
               {inWindow.length > 0 ? (
                 <Card as="section" className="flex flex-col gap-2 px-2">
                   <div className="flex items-center justify-between gap-3 px-2">
-                    <h2 className="text-caption font-semibold text-muted">Latest</h2>
+                    <h2 className="text-caption font-semibold text-muted">{o.latest}</h2>
                     <Button variant="ghost" onClick={() => changeView("analytics")}>
-                      See all
+                      {o.seeAll}
                     </Button>
                   </div>
                   <LatestList txns={inWindow.slice(0, LATEST)} returnTo={returnTo} />
@@ -174,13 +174,13 @@ export function ExpensesOverview({ data, today, initialView, trips = [] }: Expen
                   <div role="region" aria-labelledby={tripsHeadingId} className="flex flex-col gap-2">
                     <div className="flex items-center justify-between gap-3 px-2">
                       <h2 id={tripsHeadingId} className="text-caption font-semibold text-muted">
-                        Trips
+                        {o.trips}
                       </h2>
                       <ButtonLink href="/expenses/trips" variant="ghost">
-                        All trips
+                        {o.allTrips}
                       </ButtonLink>
                     </div>
-                    <TripList trips={trips.slice(0, LATEST_TRIPS)} today={today} label="Latest trips" />
+                    <TripList trips={trips.slice(0, LATEST_TRIPS)} today={today} label={o.latestTrips} />
                   </div>
                 </Card>
               ) : null}

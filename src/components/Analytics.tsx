@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useId, useState } from "react";
 import { Card, Donut, EmptyState, Money, Select, SeriesSwatch, TextField, type Series } from "@/components/ui";
 import { foldCategories, totalsByDay, type Comparison, type ExpensesSummary, type IsoDate } from "@/lib/calc";
@@ -20,11 +21,13 @@ type CategoryBreakdownProps = {
 
 /** Donut and category list (§5.6): each category's spend and share, largest first. Colour follows rank in this window. */
 export function CategoryBreakdown({ summary, names, caption }: CategoryBreakdownProps) {
-  const nameOf = (id: string) => names.get(id) ?? "Unknown";
+  const { m } = useI18n();
+  const o = m.overview;
+  const nameOf = (id: string) => names.get(id) ?? o.unknown;
   const folded = summary.categories.slice(SLICES).map((c) => nameOf(c.categoryId));
   const slices = foldCategories(summary.categories, SLICES, summary.totalPence).map((s, i) => ({
     key: s.categoryId ?? "other",
-    label: s.categoryId === null ? "Other" : nameOf(s.categoryId),
+    label: s.categoryId === null ? o.other : nameOf(s.categoryId),
     pence: s.pence,
     percent: s.percent,
     series: s.categoryId === null ? ("other" as const) : ((i + 1) as Series),
@@ -34,15 +37,15 @@ export function CategoryBreakdown({ summary, names, caption }: CategoryBreakdown
     <div className="@container">
       <div className="flex flex-col gap-5 @xl:flex-row @xl:items-center @xl:gap-8">
         <div className="@xl:w-56 @xl:shrink-0">
-          <Donut label="Spending by category" slices={slices}>
+          <Donut label={o.byCategory} slices={slices}>
             <Money pence={summary.totalPence} size="title" />
             <span className="text-caption text-muted">{caption}</span>
           </Donut>
         </div>
         {slices.length === 0 ? (
-          <p className="text-body text-muted @xl:flex-1">Categories will show here once you add expenses.</p>
+          <p className="text-body text-muted @xl:flex-1">{o.noCategories}</p>
         ) : (
-          <ul aria-label="Categories" className="flex min-w-0 flex-1 flex-col divide-y divide-border">
+          <ul aria-label={o.categories} className="flex min-w-0 flex-1 flex-col divide-y divide-border">
             {slices.map((s) => (
               <li key={s.key} className="flex items-center gap-3 py-2.5">
                 <SeriesSwatch series={s.series} />
@@ -89,41 +92,41 @@ type ComparisonCardProps = {
  * the same in plain text. With no previous expenses it says so instead.
  */
 export function ComparisonCard({ comparison, inProgress, unit, upcoming }: ComparisonCardProps) {
+  const { m, fmt } = useI18n();
+  const o = m.overview;
   const headingId = useId();
   return (
     <section aria-labelledby={headingId}>
       <Card className="flex flex-col gap-2">
         <h2 id={headingId} className="text-caption font-semibold text-muted">
-          Compared with last {unit}
+          {o.comparedWith[unit]}
         </h2>
         {upcoming ? (
           <EmptyState
             icon="calendar"
-            title={`This ${unit} hasn't started yet`}
-            body="It will compare with the one before once it begins."
+            title={o.notStarted[unit]}
+            body={o.notStartedBody}
           />
         ) : comparison === null ? (
           <EmptyState
             icon="chart"
-            title={`No previous ${unit} to compare yet`}
-            body={`Once the ${unit} before this one has expenses, you'll see how this one compares.`}
+            title={o.noPrevious[unit]}
+            body={o.noPreviousBody[unit]}
           />
         ) : (
           <>
             {comparison.direction === "same" ? (
-              <p className={`text-title font-semibold ${tones.same}`}>Same as last {unit}</p>
+              <p className={`text-title font-semibold ${tones.same}`}>{o.same[unit]}</p>
             ) : (
               <p className={`text-title font-semibold ${tones[comparison.direction]}`}>
-                <Money pence={Math.abs(comparison.diffPence)} tone="neutral" />{" "}
-                {comparison.direction === "up" ? "more" : "less"} than last {unit}
+                {(comparison.direction === "up" ? o.more : o.less)[unit](fmt.money(Math.abs(comparison.diffPence)))}
               </p>
             )}
             {comparison.pct !== null ? (
               <p className={`text-body font-semibold ${tones[comparison.direction]}`}>{percentText(comparison.pct)}</p>
             ) : null}
             <p className="text-caption text-muted">
-              <Money pence={comparison.currentPence} /> against <Money pence={comparison.previousPence} />
-              {inProgress ? ", over the same number of days" : ""}
+              {o.against(fmt.money(comparison.currentPence), fmt.money(comparison.previousPence), inProgress)}
             </p>
           </>
         )}
@@ -142,6 +145,8 @@ type TransactionsPanelProps = {
 
 /** The window's expenses grouped by date, with search (by name) and a category filter. */
 export function TransactionsPanel({ txns, categories, today, returnTo }: TransactionsPanelProps) {
+  const { m } = useI18n();
+  const o = m.overview;
   const headingId = useId();
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -153,30 +158,30 @@ export function TransactionsPanel({ txns, categories, today, returnTo }: Transac
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <h2 id={headingId} className="text-title font-semibold text-text">
-        Transactions
+        {o.transactions}
       </h2>
       <div className="grid gap-3 md:grid-cols-2">
         <TextField
-          label="Search expenses"
+          label={o.search}
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Name…"
+          placeholder={o.searchPlaceholder}
           autoComplete="off"
         />
         <Select
-          label="Category"
+          label={o.category}
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
-          options={[{ value: "", label: "All categories" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
+          options={[{ value: "", label: o.allCategories }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
         />
       </div>
       <Card className="px-2 py-3">
         {shown.length === 0 ? (
           <EmptyState
             icon="search"
-            title={txns.length === 0 ? "No expenses yet" : "No expenses match"}
-            body={txns.length === 0 ? "Expenses you add in this period will show here." : "Try another name or category."}
+            title={txns.length === 0 ? o.noExpensesTitle : o.noMatchTitle}
+            body={txns.length === 0 ? o.noExpensesBody : o.noMatchBody}
           />
         ) : (
           <TransactionList txns={shown} dayTotals={totalsByDay(shown)} today={today} returnTo={returnTo} />

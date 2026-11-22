@@ -1,21 +1,23 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { undoImportAction } from "@/app/(app)/settings/import/actions";
 import { Button, ConfirmDialog } from "@/components/ui";
-import { formatDayMonthYear, type IsoDate } from "@/lib/calc";
+import { type IsoDate } from "@/lib/calc";
 
 /** A past import as the list shows it: `importedOn` is the day it was imported, in the user's zone. */
 export type RecentImport = { id: string; filename: string; importedOn: IsoDate; rowCount: number };
 
-const expenses = (n: number) => `${n.toLocaleString("en-GB")} ${n === 1 ? "expense" : "expenses"}`;
 
 /**
  * The latest imports, each with "Undo import": after a confirmation it
  * removes that import's expenses (including any edited since) and the import.
  */
 export function RecentImports({ imports }: { imports: RecentImport[] }) {
+  const { m, fmt } = useI18n();
+  const w = m.importer;
   const router = useRouter();
   const [confirming, setConfirming] = useState<RecentImport | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,7 +34,7 @@ export function RecentImports({ imports }: { imports: RecentImport[] }) {
       if ("error" in result) setError(result.error);
       else router.refresh();
     } catch {
-      setError("We couldn't undo this import. Check your connection and try again.");
+      setError(w.undoFailed);
     } finally {
       setBusy(false);
     }
@@ -41,7 +43,7 @@ export function RecentImports({ imports }: { imports: RecentImport[] }) {
   return (
     <div className="flex flex-col gap-2">
       {imports.length === 0 ? (
-        <p className="text-body text-muted">No imports yet</p>
+        <p className="text-body text-muted">{w.noImports}</p>
       ) : (
         <ul className="flex flex-col divide-y divide-border">
           {imports.map((b) => (
@@ -51,16 +53,16 @@ export function RecentImports({ imports }: { imports: RecentImport[] }) {
                   {b.filename}
                 </span>
                 <span className="text-caption text-muted">
-                  {formatDayMonthYear(b.importedOn)} · {expenses(b.rowCount)}
+                  {w.importLine(fmt.dayMonthYear(b.importedOn), w.count(b.rowCount, "expense"))}
                 </span>
               </div>
               <Button
                 variant="ghost"
-                aria-label={`Undo import of ${b.filename}`}
+                aria-label={w.undoOf(b.filename)}
                 disabled={busy}
                 onClick={() => setConfirming(b)}
               >
-                Undo
+                {w.undo}
               </Button>
             </li>
           ))}
@@ -73,13 +75,13 @@ export function RecentImports({ imports }: { imports: RecentImport[] }) {
       ) : null}
       <ConfirmDialog
         open={confirming !== null}
-        title="Undo this import?"
+        title={w.undoTitle}
         body={
           confirming
-            ? `This removes the ${expenses(confirming.rowCount)} imported from ${confirming.filename}, including any you've edited since. Your budget updates straight away.`
+            ? w.undoBody(w.count(confirming.rowCount, "expense"), confirming.filename)
             : ""
         }
-        confirmLabel="Undo import"
+        confirmLabel={w.undoImport}
         tone="danger"
         onConfirm={undo}
         onCancel={() => setConfirming(null)}

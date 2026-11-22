@@ -1,4 +1,5 @@
-import { MAX_CATEGORIES, checkName, firstDuplicate, isPence, isRecord, type Check } from "./common";
+import { DEFAULT_I18N, type I18n } from "@/i18n/format";
+import { MAX_CATEGORIES, amountLimits, checkName, firstDuplicate, isAmount, isRecord, type Check } from "./common";
 
 /**
  * The budget editor's input and its checks. Client-safe: the editor runs the
@@ -40,8 +41,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isId = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 
 /** A category name: trimmed, 1–50 characters. */
-export function checkCategoryName(raw: unknown): Check<string> {
-  return checkName(raw, "category");
+export function checkCategoryName(raw: unknown, i18n: I18n = DEFAULT_I18N): Check<string> {
+  return checkName(raw, "category", i18n);
 }
 
 /**
@@ -51,25 +52,28 @@ export function checkCategoryName(raw: unknown): Check<string> {
  * rows need only a known id. Returns the input with names trimmed, or the
  * first problem in words a person can act on.
  */
-export function validateBudgetEdit(raw: unknown): BudgetEditValidation {
+export function validateBudgetEdit(raw: unknown, i18n: I18n = DEFAULT_I18N): BudgetEditValidation {
+  const { m, currency } = i18n;
+  const ck = m.checks;
   const fail = (error: string): BudgetEditValidation => ({ ok: false, error });
-  if (!isRecord(raw)) return fail("Something was missing from your budget. Check it and try again.");
+  if (!isRecord(raw)) return fail(ck.budgetMissing);
   const { incomePence, savingsPence, scope } = raw;
-  if (!isPence(incomePence, 1)) {
-    return { ok: false, field: "income", error: "Enter a monthly income between £0.01 and £10,000,000.00." };
+  if (!isAmount(incomePence, 1, currency)) {
+    const { min, max } = amountLimits(i18n, 1);
+    return { ok: false, field: "income", error: m.validation.incomeRange(min, max) };
   }
-  if (!isPence(savingsPence, 0)) {
-    return { ok: false, field: "savings", error: "Enter a savings amount, e.g. 250.00, or 0." };
+  if (!isAmount(savingsPence, 0, currency)) {
+    return { ok: false, field: "savings", error: m.validation.savingsAmount[currency] };
   }
   if (savingsPence > incomePence) {
-    return { ok: false, field: "savings", error: "Your savings can't be more than your income." };
+    return { ok: false, field: "savings", error: ck.savingsOverIncome };
   }
-  if (scope !== "this" && scope !== "next") return fail("Choose when the changes start.");
-  if (!Array.isArray(raw.categories)) return fail("Something was missing from your categories. Check each one.");
+  if (scope !== "this" && scope !== "next") return fail(ck.chooseScope);
+  if (!Array.isArray(raw.categories)) return fail(ck.categoriesMissing);
 
   const categories: BudgetEditCategory[] = [];
   for (const c of raw.categories as unknown[]) {
-    if (!isRecord(c)) return fail("Something was missing from your categories. Check each one.");
+    if (!isRecord(c)) return fail(m.checks.categoriesMissing);
     if (c.id !== undefined && !isId(c.id)) return fail("A category wasn't recognised.");
     const id = c.id as string | undefined;
     if (c.removed === true) {
@@ -78,16 +82,19 @@ export function validateBudgetEdit(raw: unknown): BudgetEditValidation {
       categories.push({ id, name: c.name, kind: c.kind, amountPence: 0, removed: true });
       continue;
     }
-    const name = checkCategoryName(c.name);
+    const name = checkCategoryName(c.name, i18n);
     if (!name.ok) return name;
-    if (c.kind !== "need" && c.kind !== "want") return fail(`Mark ${name.value} as a need or a want.`);
-    if (!isPence(c.amountPence, 0)) return fail(`Enter an amount between £0.00 and £10,000,000.00 for ${name.value}.`);
+    if (c.kind !== "need" && c.kind !== "want") return fail(m.checks.markKind(name.value));
+    if (!isAmount(c.amountPence, 0, currency)) {
+      const { min, max } = amountLimits(i18n, 0);
+      return fail(m.validation.amountRangeFor(name.value, min, max));
+    }
     categories.push({ ...(id ? { id } : {}), name: name.value, kind: c.kind, amountPence: c.amountPence });
   }
   const kept = categories.filter((c) => !c.removed);
-  if (kept.length > MAX_CATEGORIES) return fail(`You can have up to ${MAX_CATEGORIES} categories in your budget.`);
+  if (kept.length > MAX_CATEGORIES) return fail(ck.maxCategories(MAX_CATEGORIES));
   const dup = firstDuplicate(kept.map((c) => c.name));
-  if (dup) return fail(`You already have a category called ${dup}.`);
+  if (dup) return fail(ck.categoryTaken(dup));
   const ids = categories.flatMap((c) => (c.id ? [c.id] : []));
   if (new Set(ids).size !== ids.length) return fail("A category appears twice. Reload the page and try again.");
 

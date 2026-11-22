@@ -1,7 +1,8 @@
 "use client";
 
-import { AmountInput, Button, Card, IconButton, Money, TextField, Toggle } from "@/components/ui";
-import { formatGBP, splitRemainder } from "@/lib/calc";
+import { useI18n } from "@/i18n/client";
+import { AmountInput, Button, Card, IconButton, TextField, Toggle } from "@/components/ui";
+import { splitRemainder } from "@/lib/calc";
 import { MAX_FUNDS, MAX_NAME_LENGTH } from "@/lib/validation/common";
 import { livePence, type FundDraft } from "./draft";
 import { StepHeading } from "./StepHeading";
@@ -31,83 +32,81 @@ export function Savings({
   onFund,
   onRemoveFund,
 }: SavingsProps) {
-  const savingsPence = livePence(savingsText);
+  const { fmt, currency, m } = useI18n();
+  const o = m.onboarding;
+  const savingsPence = livePence(savingsText, currency);
   const saving = savingsPence > 0;
   const remainder = splitRemainder(
     savingsPence,
-    funds.map((f) => livePence(f.amountText)),
+    funds.map((f) => livePence(f.amountText, currency)),
   );
 
   return (
     <section aria-labelledby="step-heading" className="flex flex-col gap-6">
       <StepHeading
-        title="Savings"
-        body="Pay yourself first: set aside your savings before you spend. You can skip this and add it later."
+        title={o.savingsTitle}
+        body={o.savingsBody}
       />
 
       <Card className="flex flex-col gap-3">
         <AmountInput
-          label="Pay yourself first"
+          label={o.payYourselfFirst}
           value={savingsText}
           onChange={onSavings}
           allowZero
-          hint="Saved each month. Leave empty to skip."
+          hint={o.savingsHint}
           error={savingsError}
         />
         <p aria-live="polite" className="text-caption text-muted">
-          That leaves <Money pence={poolPence} /> a month to spend.
-          {overAllocatedPence > 0 ? (
-            <span className="text-danger-fg"> Your categories are {formatGBP(overAllocatedPence)} over that.</span>
-          ) : null}
+          {o.leaves(fmt.money(poolPence))}
+          {overAllocatedPence > 0 ? <span className="text-danger-fg">{o.categoriesOver(fmt.money(overAllocatedPence))}</span> : null}
         </p>
       </Card>
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
-          <h2 className="text-body font-semibold text-text">Savings funds</h2>
+          <h2 className="text-body font-semibold text-text">{o.funds}</h2>
           <p className="text-caption text-muted">
-            {saving
-              ? "Split your savings between funds, such as a holiday or a rainy-day pot."
-              : "Optional. Add a fund to record money you've already saved."}
+            {saving ? o.fundsSplit : o.fundsOptional}
           </p>
         </div>
 
         {funds.map((f, i) => (
           <Card key={f.id} as="div">
             <fieldset className="flex flex-col gap-4">
-              <legend className="sr-only">Fund {i + 1}</legend>
+              <legend className="sr-only">{o.fund(i + 1)}</legend>
               <div className="flex items-center justify-between gap-2">
                 <span aria-hidden="true" className="text-caption font-semibold text-muted">
-                  Fund {i + 1}
+                  {o.fund(i + 1)}
                 </span>
-                <IconButton icon="trash" label={`Remove fund ${i + 1}`} onClick={() => onRemoveFund(f.id)} />
+                <IconButton icon="trash" label={o.removeFund(i + 1)} onClick={() => onRemoveFund(f.id)} />
               </div>
               <TextField
-                label="Fund name"
+                label={o.fundName}
                 value={f.name}
                 onChange={(e) => onFund(f.id, { name: e.target.value })}
-                placeholder="e.g. Holiday…"
+                placeholder={o.fundPlaceholder}
                 autoComplete="off"
                 maxLength={MAX_NAME_LENGTH}
               />
               {saving ? (
                 <AmountInput
-                  label="Each month"
+                  label={o.eachMonth}
                   value={f.amountText}
                   onChange={(text) => onFund(f.id, { amountText: text })}
                   allowZero
-                  hint="Leave empty if this fund only holds money already saved."
+                  hint={o.eachMonthHint}
                 />
               ) : null}
               <Toggle
-                label="Already saved"
-                description="Money in this fund from before you started"
+                label={o.alreadySaved}
+                description={o.alreadySavedDescription}
                 checked={f.alreadySaved}
                 onChange={(on) => onFund(f.id, { alreadySaved: on })}
               />
               {f.alreadySaved ? (
                 <AmountInput
-                  label="Amount already saved"
+                  label={o.amountAlreadySaved}
                   value={f.alreadyText}
                   onChange={(text) => onFund(f.id, { alreadyText: text })}
                 />
@@ -119,21 +118,21 @@ export function Savings({
         {saving && funds.length > 0 ? (
           <p aria-live="polite" className="text-body font-semibold">
             {remainder > 0 ? (
-              <span className="text-warning-fg">{formatGBP(remainder)} still to split</span>
+              <span className="text-warning-fg">{o.stillToSplit(fmt.money(remainder))}</span>
             ) : remainder < 0 ? (
-              <span className="text-danger-fg">{formatGBP(-remainder)} more than your savings</span>
+              <span className="text-danger-fg">{o.moreThanSavings(fmt.money(-remainder))}</span>
             ) : (
-              <span className="text-positive-fg">Your funds add up to your savings</span>
+              <span className="text-positive-fg">{o.fundsAddUp}</span>
             )}
           </p>
         ) : null}
 
         {funds.length < MAX_FUNDS ? (
           <Button variant="secondary" onClick={onAddFund}>
-            Add a fund
+            {o.addFund}
           </Button>
         ) : (
-          <p className="text-caption text-muted">You can add up to {MAX_FUNDS} funds.</p>
+          <p className="text-caption text-muted">{o.maxFunds(MAX_FUNDS)}</p>
         )}
       </div>
     </section>

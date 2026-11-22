@@ -1,15 +1,14 @@
-import { Badge, ListRow } from "@/components/ui";
-import { formatTripRange, tripLength, type IsoDate } from "@/lib/calc";
-import type { Trip } from "@/lib/data/trips";
+"use client";
 
-/** "Taipei · 1–15 Dec 2026", or just the dates without a place. */
-export function tripSubtitle(trip: Trip): string {
-  const dates = formatTripRange(trip.startDate, trip.endDate);
-  return trip.place ? `${trip.place} · ${dates}` : dates;
-}
+import { useI18n } from "@/i18n/client";
+import { Badge, ListRow } from "@/components/ui";
+import { tripLength, type IsoDate } from "@/lib/calc";
+import type { Trip } from "@/lib/data/trips";
+import { tripSubtitle } from "./tripSubtitle";
 
 /** Trips as rows that open the trip; the one covering today is marked "Now". */
 export function TripList({ trips, today, label }: { trips: Trip[]; today: IsoDate; label: string }) {
+  const { m, locale } = useI18n();
   return (
     <ul aria-label={label} className="flex flex-col divide-y divide-border">
       {trips.map((t) => {
@@ -21,8 +20,8 @@ export function TripList({ trips, today, label }: { trips: Trip[]; today: IsoDat
               href={`/expenses/trips/${t.id}`}
               icon="plane"
               title={t.name}
-              subtitle={tripSubtitle(t)}
-              trailing={now ? <Badge tone="positive">Now</Badge> : <span className="text-caption text-muted">{days === 1 ? "1 day" : `${days} days`}</span>}
+              subtitle={tripSubtitle(m, locale, t)}
+              trailing={now ? <Badge tone="positive">{m.trips.now}</Badge> : <span className="text-caption text-muted">{m.trips.days(days)}</span>}
             />
           </li>
         );

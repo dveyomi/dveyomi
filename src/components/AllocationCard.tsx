@@ -1,5 +1,8 @@
+"use client";
+
+import { useI18n } from "@/i18n/client";
 import Link from "next/link";
-import { Card, Icon, Money, ProgressBar, type IconName } from "@/components/ui";
+import { Card, Icon, ProgressBar, type IconName } from "@/components/ui";
 import { focusRing } from "@/components/ui/focus";
 import { percentLeft, type CategoryFigure } from "@/lib/calc";
 
@@ -7,6 +10,8 @@ type AllocationCardProps = { figure: CategoryFigure; name: string; icon: IconNam
 
 /** One category on the Budget tab: its bar and what is left (or over), linking to its detail. */
 export function AllocationCard({ figure, name, icon }: AllocationCardProps) {
+  const { m, fmt } = useI18n();
+  const b = m.budget;
   const pct = percentLeft(figure);
   const over = figure.overPence > 0;
   return (
@@ -23,26 +28,24 @@ export function AllocationCard({ figure, name, icon }: AllocationCardProps) {
         </div>
         {pct === null ? (
           <p className="text-caption text-muted">
-            No budget yet · <Money pence={figure.spentPence} tone="neutral" /> spent
+            {b.noBudgetSpent(fmt.money(figure.spentPence))}
           </p>
         ) : (
           <>
-            <ProgressBar percent={pct} state={over ? "over" : "normal"} label={`${name} budget left`} />
+            <ProgressBar percent={pct} state={over ? "over" : "normal"} label={b.budgetLeft(name)} />
             {over ? (
               <div className="flex items-baseline justify-between gap-3">
                 <p className="text-body font-semibold text-danger-fg">
-                  <Money pence={figure.overPence} tone="neutral" /> over
+                  {b.over(fmt.money(figure.overPence))}
                 </p>
                 <p className="text-caption text-muted">
-                  <Money pence={figure.allocatedPence} tone="neutral" /> budget
+                  {b.budgetAmount(fmt.money(figure.allocatedPence))}
                 </p>
               </div>
             ) : (
               <p className="text-body text-muted">
-                <span className="font-semibold text-text">
-                  <Money pence={figure.leftPence} tone="neutral" /> left
-                </span>{" "}
-                of <Money pence={figure.allocatedPence} tone="neutral" />
+                <span className="font-semibold text-text">{b.leftOf(fmt.money(figure.leftPence), fmt.money(figure.allocatedPence))[0]}</span>
+                {b.leftOf(fmt.money(figure.leftPence), fmt.money(figure.allocatedPence))[1]}
               </p>
             )}
           </>

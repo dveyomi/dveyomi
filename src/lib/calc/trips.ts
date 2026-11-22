@@ -1,5 +1,6 @@
+import type { Locale } from "@/lib/locale";
 import type { Txn } from "./budget";
-import { addDays, daysBetween, formatDayMonthYear, type IsoDate } from "./dates";
+import { addDays, daysBetween, formatDayMonth, formatDayMonthYear, type IsoDate } from "./dates";
 import type { CategoryShare } from "./expenses";
 import { divRound } from "./money";
 import { totalsByCategory, totalsByDay, totalSpent } from "./totals";
@@ -36,7 +37,13 @@ export function tripLength(trip: TripRange): number {
 }
 
 /** "1–15 Dec 2026", "28 Nov – 3 Dec 2026", "28 Dec 2026 – 3 Jan 2027", or "1 Dec 2026" for one day. */
-export function formatTripRange(start: IsoDate, end: IsoDate): string {
+export function formatTripRange(start: IsoDate, end: IsoDate, locale: Locale = "en-GB"): string {
+  if (locale !== "en-GB") {
+    const from = formatDayMonthYear(start, locale);
+    if (start === end) return from;
+    const sameYear = start.slice(0, 4) === end.slice(0, 4);
+    return `${from} – ${sameYear ? formatDayMonth(end, locale) : formatDayMonthYear(end, locale)}`;
+  }
   const to = formatDayMonthYear(end);
   if (start === end) return to;
   const from = formatDayMonthYear(start);

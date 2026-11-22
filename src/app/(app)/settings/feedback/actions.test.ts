@@ -46,7 +46,7 @@ describe("sendFeedbackAction", () => {
     expect(sendFeedback).toHaveBeenCalledWith(db, {
       kind: "bug",
       message: "Export button does nothing.",
-      context: { ...device, appVersion: APP_VERSION },
+      context: { ...device, appVersion: APP_VERSION, language: "en-GB", currency: "GBP" },
     });
     expect(revalidatePath).toHaveBeenCalledWith("/settings/feedback");
   });

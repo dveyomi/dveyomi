@@ -1,3 +1,4 @@
+import { enGB, type Messages } from "@/i18n/messages";
 import { addDays, daysBetween, formatGBP, parsePence, type IsoDate } from "@/lib/calc";
 import { MAX_PENCE } from "@/lib/validation/common";
 import { expenseDateRange, isIsoDate, MAX_EXPENSE_NAME_LENGTH } from "@/lib/validation/expense";
@@ -38,7 +39,7 @@ export type RowNote = { row: number; reason: string };
 export type ExistingExpense = { date: IsoDate; amountPence: number; name: string; source: string };
 
 /** A file turned into rows of text fields (CSV, or an Excel sheet). */
-export type FileReader = (file: File) => Promise<string[][]>;
+export type FileReader = (file: File, m?: Messages) => Promise<string[][]>;
 
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 5000;
@@ -53,14 +54,13 @@ export class ImportFileError extends Error {
 }
 
 /** The import's limits: a file of at most 2 MB, with 1 to 5,000 rows to import. Null when within them. */
-export function importLimitError({ bytes, dataRows }: { bytes?: number; dataRows?: number }): string | null {
-  if (bytes !== undefined && bytes > MAX_FILE_BYTES) {
-    return "This file is over 2 MB. Split it into smaller files and import each one.";
-  }
-  if (dataRows !== undefined && dataRows < 1) return "This file has no rows to import.";
-  if (dataRows !== undefined && dataRows > MAX_IMPORT_ROWS) {
-    return `This file has more than ${MAX_IMPORT_ROWS.toLocaleString("en-GB")} rows. Split it into smaller files and import each one.`;
-  }
+export function importLimitError(
+  { bytes, dataRows }: { bytes?: number; dataRows?: number },
+  m: Messages = enGB,
+): string | null {
+  if (bytes !== undefined && bytes > MAX_FILE_BYTES) return m.importer.tooBig;
+  if (dataRows !== undefined && dataRows < 1) return m.importer.noRows;
+  if (dataRows !== undefined && dataRows > MAX_IMPORT_ROWS) return m.importer.tooManyRows(MAX_IMPORT_ROWS.toLocaleString("en-GB"));
   return null;
 }
 
@@ -119,8 +119,8 @@ export function parseCsv(text: string): string[][] {
 }
 
 /** Reads a .csv File into rows. Throws ImportFileError for a file over 2 MB, before reading it. */
-export const readCsvFile: FileReader = async (file) => {
-  const tooBig = importLimitError({ bytes: file.size });
+export const readCsvFile: FileReader = async (file, m = enGB) => {
+  const tooBig = importLimitError({ bytes: file.size }, m);
   if (tooBig) throw new ImportFileError(tooBig);
   return parseCsv(await file.text());
 };
@@ -148,16 +148,16 @@ export function parseDate(raw: string, format: DateFormat): IsoDate | null {
 
 type Amount = { ok: true; signedPence: number } | { ok: false; reason: string };
 
-const AMOUNT = /^([+-]?)£?([+-]?)([\d.,]+)(-?)$/;
+const AMOUNT = /^([+-]?)(?:£|NT\$)?([+-]?)([\d.,]+)(-?)$/;
 
 /**
  * An amount as a bank writes it: an optional sign before or after £, a
  * trailing minus, or brackets for negative; thousands commas and spaces are
  * ignored. The digits go through parsePence. Returns signed pence.
  */
-export function parseAmount(raw: string | undefined): Amount {
+export function parseAmount(raw: string | undefined, m: Messages = enGB): Amount {
   let text = (raw ?? "").replace(/\s+/g, "");
-  if (!text) return { ok: false, reason: "Amount is missing" };
+  if (!text) return { ok: false, reason: m.importer.amountMissing };
   let negative = false;
   if (/^\(.*\)$/.test(text)) {
     negative = true;
@@ -167,12 +167,12 @@ export function parseAmount(raw: string | undefined): Amount {
   const signs = match ? [match[1], match[2], match[4]].filter(Boolean) : [];
   const shown = (raw ?? "").trim();
   if (!match || signs.length > 1 || (negative && signs.length > 0)) {
-    return { ok: false, reason: `Amount “${shown}” isn’t a number of pounds and pence` };
+    return { ok: false, reason: m.importer.notANumber(shown) };
   }
-  if (/^[0.,]+$/.test(match[3]) && /0/.test(match[3])) return { ok: false, reason: "Amount is £0.00" };
+  if (/^[0.,]+$/.test(match[3]) && /0/.test(match[3])) return { ok: false, reason: m.importer.amountZero("£0.00") };
   const pence = parsePence(match[3]);
-  if (pence === null) return { ok: false, reason: `Amount “${shown}” isn’t a number of pounds and pence` };
-  if (pence > MAX_PENCE) return { ok: false, reason: `Amount is over ${formatGBP(MAX_PENCE)}` };
+  if (pence === null) return { ok: false, reason: m.importer.notANumber(shown) };
+  if (pence > MAX_PENCE) return { ok: false, reason: m.importer.amountOver(formatGBP(MAX_PENCE)) };
   return { ok: true, signedPence: negative || signs[0] === "-" ? -pence : pence };
 }
 
@@ -193,6 +193,7 @@ export function mapRows(
   rows: string[][],
   mapping: ColumnMapping,
   today?: IsoDate,
+  m: Messages = enGB,
 ): { ok: ImportRow[]; errors: RowNote[]; skipped: RowNote[] } {
   const ok: ImportRow[] = [];
   const errors: RowNote[] = [];
@@ -203,28 +204,28 @@ export function mapRows(
   rows.forEach((fields, index) => {
     if (mapping.hasHeader && index === 0) return;
     const row = index + 1;
-    const amount = parseAmount(fields[mapping.amount]);
+    const amount = parseAmount(fields[mapping.amount], m);
     if (!amount.ok) {
       errors.push({ row, reason: amount.reason });
       return;
     }
     if (Math.sign(amount.signedPence) !== spendingSign) {
-      skipped.push({ row, reason: "Money in (credits aren’t imported)" });
+      skipped.push({ row, reason: m.importer.moneyIn });
       return;
     }
     const rawDate = (fields[mapping.date] ?? "").trim();
     const date = parseDate(rawDate, mapping.dateFormat);
     if (!date) {
-      errors.push({ row, reason: rawDate ? `Date “${rawDate}” isn’t a real ${mapping.dateFormat} date` : "Date is missing" });
+      errors.push({ row, reason: rawDate ? m.importer.badDate(rawDate, mapping.dateFormat) : m.importer.dateMissing });
       return;
     }
     if (range && (date < range.min || date > range.max)) {
-      errors.push({ row, reason: `Date ${rawDate} is more than 10 years ago or over a year ahead` });
+      errors.push({ row, reason: m.importer.dateRange(rawDate) });
       return;
     }
     const name = cleanName(fields[mapping.name]);
     if (!name) {
-      errors.push({ row, reason: "Name is empty" });
+      errors.push({ row, reason: m.importer.nameEmpty });
       return;
     }
     ok.push({ row, date, amountPence: Math.abs(amount.signedPence), name });
@@ -257,7 +258,7 @@ export function duplicateWindow(rows: Pick<ImportRow, "date">[]): { from: IsoDat
  * wins), or when an earlier row of the same file has the same date, amount
  * and name, ignoring case and spaces ("Same as row 3 in this file").
  */
-export function findDuplicates(rows: ImportRow[], existing: ExistingExpense[]): Map<number, string> {
+export function findDuplicates(rows: ImportRow[], existing: ExistingExpense[], m: Messages = enGB): Map<number, string> {
   const byAmount = Map.groupBy(existing, (e) => e.amountPence);
   const firstRow = new Map<string, number>();
   const dupes = new Map<number, string>();
@@ -273,8 +274,8 @@ export function findDuplicates(rows: ImportRow[], existing: ExistingExpense[]): 
     }
     const key = rowKey(r);
     const earlier = firstRow.get(key);
-    if (match) dupes.set(i, `Looks like your ${match.source === "recurring" ? "recurring " : ""}${match.name}`);
-    else if (earlier !== undefined) dupes.set(i, `Same as row ${earlier} in this file`);
+    if (match) dupes.set(i, m.importer.looksLike(match.name, match.source === "recurring"));
+    else if (earlier !== undefined) dupes.set(i, m.importer.sameAsRow(earlier));
     if (earlier === undefined) firstRow.set(key, r.row);
   });
   return dupes;

@@ -1,5 +1,8 @@
+"use client";
+
+import { useI18n } from "@/i18n/client";
 import type { ReactNode } from "react";
-import { formatGBP, sharePercent, sumPence } from "@/lib/calc";
+import { sharePercent, sumPence } from "@/lib/calc";
 
 /** Categorical series slots in fixed order (tokens --chart-1…5), plus the neutral "other". */
 export type Series = 1 | 2 | 3 | 4 | 5 | "other";
@@ -49,6 +52,7 @@ type DonutProps = {
  * with a visible legend (SeriesSwatch rows) so colour is never the only cue.
  */
 export function Donut({ label, slices, children }: DonutProps) {
+  const { fmt, m } = useI18n();
   const total = sumPence(slices.map((s) => s.pence));
   const gap = slices.length > 1 ? GAP : 0;
   let start = 0;
@@ -77,7 +81,7 @@ export function Donut({ label, slices, children }: DonutProps) {
                   strokeDashoffset={offset}
                   className={strokes[s.series]}
                 >
-                  <title>{`${s.label}: ${formatGBP(s.pence)} (${s.percent}%)`}</title>
+                  <title>{`${s.label}: ${fmt.money(s.pence)} (${s.percent}%)`}</title>
                 </circle>
               );
             })
@@ -88,16 +92,16 @@ export function Donut({ label, slices, children }: DonutProps) {
         <caption>{label}</caption>
         <thead>
           <tr>
-            <th scope="col">Category</th>
-            <th scope="col">Amount</th>
-            <th scope="col">Share</th>
+            <th scope="col">{m.ui.donutCategory}</th>
+            <th scope="col">{m.ui.donutAmount}</th>
+            <th scope="col">{m.ui.donutShare}</th>
           </tr>
         </thead>
         <tbody>
           {slices.map((s) => (
             <tr key={s.key}>
               <th scope="row">{s.label}</th>
-              <td>{formatGBP(s.pence)}</td>
+              <td>{fmt.money(s.pence)}</td>
               <td>{s.percent}%</td>
             </tr>
           ))}

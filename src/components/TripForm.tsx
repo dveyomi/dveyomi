@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { Button, TextField } from "@/components/ui";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
@@ -25,6 +26,9 @@ type TripFormProps = {
  * another trip, is shown on its field.
  */
 export function TripForm({ initial, save, submitLabel, secondary, onSaved }: TripFormProps) {
+  const i18n = useI18n();
+  const { m } = i18n;
+  const t_ = m.trips;
   const [values, setValues] = useState(initial);
   const [error, setError] = useState<{ message: string; field?: TripField } | null>(null);
   const [saving, startSaving] = useTransition();
@@ -43,7 +47,7 @@ export function TripForm({ initial, save, submitLabel, secondary, onSaved }: Tri
   function submit(e: FormEvent) {
     e.preventDefault();
     if (saving) return;
-    const checked = validateTrip(values);
+    const checked = validateTrip(values, i18n);
     if (!checked.ok) return setError({ message: checked.error, field: checked.field });
     setError(null);
     startSaving(async () => {
@@ -61,26 +65,26 @@ export function TripForm({ initial, save, submitLabel, secondary, onSaved }: Tri
         </p>
       ) : null}
       <TextField
-        label="Name"
+        label={t_.name}
         value={values.name}
         onChange={(e) => update({ name: e.target.value }, "name")}
         error={fieldError("name")}
         maxLength={MAX_NAME_LENGTH}
         autoComplete="off"
-        placeholder="e.g. Taiwan…"
+        placeholder={t_.namePlaceholder}
       />
       <TextField
-        label="Place (optional)"
+        label={t_.place}
         value={values.place}
         onChange={(e) => update({ place: e.target.value }, "place")}
         error={fieldError("place")}
         maxLength={MAX_PLACE_LENGTH}
         autoComplete="off"
-        placeholder="e.g. Taipei…"
+        placeholder={t_.placePlaceholder}
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField
-          label="Starts"
+          label={t_.starts}
           type="date"
           value={values.startDate}
           onChange={(e) => update({ startDate: e.target.value }, "startDate")}
@@ -88,7 +92,7 @@ export function TripForm({ initial, save, submitLabel, secondary, onSaved }: Tri
           required
         />
         <TextField
-          label="Ends"
+          label={t_.ends}
           type="date"
           value={values.endDate}
           onChange={(e) => update({ endDate: e.target.value }, "endDate")}
@@ -98,12 +102,12 @@ export function TripForm({ initial, save, submitLabel, secondary, onSaved }: Tri
         />
       </div>
       <p className="text-caption text-muted">
-        Expenses dated in these days join the trip. It&rsquo;s a label only: your budget stays the same.
+        {t_.formNote}
       </p>
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         {secondary}
         <Button variant="primary" type="submit" disabled={saving}>
-          {saving ? "Saving…" : submitLabel}
+          {saving ? m.common.saving : submitLabel}
         </Button>
       </div>
     </form>

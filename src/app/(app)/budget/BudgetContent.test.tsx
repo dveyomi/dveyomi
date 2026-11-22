@@ -60,6 +60,6 @@ describe("BudgetContent", () => {
     loadBudgetView.mockResolvedValue({ period, summary: { categories: [] }, categories: [] });
     const page = await BudgetContent({ searchParams: Promise.resolve({ reviewed: "1" }) });
     expect(page.props).toMatchObject({ review, notice: "reviewed" });
-    expect(loadReviewStatus).toHaveBeenCalledWith({}, "2026-11-21");
+    expect(loadReviewStatus).toHaveBeenCalledWith({}, "2026-11-21", expect.objectContaining({ locale: "en-GB", currency: "GBP" }));
   });
 });

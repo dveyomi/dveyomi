@@ -97,3 +97,11 @@ describe("summariseTrip", () => {
     expect(s.days).toHaveLength(15);
   });
 });
+
+describe("trip dates in Traditional Chinese", () => {
+  it("writes the range with the year once", () => {
+    expect(formatTripRange("2026-12-01", "2026-12-15", "zh-TW")).toBe("2026年12月1日 – 12月15日");
+    expect(formatTripRange("2026-12-01", "2026-12-01", "zh-TW")).toBe("2026年12月1日");
+    expect(formatTripRange("2026-12-28", "2027-01-03", "zh-TW")).toBe("2026年12月28日 – 2027年1月3日");
+  });
+});

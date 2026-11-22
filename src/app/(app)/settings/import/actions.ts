@@ -1,5 +1,7 @@
 "use server";
 
+import { localizeError } from "@/i18n/errors";
+import { getServerI18n } from "@/i18n/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { commitImport, existingExpensesFor, ImportBatchNotFoundError, undoImport } from "@/lib/data/imports";
@@ -27,13 +29,13 @@ export type DuplicateHit = { index: number; label: string };
 export async function findDuplicatesAction(rawRows: unknown): Promise<{ duplicates: DuplicateHit[] } | { error: string }> {
   if (!(await getUserId())) redirect("/login");
   const rows = validateDuplicateCheck(rawRows, await getToday());
-  if (!rows) return { error: "These rows couldn't be checked. Choose the file again." };
+  if (!rows) return { error: (await getServerI18n()).m.importer.rowsUnchecked };
   try {
     const existing = await existingExpensesFor(await createClient(), rows);
-    return { duplicates: [...findDuplicates(rows, existing)].map(([index, label]) => ({ index, label })) };
+    return { duplicates: [...findDuplicates(rows, existing, (await getServerI18n()).m)].map(([index, label]) => ({ index, label })) };
   } catch (e) {
     console.error("existingExpensesFor failed", e);
-    return { error: "We couldn't check for duplicates. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.importer.duplicatesFailed };
   }
 }
 
@@ -41,7 +43,7 @@ export async function findDuplicatesAction(rawRows: unknown): Promise<{ duplicat
 export async function importAction(raw: unknown): Promise<{ batchId: string; inserted: number } | { error: string }> {
   if (!(await getUserId())) redirect("/login");
   const today = await getToday();
-  const checked = validateImport(raw, today);
+  const checked = validateImport(raw, today, await getServerI18n());
   if (!checked.ok) return { error: checked.error };
   const { filename, categoryId, rows } = checked.input;
   try {
@@ -49,23 +51,23 @@ export async function importAction(raw: unknown): Promise<{ batchId: string; ins
     revalidatePath("/", "layout");
     return result;
   } catch (e) {
-    if (e instanceof MissingReferenceError) return { error: e.message };
+    if (e instanceof MissingReferenceError) return { error: localizeError(e, await getServerI18n()) };
     console.error("commitImport failed", e);
-    return { error: "We couldn't import these expenses. Nothing was saved. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.importer.importFailed };
   }
 }
 
 /** Removes one import's expenses and the import. */
 export async function undoImportAction(batchId: unknown): Promise<{ removed: number } | { error: string }> {
   if (!(await getUserId())) redirect("/login");
-  if (!isId(batchId)) return { error: "This import wasn't recognised." };
+  if (!isId(batchId)) return { error: (await getServerI18n()).m.importer.importNotRecognised };
   try {
     const removed = await undoImport(await createClient(), batchId);
     revalidatePath("/", "layout");
     return { removed };
   } catch (e) {
-    if (e instanceof ImportBatchNotFoundError) return { error: e.message };
+    if (e instanceof ImportBatchNotFoundError) return { error: localizeError(e, await getServerI18n()) };
     console.error("undoImport failed", e);
-    return { error: "We couldn't undo this import. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.importer.undoFailed };
   }
 }

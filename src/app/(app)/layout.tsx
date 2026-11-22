@@ -1,7 +1,8 @@
 import { Suspense, type ReactNode } from "react";
 import { Nav, NavBar } from "@/components/Nav";
 import { PageMemory } from "@/components/PageMemory";
-import { focusRing } from "@/components/ui/focus";
+import { SkipLink } from "./SkipLink";
+import { ProfilePrefs } from "./ProfilePrefs";
 import { RecurringCatchUp } from "./RecurringCatchUp";
 import { SignedInSync } from "./SignedInSync";
 
@@ -9,12 +10,7 @@ import { SignedInSync } from "./SignedInSync";
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
-      <a
-        href="#main"
-        className={`sr-only z-40 rounded-pill bg-accent font-semibold text-accent-ink focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:px-5 focus:py-3 ${focusRing}`}
-      >
-        Skip to content
-      </a>
+      <SkipLink />
       {/* On a route with an unknown dynamic param (/budget/[categoryId]) the pathname is only
           known at request time, so the prerendered shell shows the nav with nothing current. */}
       <Suspense fallback={<NavBar pathname={null} />}>
@@ -30,6 +26,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Reads the session, so it streams in rather than holding up the shell. */}
       <Suspense fallback={null}>
         <SignedInSync />
+      </Suspense>
+      {/* Keeps this device's language and currency cookies in step with the profile. */}
+      <Suspense fallback={null}>
+        <ProfilePrefs />
       </Suspense>
       {/* Adds recurring payments due since the last run; never blocks rendering. */}
       <Suspense fallback={null}>

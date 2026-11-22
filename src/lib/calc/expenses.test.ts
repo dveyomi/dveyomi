@@ -183,3 +183,11 @@ describe("foldCategories", () => {
     expect(foldCategories(shares, 5, 500)).toEqual(shares);
   });
 });
+
+describe("month names in Traditional Chinese", () => {
+  it("formats with Intl zh-TW", async () => {
+    const { formatMonth, formatMonthYear } = await import("./expenses");
+    expect(formatMonth("2026-11", "zh-TW")).toBe("11月");
+    expect(formatMonthYear("2026-11", "zh-TW")).toBe("2026年11月");
+  });
+});

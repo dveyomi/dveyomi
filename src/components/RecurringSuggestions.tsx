@@ -1,11 +1,11 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { acceptDetectionAction, dismissDetectionAction } from "@/app/(app)/expenses/recurring/actions";
 import { Button, Card, Icon, Notice } from "@/components/ui";
 import type { DetectionSuggestion } from "@/lib/data/recurring";
-import { FREQUENCY_LABELS } from "./RepeatFields";
 
 /**
  * Detection cards on the Expenses tab (§5.8): for each name paid three times
@@ -14,6 +14,7 @@ import { FREQUENCY_LABELS } from "./RepeatFields";
  * three; "No" means it is never asked again.
  */
 export function RecurringSuggestions({ suggestions }: { suggestions: DetectionSuggestion[] }) {
+  const { m } = useI18n();
   const router = useRouter();
   const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export function RecurringSuggestions({ suggestions }: { suggestions: DetectionSu
         const result = await run(key);
         if (result.error) return setError(result.error);
       } catch {
-        return setError("We couldn't save your answer. Check your connection and try again.");
+        return setError(m.recurring.answerFailed);
       }
       setAnswered((a) => new Set(a).add(key));
       setStatus(done);
@@ -58,18 +59,18 @@ export function RecurringSuggestions({ suggestions }: { suggestions: DetectionSu
               <Icon name="repeat" />
             </span>
             <div className="flex min-w-0 flex-col">
-              <h2 className="text-body font-semibold text-text">Is {s.name} a recurring payment?</h2>
+              <h2 className="text-body font-semibold text-text">{m.recurring.isRecurring(s.name)}</h2>
               <p className="text-caption text-muted">
-                You paid it 3 times, {FREQUENCY_LABELS[s.frequency].toLowerCase()}. We can add it for you when it&rsquo;s due.
+                {m.recurring.paidThrice(m.repeat.frequency[s.frequency])}
               </p>
             </div>
           </div>
           <div className="flex gap-3">
-            <Button variant="secondary" disabled={busy} onClick={() => answer(s.nameKey, `We won’t ask about ${s.name} again`, dismissDetectionAction)}>
-              No
+            <Button variant="secondary" disabled={busy} onClick={() => answer(s.nameKey, m.recurring.wontAsk(s.name), dismissDetectionAction)}>
+              {m.recurring.no}
             </Button>
-            <Button variant="primary" disabled={busy} onClick={() => answer(s.nameKey, `${s.name} is now a recurring payment`, acceptDetectionAction)}>
-              Yes, repeat it
+            <Button variant="primary" disabled={busy} onClick={() => answer(s.nameKey, m.recurring.nowRecurring(s.name), acceptDetectionAction)}>
+              {m.recurring.yesRepeat}
             </Button>
           </div>
         </Card>

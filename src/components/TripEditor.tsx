@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createTripAction, deleteTripAction, updateTripAction } from "@/app/(app)/expenses/trips/actions";
@@ -9,14 +10,15 @@ import { TripForm, type TripFormValues } from "./TripForm";
 
 /** The new trip form: creating opens the trip. */
 export function NewTripForm({ initial }: { initial: TripFormValues }) {
+  const t_ = useI18n().m.trips;
   return (
     <TripForm
       initial={initial}
       save={createTripAction}
-      submitLabel="Create trip"
+      submitLabel={t_.createTrip}
       secondary={
         <ButtonLink href="/expenses/trips" variant="secondary">
-          Cancel
+          {t_.cancel}
         </ButtonLink>
       }
     />
@@ -25,6 +27,7 @@ export function NewTripForm({ initial }: { initial: TripFormValues }) {
 
 /** A trip's Edit (a sheet with the trip form) and Delete (after confirming; its expenses stay). */
 export function TripEditor({ trip }: { trip: Trip }) {
+  const t_ = useI18n().m.trips;
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -48,26 +51,26 @@ export function TripEditor({ trip }: { trip: Trip }) {
       ) : null}
       <div className="flex gap-3">
         <Button variant="secondary" onClick={() => setEditing(true)} disabled={deleting}>
-          Edit trip
+          {t_.editTrip}
         </Button>
         <Button variant="ghost" onClick={() => setConfirming(true)} disabled={deleting}>
-          {deleting ? "Deleting…" : "Delete trip"}
+          {deleting ? t_.deleting : t_.deleteTrip}
         </Button>
       </div>
 
-      <BottomSheet open={editing} onClose={() => setEditing(false)} title="Edit trip">
+      <BottomSheet open={editing} onClose={() => setEditing(false)} title={t_.editTrip}>
         <TripForm
           key={`${trip.id}-${trip.startDate}-${trip.endDate}-${trip.name}`}
           initial={{ name: trip.name, place: trip.place ?? "", startDate: trip.startDate, endDate: trip.endDate }}
           save={(values) => updateTripAction(trip.id, values)}
-          submitLabel="Save trip"
+          submitLabel={t_.saveTrip}
           onSaved={() => {
             setEditing(false);
             router.refresh();
           }}
           secondary={
             <Button variant="secondary" onClick={() => setEditing(false)}>
-              Cancel
+              {t_.cancel}
             </Button>
           }
         />
@@ -75,10 +78,10 @@ export function TripEditor({ trip }: { trip: Trip }) {
 
       <ConfirmDialog
         open={confirming}
-        title={`Delete “${trip.name}”?`}
-        body="The trip goes; its expenses stay in your spending and budget as they are. Expenses you took out of it stay out of trips until you reset them."
-        confirmLabel="Delete trip"
-        cancelLabel="Keep it"
+        title={t_.deleteTitle(trip.name)}
+        body={t_.deleteBody}
+        confirmLabel={t_.deleteTrip}
+        cancelLabel={t_.keepIt}
         tone="danger"
         onConfirm={confirmDelete}
         onCancel={() => setConfirming(false)}

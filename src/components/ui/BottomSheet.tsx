@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { IconButton } from "./IconButton";
 
@@ -25,6 +26,7 @@ type BottomSheetProps = {
  * stack (a ConfirmDialog over a sheet), Escape and Tab apply only to the top one.
  */
 export function BottomSheet({ open, onClose, title, children, role = "dialog" }: BottomSheetProps) {
+  const { m } = useI18n();
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -110,7 +112,7 @@ export function BottomSheet({ open, onClose, title, children, role = "dialog" }:
           <h2 id={titleId} className="text-title font-semibold text-text">
             {title}
           </h2>
-          <IconButton icon="close" label="Close" onClick={onClose} />
+          <IconButton icon="close" label={m.common.close} onClick={onClose} />
         </div>
         <div data-sheet-body className="overflow-y-auto overscroll-contain px-5 pt-2 pb-6">{children}</div>
       </div>

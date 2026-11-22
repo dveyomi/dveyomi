@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { BottomSheet, Button } from "@/components/ui";
 import type { AmountScope } from "@/lib/validation/expense";
 
@@ -19,18 +20,19 @@ type EditRecurringPromptProps = {
  * date). Earlier payments keep their amounts either way.
  */
 export function EditRecurringPrompt({ open, name, onChoose, onCancel }: EditRecurringPromptProps) {
+  const { m } = useI18n();
   return (
-    <BottomSheet open={open} onClose={onCancel} title={`Change the amount for ${name}?`} role="alertdialog">
+    <BottomSheet open={open} onClose={onCancel} title={m.repeat.changeTitle(name)} role="alertdialog">
       <div className="flex flex-col gap-5">
         <p className="text-body text-muted">
-          It&rsquo;s a recurring payment. Payments before this one keep their amounts either way.
+          {m.repeat.changeBody}
         </p>
         <div className="flex flex-col gap-3">
           <Button variant="secondary" fullWidth onClick={() => onChoose("this")}>
-            Just this payment
+            {m.repeat.justThis}
           </Button>
           <Button variant="primary" fullWidth onClick={() => onChoose("this_and_future")}>
-            This and future payments
+            {m.repeat.thisAndFuture}
           </Button>
         </div>
       </div>

@@ -1,6 +1,6 @@
+import { getServerI18n } from "@/i18n/server";
 import { notFound, redirect } from "next/navigation";
 import { ExpenseForm } from "@/components/ExpenseForm";
-import { penceToInputText } from "@/lib/calc";
 import { loadExpenseOptions, loadTransaction } from "@/lib/data/transactions";
 import { listTrips } from "@/lib/data/trips";
 import { safeNext } from "@/lib/safeNext";
@@ -24,6 +24,7 @@ export async function EditExpenseContent({ params, searchParams }: EditExpenseCo
     listTrips(supabase),
   ]);
   if (!txn) notFound();
+  const { fmt } = await getServerI18n();
   const returnTo = safeNext(typeof query.returnTo === "string" ? query.returnTo : null, "/expenses");
 
   return (
@@ -34,7 +35,7 @@ export async function EditExpenseContent({ params, searchParams }: EditExpenseCo
       today={today}
       initial={{
         name: txn.name,
-        amountText: penceToInputText(txn.amountPence),
+        amountText: fmt.inputText(txn.amountPence),
         date: txn.date,
         categoryId: txn.categoryId,
         fundId: txn.fundId,

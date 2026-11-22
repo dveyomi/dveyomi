@@ -83,7 +83,8 @@ export class FundNotFoundError extends Error {
 
 /** Fund names are unique, ignoring case. */
 export class FundNameTakenError extends Error {
-  constructor(name?: string) {
+  constructor(readonly takenName?: string) {
+    const name = takenName;
     super(name ? `You already have a fund called ${name}.` : "You already have a fund with that name.");
     this.name = "FundNameTakenError";
   }

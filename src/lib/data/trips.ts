@@ -25,7 +25,7 @@ export type TripChoice = "auto" | "none" | string;
 
 /** The dates overlap another of the user's trips. */
 export class TripOverlapError extends Error {
-  constructor(other: Pick<Trip, "name" | "startDate" | "endDate"> | null) {
+  constructor(readonly other: Pick<Trip, "name" | "startDate" | "endDate"> | null) {
     super(
       other
         ? `These dates overlap your trip “${other.name}” (${formatTripRange(other.startDate, other.endDate)}). Trips can't overlap.`

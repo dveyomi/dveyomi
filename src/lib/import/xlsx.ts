@@ -1,3 +1,4 @@
+import { enGB, type Messages } from "@/i18n/messages";
 import { ImportFileError, importLimitError, type FileReader } from "./csv";
 
 /**
@@ -8,8 +9,6 @@ import { ImportFileError, importLimitError, type FileReader } from "./csv";
  * reader library is loaded on first use, so no other page carries it.
  */
 
-const NOT_A_WORKBOOK = "This file couldn’t be read as an Excel workbook. Save it as .xlsx (or export a CSV) and try again.";
-const PASSWORD_PROTECTED = "This workbook is password-protected, or is an old .xls file. Save a copy as .xlsx without a password, or export a CSV.";
 
 /** Encrypted workbooks and old .xls files are OLE containers, not zip files like .xlsx. */
 const OLE_MAGIC = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
@@ -27,10 +26,10 @@ function cellText(cell: unknown): string {
 }
 
 /** The first sheet of an .xlsx file as rows of text fields. Throws ImportFileError when it can't be read. */
-export async function parseXlsx(buffer: ArrayBuffer): Promise<string[][]> {
+export async function parseXlsx(buffer: ArrayBuffer, m: Messages = enGB): Promise<string[][]> {
   const head = new Uint8Array(buffer, 0, Math.min(8, buffer.byteLength));
   if (head.length === OLE_MAGIC.length && OLE_MAGIC.every((b, i) => head[i] === b)) {
-    throw new ImportFileError(PASSWORD_PROTECTED);
+    throw new ImportFileError(m.importer.passwordProtected);
   }
   let data: unknown[][];
   try {
@@ -39,14 +38,14 @@ export async function parseXlsx(buffer: ArrayBuffer): Promise<string[][]> {
     // parseNumber keeps numbers as the digits stored in the file.
     data = (await readSheet(new Uint8Array(buffer), { parseNumber: (s: string) => s })) as unknown[][];
   } catch {
-    throw new ImportFileError(NOT_A_WORKBOOK);
+    throw new ImportFileError(m.importer.notWorkbook);
   }
   return data.map((row) => row.map(cellText)).filter((row) => row.some((c) => c.trim() !== ""));
 }
 
 /** Reads an .xlsx File into rows. Throws ImportFileError for a file over 2 MB, before reading it. */
-export const readXlsxFile: FileReader = async (file) => {
-  const tooBig = importLimitError({ bytes: file.size });
+export const readXlsxFile: FileReader = async (file, m = enGB) => {
+  const tooBig = importLimitError({ bytes: file.size }, m);
   if (tooBig) throw new ImportFileError(tooBig);
-  return parseXlsx(await file.arrayBuffer());
+  return parseXlsx(await file.arrayBuffer(), m);
 };

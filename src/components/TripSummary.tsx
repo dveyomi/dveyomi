@@ -1,9 +1,10 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { Badge, BottomSheet, Button, ButtonLink, Card, EmptyState, IconButton, ListRow, Money, Notice } from "@/components/ui";
-import { formatShortDate, summariseTrip, type IsoDate } from "@/lib/calc";
+import { summariseTrip, type IsoDate } from "@/lib/calc";
 import type { Trip, TripTxn } from "@/lib/data/trips";
 import { CategoryBreakdown } from "./Analytics";
 import { editHref, expenseSubtitle } from "./TransactionList";
@@ -37,6 +38,8 @@ export function TripSummary({ trip, txns, removed, categories, today, removeFrom
   const summary = summariseTrip(txns, { start: trip.startDate, end: trip.endDate });
   const names = new Map(categories.map((c) => [c.id, c.name]));
   const returnTo = `/expenses/trips/${trip.id}`;
+  const { m, fmt } = useI18n();
+  const t_ = m.trips;
   const inDates = (t: TripTxn) => t.date >= trip.startDate && t.date <= trip.endDate;
 
   function run(change: Change, txnId: string) {
@@ -59,23 +62,23 @@ export function TripSummary({ trip, txns, removed, categories, today, removeFrom
       <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
         <Card as="section" className="flex flex-col gap-4">
           <h2 id={ids.total} className="text-caption font-semibold text-muted">
-            Total
+            {t_.total}
           </h2>
           <div role="region" aria-labelledby={ids.total}>
-            <CategoryBreakdown summary={summary} names={names} caption="Spent on this trip" />
+            <CategoryBreakdown summary={summary} names={names} caption={t_.spentOnTrip} />
           </div>
         </Card>
 
         <Card as="section" className="flex flex-col gap-2 px-2">
           <h2 id={ids.list} className="px-2 text-caption font-semibold text-muted">
-            Expenses
+            {t_.expenses}
           </h2>
           <div role="region" aria-labelledby={ids.list}>
             {txns.length === 0 ? (
               <EmptyState
                 icon="plane"
-                title="No expenses on this trip yet"
-                body="Expenses dated in the trip join it. You can also add one from another day on its edit form."
+                title={t_.emptyExpensesTitle}
+                body={t_.emptyExpensesBody}
               />
             ) : (
               <ul className="flex flex-col divide-y divide-border">
@@ -90,23 +93,23 @@ export function TripSummary({ trip, txns, removed, categories, today, removeFrom
                             {/* Badges first, so the truncated line never hides them on a phone. */}
                             {t.tripOverride ? (
                               <>
-                                <Badge tone="neutral">added by hand</Badge>{" "}
+                                <Badge tone="neutral">{t_.addedByHand}</Badge>{" "}
                               </>
                             ) : null}
                             {t.unchecked ? (
                               <>
-                                <Badge tone="warning">unchecked</Badge>{" "}
+                                <Badge tone="warning">{t_.unchecked}</Badge>{" "}
                               </>
                             ) : null}
                             <span>
-                              {formatShortDate(t.date)} · {expenseSubtitle(t)}
+                              {fmt.shortDate(t.date)} · {expenseSubtitle(m, t)}
                             </span>
                           </>
                         }
                         trailing={<Money pence={t.amountPence} />}
                       />
                     </div>
-                    <IconButton icon="more" label={`Trip options for ${t.name}`} onClick={() => setOpen(t)} disabled={busy} />
+                    <IconButton icon="more" label={t_.options(t.name)} onClick={() => setOpen(t)} disabled={busy} />
                   </li>
                 ))}
               </ul>
@@ -118,14 +121,14 @@ export function TripSummary({ trip, txns, removed, categories, today, removeFrom
       <div className="flex min-w-0 flex-col gap-4">
         <Card as="section" className="flex flex-col gap-2">
           <h2 id={ids.days} className="text-caption font-semibold text-muted">
-            Per day
+            {t_.perDay}
           </h2>
-          <ul aria-label="Spending per day" className="flex flex-col divide-y divide-border">
+          <ul aria-label={t_.perDayList} className="flex flex-col divide-y divide-border">
             {summary.days.map((d) => (
               <li key={d.date} className="flex items-center justify-between gap-3 py-2 text-body">
                 <span className={d.date === today ? "font-semibold text-text" : "text-text"}>
-                  {formatShortDate(d.date)}
-                  {d.date === today ? <span className="sr-only"> (today)</span> : null}
+                  {fmt.shortDate(d.date)}
+                  {d.date === today ? <span className="sr-only"> {t_.today}</span> : null}
                 </span>
                 <span className={d.pence === 0 ? "text-muted" : "text-text"}>
                   <Money pence={d.pence} />
@@ -139,7 +142,7 @@ export function TripSummary({ trip, txns, removed, categories, today, removeFrom
           <Card as="section" className="flex flex-col gap-2 px-2">
             <div role="region" aria-labelledby={ids.removed} className="flex flex-col gap-2">
             <h2 id={ids.removed} className="px-2 text-caption font-semibold text-muted">
-              Taken out of this trip
+              {t_.takenOut}
             </h2>
             <ul className="flex flex-col divide-y divide-border">
               {removed.map((t) => (
@@ -148,12 +151,12 @@ export function TripSummary({ trip, txns, removed, categories, today, removeFrom
                     <ListRow
                       href={editHref(t.id, returnTo)}
                       title={t.name}
-                      subtitle={`${formatShortDate(t.date)} · ${expenseSubtitle(t)}`}
+                      subtitle={`${fmt.shortDate(t.date)} · ${expenseSubtitle(m, t)}`}
                       trailing={<Money pence={t.amountPence} />}
                     />
                   </div>
                   <Button variant="secondary" onClick={() => run(resetToAutomatic, t.id)} disabled={busy}>
-                    {"Add back "}
+                    {t_.addBack}
                     <span className="sr-only">{t.name}</span>
                   </Button>
                 </li>
@@ -164,26 +167,26 @@ export function TripSummary({ trip, txns, removed, categories, today, removeFrom
         ) : null}
       </div>
 
-      <BottomSheet open={open !== null} onClose={() => setOpen(null)} title={open?.name ?? "Expense"}>
+      <BottomSheet open={open !== null} onClose={() => setOpen(null)} title={open?.name ?? t_.expenseFallback}>
         {open ? (
           <div className="flex flex-col gap-4">
             <p className="text-body text-muted">
               {open.tripOverride
-                ? `Added to this trip by hand. Reset it and its date decides: ${inDates(open) ? "it stays in this trip" : "it leaves this trip"}.`
-                : "In this trip because of its date. Taking it out keeps it in your budget as before."}
+                ? t_.byHandNote(inDates(open))
+                : t_.byDateNote}
             </p>
             <div className="flex flex-col gap-3">
               {open.tripOverride ? (
                 <Button variant="primary" onClick={() => run(resetToAutomatic, open.id)}>
-                  Reset to automatic
+                  {t_.reset}
                 </Button>
               ) : (
                 <Button variant="primary" onClick={() => run(removeFromTrip, open.id)}>
-                  Take out of this trip
+                  {t_.takeOut}
                 </Button>
               )}
               <ButtonLink href={editHref(open.id, returnTo)} variant="secondary">
-                Edit expense
+                {t_.editExpense}
               </ButtonLink>
             </div>
           </div>

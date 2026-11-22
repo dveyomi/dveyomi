@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useState } from "react";
 import { BottomSheet, IconButton, Money } from "@/components/ui";
 
@@ -15,42 +16,40 @@ type SafeToSpendInfoProps = {
 
 /** The info button beside Safe to spend: the formula, with this period's figures. */
 export function SafeToSpendInfo({ leftToSpendPence, needsLeftPence, daysLeft, safeToSpendPerDayPence, belowZero = false }: SafeToSpendInfoProps) {
+  const { m, fmt } = useI18n();
+  const b = m.budget;
   const [open, setOpen] = useState(false);
   return (
     <>
-      <IconButton icon="info" label="How safe to spend is worked out" onClick={() => setOpen(true)} />
-      <BottomSheet open={open} onClose={() => setOpen(false)} title="Safe to spend per day">
+      <IconButton icon="info" label={b.safeInfo} onClick={() => setOpen(true)} />
+      <BottomSheet open={open} onClose={() => setOpen(false)} title={b.safePerDay}>
         <div className="flex flex-col gap-4 text-body text-text">
           <p>
-            <span className="font-semibold">(total left − Needs left) ÷ days left, counting today.</span> Unspent
-            Needs stay reserved, so they never count as safe to spend. Money paid from a savings fund doesn&apos;t
-            count either.
+            <span className="font-semibold">{b.safeFormula}</span>
+            {b.safeExplain}
           </p>
           {belowZero ? (
-            <p>
-              Your Needs left is more than your total left, so nothing is safe to spend: it shows £0.00 a day and
-              your budget is Out of Budget until you spend less or change your budget.
-            </p>
+            <p>{b.safeBelowZero(fmt.money(0))}</p>
           ) : null}
           <dl className="flex flex-col gap-2 rounded-md bg-card-raised p-4">
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">Total left</dt>
+              <dt className="text-muted">{b.totalLeft}</dt>
               <dd>
                 <Money pence={leftToSpendPence} />
               </dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">Needs left</dt>
+              <dt className="text-muted">{b.needsLeft}</dt>
               <dd>
                 <Money pence={needsLeftPence} />
               </dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">Days left, counting today</dt>
+              <dt className="text-muted">{b.daysLeftToday}</dt>
               <dd className="tabular-nums">{daysLeft}</dd>
             </div>
             <div className="flex justify-between gap-4 border-t border-border pt-2 font-semibold">
-              <dt>Safe to spend per day</dt>
+              <dt>{b.safePerDay}</dt>
               <dd>
                 <Money pence={safeToSpendPerDayPence} />
               </dd>

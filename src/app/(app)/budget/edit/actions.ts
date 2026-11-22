@@ -1,5 +1,7 @@
 "use server";
 
+import { localizeError } from "@/i18n/errors";
+import { getServerI18n } from "@/i18n/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { BudgetChangedError, NameTakenError, NoBudgetError, SavingsMovedError, saveBudget, validateBudgetEdit } from "@/lib/data/budgetEdit";
@@ -16,17 +18,17 @@ import { getToday } from "@/lib/today";
 export async function saveBudgetAction(raw: unknown): Promise<{ error: string; savingsMoved?: true }> {
   if (!(await getUserId())) redirect("/login");
 
-  const checked = validateBudgetEdit(raw);
+  const checked = validateBudgetEdit(raw, await getServerI18n());
   if (!checked.ok) return { error: checked.error };
 
   try {
     await saveBudget(await createClient(), await getToday(), checked.input);
   } catch (e) {
-    if (e instanceof NameTakenError || e instanceof BudgetChangedError) return { error: e.message };
-    if (e instanceof SavingsMovedError) return { error: e.message, savingsMoved: true };
+    if (e instanceof NameTakenError || e instanceof BudgetChangedError) return { error: localizeError(e, await getServerI18n()) };
+    if (e instanceof SavingsMovedError) return { error: localizeError(e, await getServerI18n()), savingsMoved: true };
     if (e instanceof NoBudgetError) redirect("/onboarding");
     console.error("saveBudget failed", e);
-    return { error: "We couldn't save your budget. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.checks.budgetFailed };
   }
   revalidatePath("/budget", "layout");
   redirect("/budget?saved=1");

@@ -3,15 +3,11 @@
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui";
+import { useI18n } from "@/i18n/client";
 import { createClient } from "@/lib/supabase/client";
 
-const FAILED = "Sign-in didn't finish. Please try again.";
-const messages: Record<string, string> = {
-  signin: FAILED,
-  account: "We couldn't load your account, so you've been signed out. Please sign in again.",
-};
-
 function SignInBody({ error, onClick, pending }: { error: string | null; onClick?: () => void; pending: boolean }) {
+  const { m } = useI18n();
   return (
     <div className="flex flex-col gap-3">
       {error ? (
@@ -20,9 +16,9 @@ function SignInBody({ error, onClick, pending }: { error: string | null; onClick
         </p>
       ) : null}
       <Button variant="primary" size="lg" fullWidth onClick={onClick} disabled={pending || !onClick}>
-        {pending ? "Opening Google…" : "Continue with Google"}
+        {pending ? m.auth.openingGoogle : m.auth.continueWithGoogle}
       </Button>
-      <p className="text-center text-caption text-muted">One sign-in for your budget on every device.</p>
+      <p className="text-center text-caption text-muted">{m.auth.oneSignIn}</p>
     </div>
   );
 }
@@ -34,11 +30,13 @@ export function GoogleSignInFallback() {
 
 /** "Continue with Google": starts the OAuth round trip through Supabase. */
 export function GoogleSignIn() {
+  const { m } = useI18n();
   const searchParams = useSearchParams();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(() => {
     const code = searchParams.get("error");
-    return code ? (messages[code] ?? FAILED) : null;
+    if (!code) return null;
+    return code === "account" ? m.auth.accountFailed : m.auth.failed;
   });
 
   async function signIn() {
@@ -53,7 +51,7 @@ export function GoogleSignIn() {
     });
     // On success the browser is already navigating to Google.
     if (error) {
-      setError(FAILED);
+      setError(m.auth.failed);
       setPending(false);
     }
   }

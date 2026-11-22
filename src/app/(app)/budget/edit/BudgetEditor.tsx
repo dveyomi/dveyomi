@@ -1,11 +1,13 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
+import type { Format } from "@/i18n/format";
 import { useRef, useState, useTransition } from "react";
 import {
   AddCategoryForm,
   AllocationRows,
   AllocationSummary,
-  KIND_TABS,
+  kindTabs,
   nameClash,
   type Kind,
 } from "@/components/AllocationEditor";
@@ -23,11 +25,6 @@ import {
 } from "@/components/ui";
 import {
   allocationTotals,
-  formatPeriodRange,
-  formatShortDate,
-  parseOptionalPence,
-  parsePence,
-  penceToInputText,
   type Period,
 } from "@/lib/calc";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
@@ -60,18 +57,12 @@ type BudgetEditorProps = {
 type Row = { key: string; id?: string; name: string; kind: Kind; amountText: string; removed: boolean };
 type Form = { incomeText: string; savingsText: string; rows: Row[] };
 
-const SCOPES = [
-  { value: "this" as const, label: "From this period" },
-  { value: "next" as const, label: "From next period" },
-];
 
-const livePence = (t: string) => parseOptionalPence(t) ?? 0;
-
-function formFrom(f: BudgetFigures): Form {
+function formFrom(f: BudgetFigures, fmt: Format): Form {
   return {
-    incomeText: penceToInputText(f.incomePence),
-    savingsText: penceToInputText(f.savingsPence),
-    rows: f.categories.map((c) => ({ key: c.id, id: c.id, name: c.name, kind: c.kind, amountText: penceToInputText(c.amountPence), removed: false })),
+    incomeText: fmt.inputText(f.incomePence),
+    savingsText: fmt.inputText(f.savingsPence),
+    rows: f.categories.map((c) => ({ key: c.id, id: c.id, name: c.name, kind: c.kind, amountText: fmt.inputText(c.amountPence), removed: false })),
   };
 }
 
@@ -85,11 +76,14 @@ const sameForm = (a: Form, b: Form) => JSON.stringify(a) === JSON.stringify(b);
  * as it was.
  */
 export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside, focusCategoryId }: BudgetEditorProps) {
+  const i18n = useI18n();
+  const { fmt } = i18n;
+  const livePence = (t: string) => fmt.parseOptional(t) ?? 0;
   const [scope, setScope] = useState<BudgetEditScope>("this");
   // What the form started from for this scope: switching scope with changes asks first.
-  const [base, setBase] = useState<Form>(() => formFrom(budget));
+  const [base, setBase] = useState<Form>(() => formFrom(budget, fmt));
   const [form, setForm] = useState<Form>(() => {
-    const start = formFrom(budget);
+    const start = formFrom(budget, fmt);
     const added = outside.find((c) => c.id === focusCategoryId);
     if (!added) return start;
     return { ...start, rows: [...start.rows, { key: added.id, id: added.id, name: added.name, kind: added.kind, amountText: "0.00", removed: false }] };
@@ -107,7 +101,7 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
   const { rows } = form;
   const kept = rows.filter((r) => !r.removed);
   const totals = allocationTotals(
-    parsePence(form.incomeText) ?? 0,
+    fmt.parse(form.incomeText) ?? 0,
     livePence(form.savingsText),
     kept.map((r) => ({ kind: r.kind, amountPence: livePence(r.amountText) })),
   );
@@ -126,7 +120,7 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
     setScope(next);
     setPendingScope(null);
     if (!nextBudget) return;
-    const start = formFrom(next === "next" ? nextBudget : budget);
+    const start = formFrom(next === "next" ? nextBudget : budget, fmt);
     setForm(start);
     setBase(start);
     setFocusKey(undefined);
@@ -166,8 +160,8 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
   function save() {
     setError(null);
     const raw = {
-      incomePence: parsePence(form.incomeText) ?? Number.NaN,
-      savingsPence: parseOptionalPence(form.savingsText) ?? Number.NaN,
+      incomePence: fmt.parse(form.incomeText) ?? Number.NaN,
+      savingsPence: fmt.parseOptional(form.savingsText) ?? Number.NaN,
       scope,
       categories: rows
         .filter((r) => r.id || !r.removed)
@@ -175,11 +169,11 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
           ...(r.id ? { id: r.id } : {}),
           name: r.name,
           kind: r.kind,
-          amountPence: r.removed ? livePence(r.amountText) : (parseOptionalPence(r.amountText) ?? Number.NaN),
+          amountPence: r.removed ? livePence(r.amountText) : (fmt.parseOptional(r.amountText) ?? Number.NaN),
           ...(r.removed ? { removed: true } : {}),
         })),
     };
-    const checked = validateBudgetEdit(raw);
+    const checked = validateBudgetEdit(raw, i18n);
     if (!checked.ok) return setError({ message: checked.error, field: checked.field });
     startSaving(async () => {
       const result = await saveBudgetAction(raw);
@@ -188,34 +182,39 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
   }
 
   const shown = kept.filter((r) => r.kind === tab);
-  const nextStartText = formatShortDate(period.nextStart);
+  const nextStartText = fmt.shortDate(period.nextStart);
+  const t = i18n.m.editor;
+  const scopes = [
+    { value: "this" as const, label: t.scopes.this },
+    { value: "next" as const, label: t.scopes.next },
+  ];
 
   return (
     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-5 lg:items-start lg:gap-8">
       <div className="order-2 flex flex-col gap-6 lg:col-span-3">
         <Card as="section" className="flex flex-col gap-4">
-          <h2 className="text-body font-semibold text-text">Income and savings</h2>
+          <h2 className="text-body font-semibold text-text">{t.incomeAndSavings}</h2>
           <AmountInput
-            label="Monthly income"
+            label={t.monthlyIncome}
             value={form.incomeText}
             onChange={(incomeText) => setForm((f) => ({ ...f, incomeText }))}
             error={error?.field === "income" ? error.message : null}
           />
           <AmountInput
-            label="Pay yourself first"
+            label={t.payYourselfFirst}
             value={form.savingsText}
             onChange={(savingsText) => setForm((f) => ({ ...f, savingsText }))}
             allowZero
-            hint="Set aside for savings each month, before spending."
+            hint={t.savingsHint}
             error={error?.field === "savings" ? error.message : null}
           />
         </Card>
 
         <section aria-labelledby="categories-heading" className="flex flex-col gap-4">
           <h2 id="categories-heading" className="text-title font-semibold text-text">
-            Categories
+            {t.categories}
           </h2>
-          <SegmentedTabs label="Category type" options={KIND_TABS} value={tab} onChange={changeTab} />
+          <SegmentedTabs label={i18n.m.allocation.categoryType} options={kindTabs(i18n.m)} value={tab} onChange={changeTab} />
           <Card className="flex flex-col gap-4">
             <AllocationRows
               kind={tab}
@@ -233,26 +232,26 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
 
       {/* Under lg these join the column above (summary first, then when and save); from lg they are a sticky side panel. */}
       <div className="contents lg:sticky lg:top-8 lg:order-last lg:col-span-2 lg:flex lg:flex-col lg:gap-4">
-        <section aria-label="Your budget" className="order-1">
+        <section aria-label={t.yourBudget} className="order-1">
           <AllocationSummary totals={totals} hasCategories={kept.length > 0} />
         </section>
 
         <Card as="section" className="order-3 flex flex-col gap-3">
-          <h2 className="text-body font-semibold text-text">When the changes start</h2>
-          <RadioSegments label="When the changes start" options={SCOPES} value={scope} onChange={chooseScope} />
+          <h2 className="text-body font-semibold text-text">{t.whenStart}</h2>
+          <RadioSegments label={t.whenStart} options={scopes} value={scope} onChange={chooseScope} />
           <p className="text-caption text-muted">
             {scope === "this"
-              ? `Changes this period (${formatPeriodRange(period.start, period.end)})${nextBudget ? ` and the one from ${nextStartText}` : ""} onward. Past periods stay as they were.`
+              ? t.thisScope(fmt.periodRange(period.start, period.end), nextBudget ? nextStartText : null)
               : nextBudget
-                ? `This period stays as it is. These are your budget's figures from ${nextStartText}.`
-                : `This period stays as it is. Your new budget starts on ${nextStartText}.`}
+                ? t.nextScopeExisting(nextStartText)
+                : t.nextScopeNew(nextStartText)}
           </p>
         </Card>
 
         <div className="order-4 flex flex-col gap-3">
           {scope === "this" && nextDiffers ? (
             <Notice tone="warning">
-              <p>Your budget from {nextStartText} is different. Saving here replaces it with these figures.</p>
+              <p>{t.nextDiffers(nextStartText)}</p>
             </Notice>
           ) : null}
           {/* Field errors also show here, next to Save, since the field may be scrolled out of view. */}
@@ -262,7 +261,7 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
                 <div className="flex flex-col items-start gap-3">
                   <p>{error.message}</p>
                   <Button variant="secondary" onClick={moveToNext}>
-                    Change them from next period
+                    {t.changeFromNext}
                   </Button>
                 </div>
               </Notice>
@@ -273,10 +272,10 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
             </p>
           ) : null}
           <Button variant="primary" size="lg" fullWidth onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save budget"}
+            {saving ? i18n.m.common.saving : t.saveBudget}
           </Button>
           <ButtonLink href="/budget" variant="ghost" fullWidth>
-            Cancel
+            {i18n.m.common.cancel}
           </ButtonLink>
         </div>
       </div>
@@ -293,10 +292,10 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
 
       <ConfirmDialog
         open={pendingScope !== null}
-        title="Discard your changes?"
-        body={`Your budget from ${nextStartText} has its own figures. Switching shows them, and the changes you've made here are lost.`}
-        confirmLabel="Discard and switch"
-        cancelLabel="Keep editing"
+        title={t.discardTitle}
+        body={t.discardBody(nextStartText)}
+        confirmLabel={t.discard}
+        cancelLabel={t.keepEditing}
         onConfirm={() => pendingScope && applyScope(pendingScope)}
         onCancel={() => setPendingScope(null)}
       />
@@ -316,22 +315,24 @@ function RenameSheet({
   onClose: () => void;
   onDone: (name: string) => void;
 }) {
+  const { m } = useI18n();
   return (
-    <BottomSheet open={row !== null} onClose={onClose} title="Rename category">
+    <BottomSheet open={row !== null} onClose={onClose} title={m.editor.renameTitle}>
       {row ? <RenameForm key={row.key} name={row.name} others={others} onDone={onDone} /> : null}
     </BottomSheet>
   );
 }
 
 function RenameForm({ name: initial, others, onDone }: { name: string; others: string[]; onDone: (name: string) => void }) {
+  const i18n = useI18n();
   const [name, setName] = useState(initial);
   const [error, setError] = useState<string | null>(null);
 
   function done() {
-    const checked = checkCategoryName(name);
+    const checked = checkCategoryName(name, i18n);
     if (!checked.ok) return setError(checked.error);
     const clash = nameClash(checked.value, others);
-    if (clash) return setError(`You already have a category called ${clash}.`);
+    if (clash) return setError(i18n.m.allocation.nameTaken(clash));
     onDone(checked.value);
   }
 
@@ -344,7 +345,7 @@ function RenameForm({ name: initial, others, onDone }: { name: string; others: s
       }}
     >
       <TextField
-        label="Name"
+        label={i18n.m.editor.name}
         value={name}
         onChange={(e) => setName(e.target.value)}
         maxLength={MAX_NAME_LENGTH}
@@ -352,7 +353,7 @@ function RenameForm({ name: initial, others, onDone }: { name: string; others: s
         error={error}
       />
       <Button type="submit" variant="primary" fullWidth>
-        Done
+        {i18n.m.common.done}
       </Button>
     </form>
   );

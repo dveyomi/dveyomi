@@ -1,11 +1,12 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { removeExpenseAction } from "@/app/(app)/expenses/actions";
 import { confirmOccurrenceAction } from "@/app/(app)/expenses/recurring/actions";
 import { BottomSheet, ButtonLink, ConfirmDialog, IconButton, Money, Notice } from "@/components/ui";
-import { formatGBP, formatWeekdayDate, totalsByDay, type IsoDate } from "@/lib/calc";
+import { totalsByDay, type IsoDate } from "@/lib/calc";
 import type { ExpenseTxn } from "@/lib/data/expenses";
 import { ExpenseRow } from "./TransactionList";
 
@@ -21,6 +22,7 @@ type DaySheetProps = {
 
 /** A calendar day's expenses (§5.6): add one on that day, tap one to edit it, delete it, or mark an auto-added one as checked (§5.8). */
 export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProps) {
+  const { fmt, m } = useI18n();
   const router = useRouter();
   const [confirming, setConfirming] = useState<ExpenseTxn | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -74,7 +76,7 @@ export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProp
       focusAfter.current = next ? next.id : "add";
       router.refresh();
     } catch {
-      setError("We couldn't delete this expense. Check your connection and try again.");
+      setError(m.overview.deleteFailed);
     } finally {
       setDeleting(false);
       setConfirming(null);
@@ -87,10 +89,10 @@ export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProp
       if (result.error) return setError(result.error);
       setError(null);
       setChecked((c) => new Set(c).add(txn.id));
-      setStatus(`${txn.name} marked as checked`);
+      setStatus(m.overview.markedChecked(txn.name));
       router.refresh();
     } catch {
-      setError("We couldn't mark this as checked. Check your connection and try again.");
+      setError(m.overview.markFailed);
     }
   }
 
@@ -99,7 +101,7 @@ export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProp
 
   return (
     <>
-      <BottomSheet open onClose={close} title={formatWeekdayDate(day)}>
+      <BottomSheet open onClose={close} title={fmt.weekdayDate(day)}>
         <div ref={body} className="flex flex-col gap-4">
           <p role="status" className="sr-only">
             {status}
@@ -110,29 +112,29 @@ export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProp
             </div>
           ) : null}
           {txns.length === 0 ? (
-            <p className="py-4 text-center text-body text-muted">No expenses on this day</p>
+            <p className="py-4 text-center text-body text-muted">{m.overview.noExpensesDay}</p>
           ) : (
             <>
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-body text-muted">
-                  {txns.length} {txns.length === 1 ? "expense" : "expenses"}
+                  {m.overview.count(txns.length)}
                 </span>
                 <span className="text-title font-semibold text-text">
                   <Money pence={totalsByDay(txns).get(day) ?? 0} />
                 </span>
               </div>
-              <ul aria-label="Expenses on this day" className="flex flex-col divide-y divide-border">
+              <ul aria-label={m.overview.onThisDay} className="flex flex-col divide-y divide-border">
                 {txns.map((t) => (
                   <li key={t.id} className="flex items-center gap-1">
                     <div className="min-w-0 flex-1">
                       <ExpenseRow txn={t} returnTo={returnTo} />
                     </div>
                     {t.unchecked ? (
-                      <IconButton icon="check" label={`Mark ${t.name} as checked`} onClick={() => void markChecked(t)} />
+                      <IconButton icon="check" label={m.overview.markChecked(t.name)} onClick={() => void markChecked(t)} />
                     ) : null}
                     <IconButton
                       icon="trash"
-                      label={`Delete ${t.name}`}
+                      label={m.overview.deleteName(t.name)}
                       data-delete-for={t.id}
                       onClick={() => setConfirming(t)}
                     />
@@ -143,20 +145,20 @@ export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProp
           )}
           <div data-add-expense>
             <ButtonLink href={addHref} variant="primary" icon="plus" fullWidth>
-              Add expense
+              {m.overview.addExpense}
             </ButtonLink>
           </div>
         </div>
       </BottomSheet>
       <ConfirmDialog
         open={confirming !== null}
-        title="Delete this expense?"
+        title={m.overview.deleteTitle}
         body={
           confirming
-            ? `${confirming.name} (${formatGBP(confirming.amountPence)}) will be removed from your expenses. This can't be undone.`
+            ? m.overview.deleteBody(confirming.name, fmt.money(confirming.amountPence))
             : ""
         }
-        confirmLabel={deleting ? "Deleting…" : "Delete"}
+        confirmLabel={deleting ? m.overview.deleting : m.overview.delete}
         tone="danger"
         onConfirm={() => void remove()}
         onCancel={() => setConfirming(null)}

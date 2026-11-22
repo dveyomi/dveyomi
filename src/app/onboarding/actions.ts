@@ -1,5 +1,6 @@
 "use server";
 
+import { getServerI18n } from "@/i18n/server";
 import { redirect } from "next/navigation";
 import { AlreadyOnboardedError, completeOnboarding, validateOnboarding } from "@/lib/data/onboarding";
 import { createClient, getUserId } from "@/lib/supabase/server";
@@ -13,7 +14,7 @@ import { getToday } from "@/lib/today";
 export async function completeOnboardingAction(raw: unknown): Promise<{ error: string }> {
   if (!(await getUserId())) redirect("/login");
 
-  const checked = validateOnboarding(raw);
+  const checked = validateOnboarding(raw, await getServerI18n());
   if (!checked.ok) return { error: checked.error };
 
   try {
@@ -22,7 +23,7 @@ export async function completeOnboardingAction(raw: unknown): Promise<{ error: s
     // Already saved (a repeat or double submit): the budget is there.
     if (!(e instanceof AlreadyOnboardedError)) {
       console.error("completeOnboarding failed", e);
-      return { error: "We couldn't save your budget. Check your connection and try again." };
+      return { error: (await getServerI18n()).m.onboarding.saveFailed };
     }
   }
   redirect("/budget");

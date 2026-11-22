@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { divRound, formatGBP, formatSignedGBP, parsePence, parseOptionalPence, penceToInputText, sumPence } from "./money";
+import { amountToInputText, divRound, formatGBP, formatMoney, formatMoneyShort, formatSignedGBP, formatSignedMoney, parseAmount, parseOptionalAmount, parsePence, parseOptionalPence, penceToInputText, sumPence } from "./money";
 
 describe("parsePence", () => {
   it("parses valid amounts", () => {
@@ -75,5 +75,47 @@ describe("formatSignedGBP", () => {
 
   it("has no sign for £0.00", () => {
     expect(formatSignedGBP(0)).toBe("£0.00");
+  });
+});
+
+describe("TWD", () => {
+  it("formats whole dollars", () => {
+    expect(formatMoney(125000, "TWD")).toBe("NT$1,250");
+    expect(formatMoney(-125000, "TWD")).toBe("-NT$1,250");
+    expect(formatMoney(0, "TWD")).toBe("NT$0");
+    expect(formatSignedMoney(10000, "TWD")).toBe("+NT$100");
+    expect(formatSignedMoney(-4000, "TWD")).toBe("−NT$40");
+  });
+  it("parses whole dollars only", () => {
+    expect(parseAmount("1,250", "TWD")).toBe(125000);
+    expect(parseAmount("NT$1250", "TWD")).toBe(125000);
+    expect(parseAmount("12.50", "TWD")).toBeNull();
+    expect(parseAmount("0", "TWD")).toBeNull();
+    expect(parseOptionalAmount("", "TWD")).toBe(0);
+    expect(parseOptionalAmount("NT$0", "TWD")).toBe(0);
+    expect(amountToInputText(125000, "TWD")).toBe("1250");
+  });
+  it("shortens for tight spaces", () => {
+    expect(formatMoneyShort(99900, "TWD")).toBe("NT$999");
+    expect(formatMoneyShort(123400, "TWD")).toBe("NT$1.2k");
+    expect(formatMoneyShort(100000, "TWD")).toBe("NT$1k");
+  });
+});
+
+describe("zh-TW short", () => {
+  it("uses 千 and 萬", () => {
+    expect(formatMoneyShort(123400, "TWD", "zh-TW")).toBe("NT$1.2千");
+    expect(formatMoneyShort(1234500, "TWD", "zh-TW")).toBe("NT$1.2萬");
+    expect(formatMoneyShort(12345600, "TWD", "zh-TW")).toBe("NT$12.3萬");
+    expect(formatMoneyShort(18200, "GBP", "zh-TW")).toBe("£182");
+    expect(formatMoneyShort(120000, "GBP", "zh-TW")).toBe("£1.2千");
+  });
+});
+
+describe("GBP defaults", () => {
+  it("match the GBP helpers", () => {
+    expect(formatMoney(430178)).toBe(formatGBP(430178));
+    expect(parseAmount("£1,200.50")).toBe(120050);
+    expect(amountToInputText(1250)).toBe("12.50");
   });
 });

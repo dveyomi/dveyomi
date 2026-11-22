@@ -1,3 +1,4 @@
+import { getServerI18n } from "@/i18n/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { deleteAccount } from "@/lib/data/account";
@@ -28,18 +29,18 @@ function sameOrigin(request: Request): boolean {
  * auth.users), then ends the session and redirects to /login?deleted=1.
  */
 export async function POST(request: Request): Promise<Response> {
-  if (!sameOrigin(request)) return fail(403, "This request didn't come from the app.");
+  if (!sameOrigin(request)) return fail(403, (await getServerI18n()).m.settingsPage.notFromApp);
   const userId = await getUserId();
-  if (!userId) return fail(401, "Sign in to delete your account.");
+  if (!userId) return fail(401, (await getServerI18n()).m.settingsPage.signInToDelete);
 
   const form = await request.formData().catch(() => null);
-  if (!isDeleteConfirmed(form?.get("confirm"))) return fail(400, "Type DELETE to confirm.");
+  if (!isDeleteConfirmed(form?.get("confirm"))) return fail(400, (await getServerI18n()).m.settingsPage.typeDeleteToConfirm);
 
   try {
     await deleteAccount(createAdminClient(), userId);
   } catch (e) {
     console.error("account delete failed", e);
-    return fail(500, "We couldn't delete your account. Nothing was removed. Try again in a moment.");
+    return fail(500, (await getServerI18n()).m.settingsPage.deleteServerFailed);
   }
 
   // The user is gone, so the server may refuse the sign-out call; clear the auth cookies regardless.

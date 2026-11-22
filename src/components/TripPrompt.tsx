@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState, useTransition } from "react";
@@ -53,6 +54,7 @@ export function TripPrompt({ deviceZone, homeZone, today, currentTrip, nextTripS
   const router = useRouter();
   const headingId = useId();
   const [hidden, setHidden] = useState(false);
+  const { m } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [ending, startEnding] = useTransition();
   const away = awayTripToRecord({ deviceZone, homeZone, currentTrip });
@@ -101,15 +103,15 @@ export function TripPrompt({ deviceZone, homeZone, today, currentTrip, nextTripS
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <h2 id={headingId} className="text-body font-semibold text-text">
-              {state.kind === "start" ? "Are you travelling?" : "Back home?"}
+              {state.kind === "start" ? m.tripPrompt.startTitle : m.tripPrompt.endTitle}
             </h2>
             <p className="text-caption text-muted">
               {state.kind === "start"
-                ? "Start a trip? Your expenses while away are grouped under it. Your budget stays the same."
-                : `End your trip “${state.trip.name}” today?`}
+                ? m.tripPrompt.startBody
+                : m.tripPrompt.endBody(state.trip.name)}
             </p>
           </div>
-          <IconButton icon="close" label="Dismiss" onClick={dismiss} />
+          <IconButton icon="close" label={m.tripPrompt.dismiss} onClick={dismiss} />
         </div>
         {error ? (
           <p role="alert" className="text-caption text-danger-fg">
@@ -118,15 +120,15 @@ export function TripPrompt({ deviceZone, homeZone, today, currentTrip, nextTripS
         ) : null}
         <div className="flex gap-3">
           <Button variant="ghost" onClick={dismiss}>
-            Not now
+            {m.tripPrompt.notNow}
           </Button>
           {state.kind === "start" ? (
             <Link href={newTripHref} className={`${buttonClasses("primary")} flex-1`}>
-              Start a trip
+              {m.tripPrompt.start}
             </Link>
           ) : (
             <Button variant="primary" className="flex-1" onClick={() => end(state.trip.id)} disabled={ending}>
-              {ending ? "Ending…" : "End trip"}
+              {ending ? m.tripPrompt.ending : m.tripPrompt.end}
             </Button>
           )}
         </div>

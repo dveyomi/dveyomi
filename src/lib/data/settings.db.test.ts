@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { admin, createSignedInUser, deleteUser, type TestUser } from "@/db/testClients";
 import { ensureCurrentPeriod } from "./ensurePeriod";
-import { loadSettings, setBudgetStartDay, setHomeTimezone } from "./profile";
+import { loadSettings, setBudgetStartDay, setCurrency, setHomeTimezone, setLanguage } from "./profile";
 import type { Db } from "./types";
 
 let user: TestUser | undefined;
@@ -44,6 +44,7 @@ describe("loadSettings", () => {
     expect(await loadSettings(db(u), "2026-11-21")).toEqual({
       startDay: 1,
       timezone: "Europe/London",
+      language: "en-GB",
       currency: "GBP",
       nextBudgetStart: "2026-12-01",
     });
@@ -94,5 +95,24 @@ describe("setHomeTimezone", () => {
     const u = await withNovemberBudget();
     await setHomeTimezone(db(u), u.id, "America/New_York");
     expect(await profileOf(u)).toMatchObject({ timezone: "America/New_York", timezone_detected: true });
+  });
+});
+
+describe("language and currency", () => {
+  it("saves Traditional Chinese and Taiwanese dollars", async () => {
+    user = await createSignedInUser("prefs");
+    await setLanguage(db(user), user.id, "zh-TW");
+    await setCurrency(db(user), user.id, "TWD");
+    const { data, error } = await admin.from("profiles").select("language, currency").eq("user_id", user.id).single();
+    if (error) throw error;
+    expect(data).toEqual({ language: "zh-TW", currency: "TWD" });
+  });
+
+  it("refuses a language or currency the app doesn't support", async () => {
+    user = await createSignedInUser("prefs-bad");
+    const lang = await user.client.from("profiles").update({ language: "fr" }).eq("user_id", user.id);
+    expect(lang.error?.code).toBe("23514");
+    const cur = await user.client.from("profiles").update({ currency: "USD" }).eq("user_id", user.id);
+    expect(cur.error?.code).toBe("23514");
   });
 });

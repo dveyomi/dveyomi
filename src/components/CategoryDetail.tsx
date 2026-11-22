@@ -1,7 +1,10 @@
+"use client";
+
+import { useI18n } from "@/i18n/client";
 import { categoryIcon } from "@/components/categoryIcon";
 import { CategoryMenu } from "@/components/CategoryMenu";
 import { ButtonLink, Card, EmptyState, Icon, ListRow, Money, ProgressBar } from "@/components/ui";
-import { formatDaysLeft, formatPeriodRange, formatShortDate, percentLeft, type CategoryFigure, type Period } from "@/lib/calc";
+import { percentLeft, type CategoryFigure, type Period } from "@/lib/calc";
 import type { CategoryUse } from "@/lib/data/budgetEdit";
 import type { CategoryTxn } from "@/lib/data/category";
 import type { CategoryRow } from "@/lib/data/types";
@@ -20,6 +23,8 @@ type CategoryDetailProps = {
 
 /** One category's budget and its expenses this period (§5.4). Figures are read, never worked out. */
 export function CategoryDetail({ period, category, figure, daysLeft, transactions, inUse }: CategoryDetailProps) {
+  const { m, fmt } = useI18n();
+  const c = m.category;
   const pct = figure ? percentLeft(figure) : null;
   const over = figure !== null && figure.overPence > 0;
   const fundPaid = transactions.some((t) => t.fundName !== null);
@@ -28,10 +33,10 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <ButtonLink href="/budget" variant="ghost" icon="chevron-left">
-          Budget
+          {c.back}
         </ButtonLink>
         <span className="text-body text-muted">
-          {formatPeriodRange(period.start, period.end)}
+          {fmt.periodRange(period.start, period.end)}
         </span>
         <CategoryMenu categoryId={category.id} name={category.name} inUse={inUse} inBudget={pct !== null} />
       </div>
@@ -44,34 +49,34 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
             </span>
             <div className="min-w-0">
               <h1 className="truncate text-title font-semibold text-text">{category.name}</h1>
-              <p className="text-caption text-muted">{category.kind === "need" ? "Need" : "Want"}</p>
+              <p className="text-caption text-muted">{c.kind[category.kind]}</p>
             </div>
           </div>
 
           <dl className="grid grid-cols-3 gap-2">
             <Card raised className="flex flex-col gap-1 px-3">
-              <dt className="text-caption text-muted">Budget</dt>
+              <dt className="text-caption text-muted">{c.budget}</dt>
               <dd className="text-body font-semibold text-text">
-                {pct === null ? "None" : <Money pence={figure!.allocatedPence} />}
+                {pct === null ? c.none : <Money pence={figure!.allocatedPence} />}
               </dd>
             </Card>
             <Card raised className="flex flex-col gap-1 px-3">
-              <dt className="text-caption text-muted">Spent</dt>
+              <dt className="text-caption text-muted">{c.spent}</dt>
               <dd className="text-body font-semibold text-text">
                 <Money pence={figure?.spentPence ?? 0} />
               </dd>
             </Card>
             <Card raised className="flex flex-col gap-1 px-3">
-              <dt className="text-caption text-muted">Next budget</dt>
-              <dd className="text-body font-semibold text-text">{formatShortDate(period.nextStart)}</dd>
+              <dt className="text-caption text-muted">{c.nextBudget}</dt>
+              <dd className="text-body font-semibold text-text">{fmt.shortDate(period.nextStart)}</dd>
             </Card>
           </dl>
 
           {pct === null ? (
             <div className="flex flex-col gap-3">
-              <p className="text-body text-muted">No budget yet for this category this period.</p>
+              <p className="text-body text-muted">{c.noBudget}</p>
               <ButtonLink href={`/budget/edit?category=${category.id}`} variant="secondary" icon="edit">
-                Set a budget
+                {c.setBudget}
               </ButtonLink>
             </div>
           ) : (
@@ -79,18 +84,18 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
               <div className="flex items-baseline justify-between gap-3">
                 {over ? (
                   <p className="text-title font-semibold text-danger-fg">
-                    <Money pence={figure!.overPence} tone="neutral" /> over
+                    {c.over(fmt.money(figure!.overPence))}
                   </p>
                 ) : (
                   <p className="text-title font-semibold text-text">
-                    <Money pence={figure!.leftPence} tone="neutral" /> left
+                    {c.left(fmt.money(figure!.leftPence))}
                   </p>
                 )}
-                {over ? null : <span className="text-caption font-semibold text-accent-fg">{pct}% left</span>}
+                {over ? null : <span className="text-caption font-semibold text-accent-fg">{c.percentLeft(pct)}</span>}
               </div>
-              <ProgressBar percent={pct} state={over ? "over" : "normal"} label={`${category.name} budget left`} />
+              <ProgressBar percent={pct} state={over ? "over" : "normal"} label={c.budgetLeft(category.name)} />
               <p className="text-caption text-muted">
-                {formatDaysLeft(daysLeft)}
+                {fmt.daysLeft(daysLeft)}
               </p>
             </div>
           )}
@@ -99,22 +104,22 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
         <section aria-labelledby="category-expenses" className="flex flex-col gap-3 lg:col-span-3">
           <div className="flex items-center justify-between gap-3">
             <h2 id="category-expenses" className="text-title font-semibold text-text">
-              Expenses
+              {c.expenses}
             </h2>
             <ButtonLink href={`/expenses/new?category=${category.id}&returnTo=/budget/${category.id}`} variant="primary" icon="plus">
-              Log expense
+              {c.logExpense}
             </ButtonLink>
           </div>
           <Card className="px-2 py-1">
             {transactions.length === 0 ? (
-              <EmptyState icon="wallet" title="No expenses yet" body="Expenses in this category this period will show here. Use Log expense to add one." />
+              <EmptyState icon="wallet" title={c.noExpensesTitle} body={c.noExpensesBody} />
             ) : (
-              <ul aria-label="Expenses this period" className="flex flex-col divide-y divide-border">
+              <ul aria-label={c.expensesThisPeriod} className="flex flex-col divide-y divide-border">
                 {transactions.map((t) => (
                   <li key={t.id}>
                     <ListRow
                       title={t.name}
-                      subtitle={t.fundName ? `${formatShortDate(t.date)} · from ${t.fundName}` : formatShortDate(t.date)}
+                      subtitle={t.fundName ? c.fromFund(fmt.shortDate(t.date), t.fundName) : fmt.shortDate(t.date)}
                       trailing={<Money pence={t.amountPence} />}
                     />
                   </li>
@@ -124,7 +129,7 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
           </Card>
           {fundPaid ? (
             <p className="text-caption text-muted">
-              Expenses paid from a savings fund are listed here but don&apos;t count toward this budget.
+              {c.fundPaidNote}
             </p>
           ) : null}
         </section>

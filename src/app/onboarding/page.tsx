@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { getServerI18n } from "@/i18n/server";
 import { hasBudget } from "@/lib/data/onboarding";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
 import { OnboardingWizard } from "./Wizard";
 
-export const metadata: Metadata = { title: "Set up your budget · Personal Finance OS" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getServerI18n();
+  return { title: m.shell.pageTitle(m.onboarding.metaTitle) };
+}
 
 export default function Page() {
   return (

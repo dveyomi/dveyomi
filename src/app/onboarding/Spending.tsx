@@ -1,8 +1,9 @@
 "use client";
 
-import { AddCategoryForm, AllocationRows, AllocationSummary, KIND_TABS } from "@/components/AllocationEditor";
+import { AddCategoryForm, AllocationRows, AllocationSummary, kindTabs } from "@/components/AllocationEditor";
 import { Card, SegmentedTabs } from "@/components/ui";
 import { allocationTotals } from "@/lib/calc";
+import { useI18n } from "@/i18n/client";
 import { livePence, type CategoryDraft } from "./draft";
 import { StepHeading } from "./StepHeading";
 
@@ -23,26 +24,27 @@ type SpendingProps = {
 
 /** Step 2: categories with an amount each, on Needs and Wants tabs, against what there is to spend. */
 export function Spending({ incomePence, savingsPence, savingsEntered, categories, tab, onTab, onAdd, onAmount, onRemove }: SpendingProps) {
+  const { currency, m } = useI18n();
   const totals = allocationTotals(
     incomePence,
     savingsPence,
-    categories.map((c) => ({ kind: c.kind, amountPence: livePence(c.amountText) })),
+    categories.map((c) => ({ kind: c.kind, amountPence: livePence(c.amountText, currency) })),
   );
 
   return (
     <section aria-labelledby="step-heading" className="flex flex-col gap-6">
       <StepHeading
-        title="Your spending budget"
-        body="Give each category an amount. Needs are the bills and essentials; wants are everything else."
+        title={m.onboarding.spendingTitle}
+        body={m.onboarding.spendingBody}
       />
 
       <AllocationSummary
         totals={totals}
-        caption={savingsEntered ? undefined : "Before savings"}
+        caption={savingsEntered ? undefined : m.onboarding.beforeSavings}
         hasCategories={categories.length > 0}
       />
 
-      <SegmentedTabs label="Category type" options={KIND_TABS} value={tab} onChange={onTab} />
+      <SegmentedTabs label={m.allocation.categoryType} options={kindTabs(m)} value={tab} onChange={onTab} />
 
       <Card className="flex flex-col gap-4">
         <AllocationRows

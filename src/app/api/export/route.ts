@@ -1,3 +1,4 @@
+import { getServerI18n } from "@/i18n/server";
 import { exportUserData } from "@/lib/data/account";
 import { createClient, getClaims } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
@@ -11,7 +12,7 @@ const noStore = { "Cache-Control": "no-store" };
  */
 export async function GET(): Promise<Response> {
   const claims = await getClaims();
-  if (!claims?.sub) return Response.json({ error: "Sign in to export your data." }, { status: 401, headers: noStore });
+  if (!claims?.sub) return Response.json({ error: (await getServerI18n()).m.settings.signInToExport }, { status: 401, headers: noStore });
   try {
     const [tables, today] = await Promise.all([exportUserData(await createClient()), getToday()]);
     const body = JSON.stringify(
@@ -34,6 +35,6 @@ export async function GET(): Promise<Response> {
     });
   } catch (e) {
     console.error("export failed", e);
-    return Response.json({ error: "We couldn't export your data. Try again in a moment." }, { status: 500, headers: noStore });
+    return Response.json({ error: (await getServerI18n()).m.settings.exportFailed }, { status: 500, headers: noStore });
   }
 }

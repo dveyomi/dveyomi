@@ -1,3 +1,4 @@
+import { getServerI18n } from "@/i18n/server";
 import { redirect } from "next/navigation";
 import { LeftoverBreakdown, LeftoverPrompt, OverspendPrompt } from "@/components/LeftoverPrompt";
 import { OverspendReview } from "@/components/OverspendReview";
@@ -16,20 +17,22 @@ import { applyRaiseAction, recordLeftoverAction } from "./actions";
 export async function ReviewContent() {
   if (!(await getUserId())) redirect("/login");
   const [supabase, today] = await Promise.all([createClient(), getToday()]);
-  const review = await loadReview(supabase, today);
+  const i18n = await getServerI18n();
+  const r = i18n.m.review;
+  const review = await loadReview(supabase, today, i18n);
 
   if (!review) {
     return (
       <>
-        <Header title="Review" />
+        <Header title={r.title} back={r.budget} />
         <Card>
           <EmptyState
             icon="check"
-            title="Nothing to review"
-            body="When a budget ends, you'll review what was left over here."
+            title={r.nothingTitle}
+            body={r.nothingBody}
             action={
               <ButtonLink href="/budget" variant="primary">
-                Back to budget
+                {r.backToBudget}
               </ButtonLink>
             }
           />
@@ -41,12 +44,9 @@ export async function ReviewContent() {
   return (
     <>
       <Header
-        title={`Your ${review.monthLabel} review`}
-        subtitle={
-          review.laterCount > 0
-            ? `Then ${review.laterCount} more ended ${review.laterCount === 1 ? "budget" : "budgets"} to review.`
-            : undefined
-        }
+        title={r.yourReview(review.monthLabel)}
+        back={r.budget}
+        subtitle={review.laterCount > 0 ? r.thenMore(review.laterCount) : undefined}
       />
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <div className="lg:col-start-1 lg:row-start-1">
@@ -91,12 +91,12 @@ export async function ReviewContent() {
   );
 }
 
-function Header({ title, subtitle }: { title: string; subtitle?: string }) {
+function Header({ title, back, subtitle }: { title: string; back: string; subtitle?: string }) {
   return (
     <div className="flex flex-col gap-3">
       <div>
         <ButtonLink href="/budget" variant="ghost" icon="chevron-left">
-          Budget
+          {back}
         </ButtonLink>
       </div>
       <h1 className="text-title font-semibold text-text md:text-display">{title}</h1>
