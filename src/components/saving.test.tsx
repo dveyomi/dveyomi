@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FundView, SavingView, WaitingPrompt } from "@/lib/data/funds";
 
@@ -6,6 +6,8 @@ const actions = vi.hoisted(() => ({
   confirmSavingsAction: vi.fn(),
   saveFundAction: vi.fn(),
   addFundMovementAction: vi.fn(),
+  withdrawFromFundAction: vi.fn(),
+  moveBetweenFundsAction: vi.fn(),
 }));
 vi.mock("@/app/(app)/budget/fundActions", () => actions);
 const router = vi.hoisted(() => ({ refresh: vi.fn() }));
@@ -231,14 +233,76 @@ describe("SavingTab: funds", () => {
   });
 
   it("shows a refused withdrawal on its field", async () => {
-    actions.addFundMovementAction.mockResolvedValue({ error: "You can't withdraw more than the fund holds (£230.00).", field: "amount" });
+    actions.withdrawFromFundAction.mockResolvedValue({ error: "You can't withdraw more than the fund holds (£230.00).", field: "amount" });
     renderTab();
     fireEvent.click(within(screen.getByRole("article", { name: "Holiday" })).getByRole("button", { name: "Withdraw" }));
     const sheet = screen.getByRole("dialog", { name: "Withdraw from Holiday" });
     fireEvent.change(within(sheet).getByLabelText("Amount"), { target: { value: "500" } });
     await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Withdraw" })));
     expect(within(sheet).getByText("You can't withdraw more than the fund holds (£230.00).")).toBeInTheDocument();
-    expect(actions.addFundMovementAction).toHaveBeenCalledWith("holiday", expect.objectContaining({ kind: "withdrawal", amountPence: 50000 }));
+    expect(actions.withdrawFromFundAction).toHaveBeenCalledWith("holiday", expect.objectContaining({ amountPence: 50000 }));
+  });
+
+  it("withdraws into this month's spending money by default", async () => {
+    renderTab();
+    fireEvent.click(within(screen.getByRole("article", { name: "Holiday" })).getByRole("button", { name: "Withdraw" }));
+    const sheet = screen.getByRole("dialog", { name: "Withdraw from Holiday" });
+    const choice = within(sheet).getByRole("radiogroup", { name: "Where the money goes" });
+    expect(within(choice).getByRole("radio", { name: "Add to this month's spending money" })).toBeChecked();
+    expect(within(choice).getByRole("radio", { name: "Just take it out" })).not.toBeChecked();
+    fireEvent.change(within(sheet).getByLabelText("Amount"), { target: { value: "100" } });
+    await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Withdraw" })));
+    expect(actions.withdrawFromFundAction).toHaveBeenCalledWith("holiday", {
+      amountPence: 10000,
+      date: TODAY,
+      note: "",
+      destination: "spending",
+    });
+    expect(screen.getByText("£100.00 from Holiday added to this month's spending money")).toBeInTheDocument();
+  });
+
+  it("can just take money out of a fund", async () => {
+    renderTab();
+    fireEvent.click(within(screen.getByRole("article", { name: "Holiday" })).getByRole("button", { name: "Withdraw" }));
+    const sheet = screen.getByRole("dialog", { name: "Withdraw from Holiday" });
+    fireEvent.click(within(sheet).getByRole("radio", { name: "Just take it out" }));
+    expect(sheet).toHaveTextContent("Your budget doesn't change.");
+    fireEvent.change(within(sheet).getByLabelText("Amount"), { target: { value: "20" } });
+    await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Withdraw" })));
+    expect(actions.withdrawFromFundAction).toHaveBeenCalledWith("holiday", expect.objectContaining({ amountPence: 2000, destination: "out" }));
+    expect(screen.getByText("Withdrawn from Holiday")).toBeInTheDocument();
+  });
+
+  it("moves money to another fund", async () => {
+    renderTab();
+    fireEvent.click(within(screen.getByRole("article", { name: "Holiday" })).getByRole("button", { name: "Move" }));
+    const sheet = screen.getByRole("dialog", { name: "Move money from Holiday" });
+    expect(sheet).toHaveTextContent("Holiday holds £230.00");
+    const to = within(sheet).getByLabelText("To");
+    expect([...(to as HTMLSelectElement).options].map((o) => o.textContent)).toEqual(["Emergency"]);
+    expect(to).toHaveValue("emergency");
+    fireEvent.change(within(sheet).getByLabelText("Amount"), { target: { value: "50" } });
+    await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Move money" })));
+    expect(actions.moveBetweenFundsAction).toHaveBeenCalledWith("holiday", "emergency", { amountPence: 5000, date: TODAY, note: "" });
+    expect(screen.getByText("£50.00 moved from Holiday to Emergency")).toBeInTheDocument();
+  });
+
+  it("shows a refused move on its field", async () => {
+    actions.moveBetweenFundsAction.mockResolvedValue({ error: "You can't move more than Holiday holds (£230.00).", field: "amount" });
+    renderTab();
+    fireEvent.click(within(screen.getByRole("article", { name: "Holiday" })).getByRole("button", { name: "Move" }));
+    const sheet = screen.getByRole("dialog", { name: "Move money from Holiday" });
+    fireEvent.change(within(sheet).getByLabelText("Amount"), { target: { value: "500" } });
+    await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Move money" })));
+    expect(within(sheet).getByText("You can't move more than Holiday holds (£230.00).")).toBeInTheDocument();
+  });
+
+  it("offers Move only with another fund to move to, and money to move", () => {
+    renderTab({ funds: [holiday] });
+    expect(within(screen.getByRole("article", { name: "Holiday" })).queryByRole("button", { name: "Move" })).not.toBeInTheDocument();
+    cleanup();
+    renderTab({ funds: [emergency, fund({ balancePence: 0, progressPercent: 0 })] });
+    expect(within(screen.getByRole("article", { name: "Holiday" })).getByRole("button", { name: "Move" })).toBeDisabled();
   });
 
   it("disables Withdraw on an empty fund", () => {

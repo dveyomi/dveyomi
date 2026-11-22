@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { confirmSavingsSplit, createFund, updateFund, addFundMovement, redirect, getUserId, revalidatePath } = vi.hoisted(() => ({
+const { confirmSavingsSplit, createFund, updateFund, addFundMovement, withdrawFromFund, moveBetweenFunds, redirect, getUserId, revalidatePath } = vi.hoisted(() => ({
+  withdrawFromFund: vi.fn(),
+  moveBetweenFunds: vi.fn(),
   confirmSavingsSplit: vi.fn(),
   createFund: vi.fn(),
   updateFund: vi.fn(),
@@ -21,22 +23,25 @@ vi.mock("@/lib/data/funds", async (importOriginal) => ({
   createFund,
   updateFund,
   addFundMovement,
+  withdrawFromFund,
+  moveBetweenFunds,
 }));
 
 import {
   FundNameTakenError,
   FundNotFoundError,
   InsufficientFundsError,
+  SameFundError,
   SavingsAlreadyMovedError,
   SplitTotalError,
 } from "@/lib/data/funds";
-import { addFundMovementAction, confirmSavingsAction, saveFundAction } from "./fundActions";
+import { addFundMovementAction, confirmSavingsAction, moveBetweenFundsAction, saveFundAction, withdrawFromFundAction } from "./fundActions";
 
 const PERIOD = "33333333-3333-4333-8333-333333333333";
 const FUND = "11111111-1111-4111-8111-111111111111";
 
 beforeEach(() => {
-  for (const f of [confirmSavingsSplit, createFund, updateFund, addFundMovement, revalidatePath]) f.mockReset();
+  for (const f of [confirmSavingsSplit, createFund, updateFund, addFundMovement, withdrawFromFund, moveBetweenFunds, revalidatePath]) f.mockReset();
   getUserId.mockReset().mockResolvedValue("user-1");
 });
 
@@ -119,6 +124,85 @@ describe("addFundMovementAction", () => {
     expect(await addFundMovementAction(FUND, { kind: "withdrawal", amountPence: 20000, date: "2026-11-21" })).toEqual({
       error: "You can't withdraw more than the fund holds (£100.00).",
       field: "amount",
+    });
+  });
+});
+
+const OTHER = "22222222-2222-4222-8222-222222222222";
+
+describe("withdrawFromFundAction", () => {
+  it("withdraws into this month's spending money, dated as checked, and refreshes", async () => {
+    const raw = { amountPence: 10000, date: "2026-11-21", note: " Car ", destination: "spending" };
+    expect(await withdrawFromFundAction(FUND, raw)).toEqual({});
+    expect(withdrawFromFund).toHaveBeenCalledWith(
+      {},
+      "2026-11-21",
+      FUND,
+      { kind: "withdrawal", amountPence: 10000, date: "2026-11-21", note: "Car" },
+      "spending",
+    );
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
+  });
+
+  it("just takes it out", async () => {
+    expect(await withdrawFromFundAction(FUND, { amountPence: 100, date: "2026-11-21", destination: "out" })).toEqual({});
+    expect(withdrawFromFund).toHaveBeenCalledWith({}, "2026-11-21", FUND, expect.anything(), "out");
+  });
+
+  it("refuses an unknown destination, fund or amount without calling the database", async () => {
+    expect(await withdrawFromFundAction(FUND, { amountPence: 100, date: "2026-11-21", destination: "bank" })).toEqual({ error: expect.any(String) });
+    expect(await withdrawFromFundAction("x", { amountPence: 100, date: "2026-11-21", destination: "out" })).toEqual({ error: expect.any(String) });
+    expect(await withdrawFromFundAction(FUND, { amountPence: 0, date: "2026-11-21", destination: "out" })).toEqual({
+      error: expect.any(String),
+      field: "amount",
+    });
+    expect(withdrawFromFund).not.toHaveBeenCalled();
+  });
+
+  it("puts a refusal for the balance on the amount", async () => {
+    withdrawFromFund.mockRejectedValue(new InsufficientFundsError(10000));
+    expect(await withdrawFromFundAction(FUND, { amountPence: 20000, date: "2026-11-21", destination: "spending" })).toEqual({
+      error: "You can't withdraw more than the fund holds (£100.00).",
+      field: "amount",
+    });
+  });
+
+  it("sends a signed-out user to log in", async () => {
+    getUserId.mockResolvedValue(null);
+    await expect(withdrawFromFundAction(FUND, {})).rejects.toThrow("NEXT_REDIRECT:/login");
+  });
+});
+
+describe("moveBetweenFundsAction", () => {
+  it("moves the checked amount and refreshes", async () => {
+    expect(await moveBetweenFundsAction(FUND, OTHER, { amountPence: 5000, date: "2026-11-21", note: "" })).toEqual({});
+    expect(moveBetweenFunds).toHaveBeenCalledWith({}, FUND, OTHER, { amountPence: 5000, date: "2026-11-21", note: null });
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
+  });
+
+  it("refuses a malformed fund or amount without calling the database", async () => {
+    expect(await moveBetweenFundsAction(FUND, "x", { amountPence: 5000, date: "2026-11-21" })).toEqual({ error: expect.any(String) });
+    expect(await moveBetweenFundsAction(FUND, OTHER, { amountPence: -1, date: "2026-11-21" })).toEqual({
+      error: expect.any(String),
+      field: "amount",
+    });
+    expect(moveBetweenFunds).not.toHaveBeenCalled();
+  });
+
+  it("explains each refusal", async () => {
+    moveBetweenFunds.mockRejectedValueOnce(new InsufficientFundsError(23000));
+    expect(await moveBetweenFundsAction(FUND, OTHER, { amountPence: 50000, date: "2026-11-21" })).toEqual({
+      error: "You can't move more than this fund holds (£230.00).",
+      field: "amount",
+    });
+    moveBetweenFunds.mockRejectedValueOnce(new SameFundError());
+    expect(await moveBetweenFundsAction(FUND, FUND, { amountPence: 100, date: "2026-11-21" })).toEqual({
+      error: "Choose a different fund to move the money to.",
+      field: "to",
+    });
+    moveBetweenFunds.mockRejectedValueOnce(new FundNotFoundError());
+    expect(await moveBetweenFundsAction(FUND, OTHER, { amountPence: 100, date: "2026-11-21" })).toEqual({
+      error: "That fund wasn't found. Reload the page and try again.",
     });
   });
 });

@@ -16,6 +16,9 @@ const TARGET_DATE_MAX = "2100-12-31";
 
 export type FundField = "name" | "target" | "targetDate";
 export type MovementField = "amount" | "date" | "note";
+export type FundMoveField = MovementField | "to";
+/** Where a withdrawal goes: into this month's spending money, or just out of the fund. */
+export type WithdrawDestination = "spending" | "out";
 
 export type FundDetails = { name: string; targetPence: number | null; targetDate: IsoDate | null };
 export type FundMovementInput = {
@@ -77,6 +80,30 @@ export function validateMovement(raw: unknown, today: IsoDate): { ok: true; inpu
     note = raw.note.trim() || null;
   }
   return { ok: true, input: { kind: raw.kind, amountPence: raw.amountPence, date: raw.date, note } };
+}
+
+/** A withdrawal: a movement (see validateMovement) and where the money goes. */
+export function validateWithdrawal(
+  raw: unknown,
+  today: IsoDate,
+): { ok: true; input: FundMovementInput; destination: WithdrawDestination } | Failure<MovementField> {
+  if (!isRecord(raw) || (raw.destination !== "spending" && raw.destination !== "out")) {
+    return fail("Choose where the money goes.");
+  }
+  const checked = validateMovement({ ...raw, kind: "withdrawal" }, today);
+  return checked.ok ? { ...checked, destination: raw.destination } : checked;
+}
+
+/** Money moved between funds: an amount, a date and an optional note, as validateMovement checks them. */
+export function validateFundMove(
+  raw: unknown,
+  today: IsoDate,
+): { ok: true; input: Omit<FundMovementInput, "kind"> } | Failure<MovementField> {
+  if (!isRecord(raw)) return fail("Something was missing. Check it and try again.");
+  const checked = validateMovement({ ...raw, kind: "withdrawal" }, today);
+  if (!checked.ok) return checked;
+  const { amountPence, date, note } = checked.input;
+  return { ok: true, input: { amountPence, date, note } };
 }
 
 /**

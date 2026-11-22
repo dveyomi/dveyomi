@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateConfirmSplit, validateFund, validateMovement } from "./funds";
+import { validateConfirmSplit, validateFund, validateFundMove, validateMovement, validateWithdrawal } from "./funds";
 
 const FUND = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
@@ -93,5 +93,35 @@ describe("validateConfirmSplit", () => {
     ["21 lines", Array.from({ length: 21 }, () => ({ newFund: { name: crypto.randomUUID().slice(0, 8), targetPence: null }, amountPence: 1 }))],
   ])("refuses %s", (_label, raw) => {
     expect(validateConfirmSplit(raw)).toEqual({ ok: false, error: expect.any(String) });
+  });
+});
+
+describe("validateWithdrawal", () => {
+  const ok = { amountPence: 500, date: "2026-11-21", note: "", destination: "spending" };
+
+  it("checks the movement and keeps where the money goes", () => {
+    expect(validateWithdrawal(ok, "2026-11-21")).toEqual({
+      ok: true,
+      input: { kind: "withdrawal", amountPence: 500, date: "2026-11-21", note: null },
+      destination: "spending",
+    });
+    expect(validateWithdrawal({ ...ok, destination: "out" }, "2026-11-21")).toMatchObject({ ok: true, destination: "out" });
+  });
+
+  it("refuses a missing or unknown destination, and a bad amount on its field", () => {
+    expect(validateWithdrawal({ ...ok, destination: "bank" }, "2026-11-21")).toMatchObject({ ok: false });
+    expect(validateWithdrawal({ ...ok, destination: undefined }, "2026-11-21")).toMatchObject({ ok: false });
+    expect(validateWithdrawal({ ...ok, amountPence: 0 }, "2026-11-21")).toMatchObject({ ok: false, field: "amount" });
+  });
+});
+
+describe("validateFundMove", () => {
+  it("checks the amount, date and note", () => {
+    expect(validateFundMove({ amountPence: 500, date: "2026-11-21", note: " Top up " }, "2026-11-21")).toEqual({
+      ok: true,
+      input: { amountPence: 500, date: "2026-11-21", note: "Top up" },
+    });
+    expect(validateFundMove({ amountPence: 500, date: "2026-11-22" }, "2026-11-21")).toMatchObject({ ok: false, field: "date" });
+    expect(validateFundMove(null, "2026-11-21")).toMatchObject({ ok: false });
   });
 });

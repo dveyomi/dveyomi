@@ -7,17 +7,29 @@ import {
   FundNameTakenError,
   FundNotFoundError,
   InsufficientFundsError,
+  SameFundError,
   SavingsAlreadyMovedError,
   SplitTotalError,
   addFundMovement,
   confirmSavingsSplit,
   createFund,
+  moveBetweenFunds,
   updateFund,
+  withdrawFromFund,
 } from "@/lib/data/funds";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
 import { isId } from "@/lib/validation/budgetEdit";
-import { validateConfirmSplit, validateFund, validateMovement, type FundField, type MovementField } from "@/lib/validation/funds";
+import {
+  validateConfirmSplit,
+  validateFund,
+  validateFundMove,
+  validateMovement,
+  validateWithdrawal,
+  type FundField,
+  type FundMoveField,
+  type MovementField,
+} from "@/lib/validation/funds";
 
 /** The Saving tab's actions. Inputs are untrusted: checked here, and RLS keeps every row to the signed-in user. */
 
@@ -84,6 +96,52 @@ export async function addFundMovementAction(fundId: unknown, raw: unknown): Prom
     }
     if (e instanceof FundNotFoundError) return { error: e.message };
     console.error("addFundMovement failed", e);
+    return FAILED;
+  }
+  revalidatePath("/", "layout");
+  return {};
+}
+
+/**
+ * Takes money out of a fund: into this month's spending money ("spending",
+ * which raises Left to spend) or just out ("out", fund-only). The balance is
+ * checked in the same transaction.
+ */
+export async function withdrawFromFundAction(fundId: unknown, raw: unknown): Promise<FundActionResult<MovementField>> {
+  if (!(await getUserId())) redirect("/login");
+  if (!isId(fundId)) return UNKNOWN_FUND;
+  const today = await getToday();
+  const checked = validateWithdrawal(raw, today);
+  if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
+  try {
+    await withdrawFromFund(await createClient(), today, fundId, checked.input, checked.destination);
+  } catch (e) {
+    if (e instanceof InsufficientFundsError) {
+      return { error: `You can't withdraw more than the fund holds (${formatGBP(e.balancePence)}).`, field: "amount" };
+    }
+    if (e instanceof FundNotFoundError) return { error: e.message };
+    console.error("withdrawFromFund failed", e);
+    return FAILED;
+  }
+  revalidatePath("/", "layout");
+  return {};
+}
+
+/** Moves money from one fund to another. Fund-only: the budget is untouched. */
+export async function moveBetweenFundsAction(fromId: unknown, toId: unknown, raw: unknown): Promise<FundActionResult<FundMoveField>> {
+  if (!(await getUserId())) redirect("/login");
+  if (!isId(fromId) || !isId(toId)) return UNKNOWN_FUND;
+  const checked = validateFundMove(raw, await getToday());
+  if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
+  try {
+    await moveBetweenFunds(await createClient(), fromId, toId, checked.input);
+  } catch (e) {
+    if (e instanceof InsufficientFundsError) {
+      return { error: `You can't move more than this fund holds (${formatGBP(e.balancePence)}).`, field: "amount" };
+    }
+    if (e instanceof SameFundError) return { error: e.message, field: "to" };
+    if (e instanceof FundNotFoundError) return { error: e.message };
+    console.error("moveBetweenFunds failed", e);
     return FAILED;
   }
   revalidatePath("/", "layout");

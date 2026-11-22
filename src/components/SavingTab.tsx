@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { FundEditSheet, FundMovementSheet } from "@/components/FundForms";
+import { FundEditSheet, FundMoveSheet, FundMovementSheet } from "@/components/FundForms";
 import { FundHistory } from "@/components/FundHistory";
 import { MoveSavingsSheet } from "@/components/MoveSavingsSheet";
 import { Button, Card, EmptyState, Icon, IconButton, Money, ProgressBar } from "@/components/ui";
@@ -16,6 +16,7 @@ type Open =
   | { sheet: "move"; prompt: WaitingPrompt }
   | { sheet: "history"; fundId: string }
   | { sheet: "movement"; fundId: string; kind: "contribution" | "withdrawal" }
+  | { sheet: "transfer"; fundId: string }
   | { sheet: "edit"; fundId: string | null }
   | null;
 
@@ -96,6 +97,7 @@ export function SavingTab({ view, today }: SavingTabProps) {
                     onHistory={() => setOpen({ sheet: "history", fundId: f.id })}
                     onAdd={() => setOpen({ sheet: "movement", fundId: f.id, kind: "contribution" })}
                     onWithdraw={() => setOpen({ sheet: "movement", fundId: f.id, kind: "withdrawal" })}
+                    onMove={view.funds.length > 1 ? () => setOpen({ sheet: "transfer", fundId: f.id }) : null}
                     onEdit={() => setOpen({ sheet: "edit", fundId: f.id })}
                   />
                 </li>
@@ -115,6 +117,15 @@ export function SavingTab({ view, today }: SavingTabProps) {
         {open?.sheet === "history" ? <FundHistory fund={current} today={today} onClose={() => setOpen(null)} /> : null}
         {open?.sheet === "movement" && current ? (
           <FundMovementSheet fund={current} kind={open.kind} today={today} onClose={() => setOpen(null)} onDone={done} />
+        ) : null}
+        {open?.sheet === "transfer" && current ? (
+          <FundMoveSheet
+            fund={current}
+            others={view.funds.filter((f) => f.id !== current.id)}
+            today={today}
+            onClose={() => setOpen(null)}
+            onDone={done}
+          />
         ) : null}
         {open?.sheet === "edit" ? <FundEditSheet fund={current} onClose={() => setOpen(null)} onDone={done} /> : null}
       </div>
@@ -162,10 +173,12 @@ type FundCardProps = {
   onHistory: () => void;
   onAdd: () => void;
   onWithdraw: () => void;
+  /** Null when there's no other fund to move money to. */
+  onMove: (() => void) | null;
   onEdit: () => void;
 };
 
-function FundCard({ fund, onHistory, onAdd, onWithdraw, onEdit }: FundCardProps) {
+function FundCard({ fund, onHistory, onAdd, onWithdraw, onMove, onEdit }: FundCardProps) {
   const headingId = useId();
   return (
     <article aria-labelledby={headingId} className="h-full">
@@ -203,6 +216,11 @@ function FundCard({ fund, onHistory, onAdd, onWithdraw, onEdit }: FundCardProps)
           Withdraw
         </Button>
         <IconButton icon="edit" label={`Edit ${fund.name}`} onClick={onEdit} />
+        {onMove ? (
+          <Button variant="secondary" onClick={onMove} disabled={fund.balancePence <= 0} className="col-span-2">
+            Move
+          </Button>
+        ) : null}
       </div>
       </Card>
     </article>
