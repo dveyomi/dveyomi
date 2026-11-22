@@ -30,7 +30,7 @@ export function RadioCards<T extends string>({ label, options, value, onChange }
         return (
           <label
             key={o.value}
-            className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-md border bg-card-raised p-4 transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent-fg ${checked ? "border-accent-fg" : "border-border hover:border-border-strong"}`}
+            className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-md border bg-card-raised p-4 transition-colors has-focus-visible:outline-2 has-focus-visible:outline-solid has-focus-visible:outline-offset-2 has-focus-visible:outline-accent-fg ${checked ? "border-accent-fg" : "border-border hover:border-border-strong"}`}
           >
             <input
               type="radio"

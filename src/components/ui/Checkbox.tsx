@@ -20,7 +20,7 @@ type CheckboxProps = {
 export function Checkbox({ checked, onChange, children, disabled }: CheckboxProps) {
   return (
     <label
-      className={`flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-sm has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent-fg ${disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
+      className={`flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-sm has-focus-visible:outline-2 has-focus-visible:outline-solid has-focus-visible:outline-offset-2 has-focus-visible:outline-accent-fg ${disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
     >
       <input
         type="checkbox"

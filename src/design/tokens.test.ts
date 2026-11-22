@@ -274,12 +274,15 @@ describe("no styling outside the design system", () => {
 });
 
 describe("focus rings", () => {
-  // Tailwind v4's `outline-none` sets --tw-outline-style to none, and
-  // `focus-visible:outline-2` only sets the width, so the ring never shows
-  // unless the focused state sets the style too.
-  it("every outline-none with a focus outline also sets the outline style on focus", () => {
-    const lines = offences(/outline-none/).filter(
-      (line) => /(focus-visible|focus-within|has-focus-visible):outline-2/.test(line) && !/:outline-solid/.test(line),
+  // Tailwind v4's `outline-none` (also inside shared classes such as
+  // buttonClasses) sets --tw-outline-style to none, and `focus-visible:outline-2`
+  // only sets the width, so a ring shows only if the focused state sets the
+  // style too. Required everywhere, wherever outline-none might come from.
+  it("every focus outline width comes with its outline style, in the same state", () => {
+    const lines = offences(/(focus-visible|focus-within|has-focus-visible):outline-\d/).filter((line) =>
+      [...line.matchAll(/(?<![\w-])((?:has-)?focus-(?:visible|within)):outline-\d+\b/g)].some(
+        ([, state]) => !line.includes(`${state}:outline-solid`),
+      ),
     );
     expect(lines).toEqual([]);
   });

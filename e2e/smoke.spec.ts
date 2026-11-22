@@ -67,6 +67,8 @@ test("onboarding → budget → log £12.50 → Budget, Expenses and export agre
   await page.getByRole("textbox", { name: "Name" }).fill("Smoke test lunch");
   await page.getByRole("combobox", { name: "Category" }).selectOption({ label: "Groceries" });
   await page.getByRole("button", { name: "Save expense" }).last().click();
+  // The save is done once the form has gone.
+  await page.waitForURL((url) => !url.pathname.startsWith("/expenses/new"));
 
   // Left to spend drops by exactly £12.50.
   await page.goto("/budget");

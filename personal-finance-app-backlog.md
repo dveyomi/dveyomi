@@ -3,13 +3,22 @@
 Updated 2026-11-22. Items move to the design doc once decided.
 
 ## Open (waiting on David)
-- Nothing needs his answer. One default he hasn't specifically confirmed (my call): over-allocation (allocations exceed the monthly total) is allowed, shows a loud red state until fixed, and never clamps category cards (the reference shows "£0.00 left" on a £5,000 card with £5 spent, which hides the real position). His earlier comment on this was unclear; he can correct it when he reviews the design doc.
-
-- Release (needs David's go-ahead; nothing is deployed yet). Checklist: a Supabase project with migrations 0001–0010 applied; Google OAuth client with the production and preview callback URLs (Supabase Auth redirect allow-list plus the Google console); Vercel env vars `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (server-only, never `NEXT_PUBLIC_`), `CRON_SECRET`; Vault secrets `app_url` (the deployed origin) and `cron_secret` (same value as `CRON_SECRET`), which the hourly recurring job in migration 0007 reads; then `npm run test:e2e` against the preview (it signs in with a password, so it needs a test user and the local-only helper pointed at the preview, or a manual run).
-- A real Google sign-in round trip has only been tested by hand on the local stack; test it once on the deployed preview.
-- Backups: the Supabase free plan has no point-in-time recovery; decide between the paid plan's daily backups or a scheduled `pg_dump`. Users can already export their own data.
+- Release: go-ahead to deploy (nothing is deployed yet). Checklist: a Supabase project with migrations 0001–0010 applied; Google OAuth client with the production and preview callback URLs (Supabase Auth redirect allow-list plus the Google console); Vercel env vars `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (server-only, never `NEXT_PUBLIC_`), `CRON_SECRET`; Vault secrets `app_url` (the deployed origin) and `cron_secret` (same value as `CRON_SECRET`), which the hourly recurring job in migration 0007 reads; then the smoke test against the preview (`npm run test:e2e` signs in with a password through a local-only helper, so the preview needs a test user and a relaxed helper, or a manual pass) and one real Google sign-in round trip (so far only tested by hand on the local stack).
+- Backups: the Supabase free plan has no point-in-time recovery; choose between the paid plan's daily backups or a scheduled `pg_dump`. Users can already export their own data.
 - Expenses comparison shows very large percentages when last month was small (e.g. "+2913.1%"). Suggest hiding the percentage above a cap or when last month was under a few pounds.
-- Long amounts in the Budget gauge now shrink to fit; amounts on other "display" figures (Expenses total, recurring detail, leftover prompt) don't, but sit on full-width cards where they fit up to £10m.
+- One default he hasn't specifically confirmed (my call): over-allocation (allocations exceed the monthly total) is allowed, shows a loud red state until fixed, and never clamps category cards (the reference shows "£0.00 left" on a £5,000 card with £5 spent, which hides the real position). His earlier comment on this was unclear; he can correct it when he reviews the design doc.
+
+## Design polish to consider
+From the pre-release design critique and copy review (2026-11-22); none blocks release.
+- Expenses phone header: Trips, Recurring and Import are icon-only on the phone (they have screen-reader labels). Consider a "More" menu or visible labels.
+- Expenses stacks two segmented controls in different styles (neutral Calendar/Analytics, lime Month/Budget period), which compete. Consider one style, or moving the range into the month header.
+- Budget: a fully spent category ("£0.00 left of £1,200") shows an empty grey bar, which reads as "nothing" rather than "used up". Consider a full bar in a calm "done" colour.
+- Budget: "Set new budget" sits above the headline gauge. Consider moving it below the categories or into a menu so the gauge leads.
+- Add expense: the amount field takes focus on open. iOS doesn't open the keyboard for it anyway; kept as the single primary input.
+- No `theme-color` meta, so the browser bar doesn't match the theme. Needs a tokens-driven way to give the colours to Next's metadata.
+- The date field's calendar button has only the browser's own focus style.
+- Copy: "It won't count toward your budget" kept in David's wording ("towards" in British English).
+- Long amounts in the Budget gauge shrink to fit. Other large amounts (Expenses total, recurring detail, leftover prompt) don't; they sit on wide cards and fit up to £10m.
 
 ## Parked for after the MVP
 - Log with AI: plain-language entry to a preview card (nothing saved until Confirm), server-side model call. Later, "ask anything about your money" Q&A (needs transaction data sent to the model). The reference + menu is "Add manually" / "Log with AI".

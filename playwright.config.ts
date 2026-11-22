@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+import { localStack } from "./e2e/session";
 
 // End-to-end tests (`npm run test:e2e`): a production build (`next build &&
 // next start`) on a free port, against the local Supabase stack.
@@ -14,6 +15,8 @@ process.env.E2E_PORT ??= String(freePort());
 const port = Number(process.env.E2E_PORT);
 // E2E_BASE_URL runs against a server already started (`next start`), skipping the build.
 const existing = process.env.E2E_BASE_URL;
+// Without the local Supabase stack the tests skip, so don't build or start the app either.
+const stackUp = localStack() !== null;
 
 // The container's preinstalled chromium, when the bundled revision isn't installed (never run `playwright install` here).
 const PREINSTALLED = "/opt/pw-browsers/chromium-1243/chrome-linux64/chrome";
@@ -35,14 +38,15 @@ export default defineConfig({
     launchOptions: existsSync(PREINSTALLED) ? { executablePath: PREINSTALLED } : {},
   },
   projects: [{ name: "phone", use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } } }],
-  webServer: existing
-    ? undefined
-    : {
-        command: `npm run build && npm run start -- -p ${port} -H 127.0.0.1`,
-        url: `http://127.0.0.1:${port}/login`,
-        reuseExistingServer: false,
-        timeout: 300_000,
-        stdout: "ignore",
-        stderr: "pipe",
-      },
+  webServer:
+    existing || !stackUp
+      ? undefined
+      : {
+          command: `npm run build && npm run start -- -p ${port} -H 127.0.0.1`,
+          url: `http://127.0.0.1:${port}/login`,
+          reuseExistingServer: false,
+          timeout: 300_000,
+          stdout: "ignore",
+          stderr: "pipe",
+        },
 });

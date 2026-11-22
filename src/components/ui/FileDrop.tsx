@@ -54,7 +54,7 @@ export function FileDrop({ label, accept, onFile, hint, error, disabled }: FileD
           <span className="block text-caption text-muted">Drop it here, or</span>
         </p>
         <label
-          className={`${buttonClasses("secondary")} cursor-pointer has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent-fg ${disabled ? "pointer-events-none opacity-40" : ""}`}
+          className={`${buttonClasses("secondary")} cursor-pointer has-focus-visible:outline-2 has-focus-visible:outline-solid has-focus-visible:outline-offset-2 has-focus-visible:outline-accent-fg ${disabled ? "pointer-events-none opacity-40" : ""}`}
         >
           Choose file
           <input

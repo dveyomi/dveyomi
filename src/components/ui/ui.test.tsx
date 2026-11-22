@@ -660,6 +660,12 @@ describe("FileDrop", () => {
     expect(onFile).toHaveBeenCalledWith(chosen);
   });
 
+  it("rings Choose file when its input has keyboard focus (style set, not just width)", () => {
+    render(<FileDrop label="Bank statement" accept=".csv" onFile={() => {}} />);
+    const choose = screen.getByText("Choose file").closest("label")!;
+    expect(choose).toHaveClass("has-focus-visible:outline-2", "has-focus-visible:outline-solid");
+  });
+
   it("takes a dropped file too", () => {
     const onFile = vi.fn();
     render(<FileDrop label="Bank statement" accept=".csv" onFile={onFile} />);
