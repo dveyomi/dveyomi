@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  duplicateWindow,
   findDuplicates,
   guessColumns,
   guessDateFormat,
@@ -11,6 +12,7 @@ import {
   MAX_IMPORT_ROWS,
   parseCsv,
   readCsvFile,
+  type ExistingExpense,
   type ImportRow,
 } from "./csv";
 
@@ -234,20 +236,64 @@ describe("mapRows", () => {
 
 describe("findDuplicates", () => {
   const row = (over: Partial<ImportRow>): ImportRow => ({ row: 1, date: "2026-11-05", amountPence: 1250, name: "Tesco", ...over });
-
-  it("flags a row with the same date, amount and name (any case, trimmed) as an existing expense", () => {
-    const rows = [row({}), row({ name: "Boots" }), row({ amountPence: 1251 }), row({ date: "2026-11-06" })];
-    const dupes = findDuplicates(rows, [{ date: "2026-11-05", amountPence: 1250, name: "  TESCO " }]);
-    expect([...dupes]).toEqual([0]);
+  const existing = (over: Partial<ExistingExpense> = {}): ExistingExpense => ({
+    date: "2026-11-05",
+    amountPence: 1250,
+    name: "Tesco Express",
+    source: "manual",
+    ...over,
   });
 
-  it("flags a repeat of an earlier row in the same file, but not the first", () => {
-    const rows = [row({ row: 2 }), row({ row: 3, name: "tesco" }), row({ row: 4, name: "Pret" })];
-    expect([...findDuplicates(rows, [])]).toEqual([1]);
+  it("flags a row with the same amount as an existing expense within 2 days either side, whatever its name", () => {
+    const rows = [
+      row({ date: "2026-11-03" }),
+      row({ date: "2026-11-07", name: "TESCO STORES 2041" }),
+      row({ date: "2026-11-02" }),
+      row({ date: "2026-11-08" }),
+      row({ amountPence: 1251 }),
+    ];
+    expect(findDuplicates(rows, [existing()])).toEqual(
+      new Map([
+        [0, "Looks like your Tesco Express"],
+        [1, "Looks like your Tesco Express"],
+      ]),
+    );
+  });
+
+  it("works across month and year ends", () => {
+    const rows = [row({ date: "2027-01-01" })];
+    expect(findDuplicates(rows, [existing({ date: "2026-12-30" })]).get(0)).toBe("Looks like your Tesco Express");
+  });
+
+  it("says when the match is a recurring payment, preferring the closest date", () => {
+    const rows = [row({ date: "2026-11-05", name: "NETFLIX.COM" })];
+    const dupes = findDuplicates(rows, [
+      existing({ date: "2026-11-03", name: "Coffee" }),
+      existing({ date: "2026-11-05", name: "Netflix", source: "recurring" }),
+    ]);
+    expect(dupes.get(0)).toBe("Looks like your recurring Netflix");
+  });
+
+  it("flags a repeat of an earlier row in the same file (same date, amount and name), but not the first", () => {
+    const rows = [row({ row: 2 }), row({ row: 3, name: " tesco " }), row({ row: 4, name: "Pret" }), row({ row: 5, date: "2026-11-06" })];
+    expect(findDuplicates(rows, [])).toEqual(new Map([[1, "Same as row 2 in this file"]]));
   });
 
   it("flags nothing when nothing matches", () => {
     expect(findDuplicates([row({})], []).size).toBe(0);
+  });
+});
+
+describe("duplicateWindow", () => {
+  it("is the rows' first and last dates widened by 2 days", () => {
+    expect(duplicateWindow([{ date: "2026-11-05" }, { date: "2026-10-31" }, { date: "2026-11-02" }])).toEqual({
+      from: "2026-10-29",
+      to: "2026-11-07",
+    });
+  });
+
+  it("is null for no rows", () => {
+    expect(duplicateWindow([])).toBeNull();
   });
 });
 

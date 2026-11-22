@@ -202,15 +202,23 @@ describe("importing the same file twice", () => {
 });
 
 describe("existingExpensesFor", () => {
-  it("returns the user's expenses within the rows' dates only", async () => {
+  it("returns the user's expenses (with their source) from 2 days before the rows' first date to 2 days after the last", async () => {
     const { u, cat } = await seed();
     const other = await seed("import-other");
-    await u.client.from("transactions").insert([
-      { name: "Before", amount_pence: 100, date: "2026-11-01", category_id: cat("Groceries") },
-      { name: "After", amount_pence: 100, date: "2026-11-30", category_id: cat("Groceries") },
+    // A bulk insert sends every row the same columns, so each row names its source.
+    const inserted = await u.client.from("transactions").insert([
+      { name: "Too early", amount_pence: 100, date: "2026-11-02", category_id: cat("Groceries"), source: "manual" },
+      { name: "Just before", amount_pence: 100, date: "2026-11-03", category_id: cat("Groceries"), source: "recurring" },
+      { name: "Just after", amount_pence: 100, date: "2026-11-22", category_id: cat("Groceries"), source: "manual" },
+      { name: "Too late", amount_pence: 100, date: "2026-11-23", category_id: cat("Groceries"), source: "manual" },
     ]);
+    expect(inserted.error).toBeNull();
     const existing = await existingExpensesFor(db(u), [row({ date: "2026-11-05" }), row({ date: "2026-11-20" })]);
-    expect(existing).toEqual([{ date: "2026-11-05", amountPence: 1250, name: "Tesco" }]);
+    expect(existing.toSorted((a, b) => (a.date < b.date ? -1 : 1))).toEqual([
+      { date: "2026-11-03", amountPence: 100, name: "Just before", source: "recurring" },
+      { date: "2026-11-05", amountPence: 1250, name: "Tesco", source: "manual" },
+      { date: "2026-11-22", amountPence: 100, name: "Just after", source: "manual" },
+    ]);
     expect(await existingExpensesFor(db(other.u), [])).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { formatGBP, parsePence, type IsoDate } from "@/lib/calc";
+import { addDays, daysBetween, formatGBP, parsePence, type IsoDate } from "@/lib/calc";
 import { MAX_PENCE } from "@/lib/validation/common";
 import { expenseDateRange, isIsoDate, MAX_EXPENSE_NAME_LENGTH } from "@/lib/validation/expense";
 
@@ -34,8 +34,8 @@ export type ImportRow = { row: number; date: IsoDate; amountPence: number; name:
 /** A row that isn't imported, and why, in words a person can act on. */
 export type RowNote = { row: number; reason: string };
 
-/** An expense already recorded, as findDuplicates compares it. */
-export type ExistingExpense = { date: IsoDate; amountPence: number; name: string };
+/** An expense already recorded, as findDuplicates compares it. `source` is 'manual', 'csv' or 'recurring'. */
+export type ExistingExpense = { date: IsoDate; amountPence: number; name: string; source: string };
 
 /** A file turned into rows of text fields (CSV, or an Excel sheet). */
 export type FileReader = (file: File) => Promise<string[][]>;
@@ -232,20 +232,50 @@ export function mapRows(
   return { ok, errors, skipped };
 }
 
-const duplicateKey = (e: ExistingExpense) => `${e.date}|${e.amountPence}|${e.name.replace(/\s+/g, " ").trim().toLowerCase()}`;
+/** How many days either side of a row an existing expense with the same amount counts as the same payment (bank dates drift). */
+export const DUPLICATE_DAYS = 2;
+
+const rowKey = (r: ImportRow) => `${r.date}|${r.amountPence}|${r.name.replace(/\s+/g, " ").trim().toLowerCase()}`;
+
+/** The dates existing expenses are read for: the rows' first date − 2 days to their last + 2. Null for no rows. */
+export function duplicateWindow(rows: Pick<ImportRow, "date">[]): { from: IsoDate; to: IsoDate } | null {
+  if (rows.length === 0) return null;
+  let min = rows[0].date;
+  let max = rows[0].date;
+  for (const r of rows) {
+    if (r.date < min) min = r.date;
+    if (r.date > max) max = r.date;
+  }
+  return { from: addDays(min, -DUPLICATE_DAYS), to: addDays(max, DUPLICATE_DAYS) };
+}
 
 /**
- * Indexes (into `rows`) of rows that look like duplicates: the same date,
- * amount and name (ignoring case and surrounding spaces) as an expense
- * already recorded, or as an earlier row of the same file.
+ * Rows that look like duplicates, by index into `rows`, each with the label
+ * the preview shows. A row is one when an expense already recorded (any
+ * source) has the same amount within 2 days of its date, whatever its name
+ * ("Looks like your Netflix", "…your recurring Netflix"; the closest date
+ * wins), or when an earlier row of the same file has the same date, amount
+ * and name, ignoring case and spaces ("Same as row 3 in this file").
  */
-export function findDuplicates(rows: ImportRow[], existing: ExistingExpense[]): Set<number> {
-  const seen = new Set(existing.map(duplicateKey));
-  const dupes = new Set<number>();
+export function findDuplicates(rows: ImportRow[], existing: ExistingExpense[]): Map<number, string> {
+  const byAmount = Map.groupBy(existing, (e) => e.amountPence);
+  const firstRow = new Map<string, number>();
+  const dupes = new Map<number, string>();
   rows.forEach((r, i) => {
-    const key = duplicateKey(r);
-    if (seen.has(key)) dupes.add(i);
-    else seen.add(key);
+    let match: ExistingExpense | null = null;
+    let distance = Infinity;
+    for (const e of byAmount.get(r.amountPence) ?? []) {
+      const d = Math.abs(daysBetween(e.date, r.date));
+      if (d <= DUPLICATE_DAYS && d < distance) {
+        match = e;
+        distance = d;
+      }
+    }
+    const key = rowKey(r);
+    const earlier = firstRow.get(key);
+    if (match) dupes.set(i, `Looks like your ${match.source === "recurring" ? "recurring " : ""}${match.name}`);
+    else if (earlier !== undefined) dupes.set(i, `Same as row ${earlier} in this file`);
+    if (earlier === undefined) firstRow.set(key, r.row);
   });
   return dupes;
 }

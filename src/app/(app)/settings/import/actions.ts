@@ -16,18 +16,21 @@ import { validateDuplicateCheck, validateImport } from "@/lib/validation/import"
  * read and write to the signed-in user.
  */
 
+/** A row that looks like a duplicate: its index into the rows sent, and what it looks like. */
+export type DuplicateHit = { index: number; label: string };
+
 /**
- * Which rows look like duplicates (indexes into `rawRows`): the same date,
- * amount and name as an expense already recorded in the rows' dates, or as an
- * earlier row. Saves nothing.
+ * Which rows look like duplicates (findDuplicates): the same amount as an
+ * expense already recorded within 2 days, or the same date, amount and name
+ * as an earlier row. Saves nothing.
  */
-export async function findDuplicatesAction(rawRows: unknown): Promise<{ duplicates: number[] } | { error: string }> {
+export async function findDuplicatesAction(rawRows: unknown): Promise<{ duplicates: DuplicateHit[] } | { error: string }> {
   if (!(await getUserId())) redirect("/login");
   const rows = validateDuplicateCheck(rawRows, await getToday());
   if (!rows) return { error: "These rows couldn't be checked. Choose the file again." };
   try {
     const existing = await existingExpensesFor(await createClient(), rows);
-    return { duplicates: [...findDuplicates(rows, existing)] };
+    return { duplicates: [...findDuplicates(rows, existing)].map(([index, label]) => ({ index, label })) };
   } catch (e) {
     console.error("existingExpensesFor failed", e);
     return { error: "We couldn't check for duplicates. Check your connection and try again." };

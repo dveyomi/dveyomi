@@ -48,10 +48,16 @@ describe("import actions", () => {
 });
 
 describe("findDuplicatesAction", () => {
-  it("returns the indexes of rows matching existing expenses or earlier rows", async () => {
-    data.existingExpensesFor.mockResolvedValue([{ date: "2026-11-05", amountPence: 1250, name: "TESCO" }]);
-    const result = await findDuplicatesAction([row, { ...row, row: 3, name: "Pret" }, { ...row, row: 4, name: "Pret" }]);
-    expect(result).toEqual({ duplicates: [0, 2] });
+  it("returns each likely duplicate's index and label: an existing expense's amount nearby, or an earlier row", async () => {
+    data.existingExpensesFor.mockResolvedValue([{ date: "2026-11-04", amountPence: 1250, name: "TESCO", source: "manual" }]);
+    const pret = { row: 3, date: "2026-11-09", amountPence: 499, name: "Pret" };
+    const result = await findDuplicatesAction([row, pret, { ...pret, row: 4 }]);
+    expect(result).toEqual({
+      duplicates: [
+        { index: 0, label: "Looks like your TESCO" },
+        { index: 2, label: "Same as row 3 in this file" },
+      ],
+    });
     expect(data.existingExpensesFor).toHaveBeenCalledWith(db, expect.any(Array));
   });
 

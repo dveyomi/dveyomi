@@ -45,7 +45,8 @@ type ImportWizardProps = {
 
 type Step = "upload" | "map" | "preview" | "done";
 type Columns = { date: number | null; amount: number | null; name: number | null };
-type Preview = { rows: ImportRow[]; errors: RowNote[]; skipped: RowNote[]; duplicates: Set<number> };
+/** `duplicates`: the rows that look like duplicates, by index, with what each looks like. */
+type Preview = { rows: ImportRow[]; errors: RowNote[]; skipped: RowNote[]; duplicates: Map<number, string> };
 
 const STEPS: { id: Exclude<Step, "done">; label: string }[] = [
   { id: "upload", label: "Choose a file" },
@@ -184,7 +185,7 @@ export function ImportWizard({ categories, today }: ImportWizardProps) {
         setMapError(result.error);
         return;
       }
-      const duplicates = new Set(result.duplicates);
+      const duplicates = new Map(result.duplicates.map((d) => [d.index, d.label] as const));
       setPreview({ rows: mapped.ok, errors: mapped.errors, skipped: mapped.skipped, duplicates });
       setTicked(new Set(mapped.ok.map((_, i) => i).filter((i) => !duplicates.has(i))));
       setRowCategory(new Map());
@@ -266,7 +267,7 @@ export function ImportWizard({ categories, today }: ImportWizardProps) {
   }
 
   const current = STEPS.findIndex((s) => s.id === step);
-  const tickedDuplicates = preview ? [...preview.duplicates].filter((i) => ticked.has(i)).length : 0;
+  const tickedDuplicates = preview ? [...preview.duplicates.keys()].filter((i) => ticked.has(i)).length : 0;
   const summary = preview
     ? [
         `${ticked.size.toLocaleString("en-GB")} to import`,
@@ -408,9 +409,14 @@ export function ImportWizard({ categories, today }: ImportWizardProps) {
 
       {step === "preview" && preview ? (
         <div className="flex flex-col gap-5">
-          <p className="text-body font-semibold text-text" aria-live="polite">
-            {summary}
-          </p>
+          <div className="flex flex-col gap-1">
+            <p className="text-body font-semibold text-text" aria-live="polite">
+              {summary}
+            </p>
+            <p className="text-caption text-muted">
+              Untick transfers to your own accounts or savings pots — they aren&apos;t spending.
+            </p>
+          </div>
           {preview.skipped.length > 0 ? (
             <Notice tone="neutral">
               Credits aren&rsquo;t imported, so {plural(preview.skipped.length, "row")} of money in{" "}
@@ -438,14 +444,14 @@ export function ImportWizard({ categories, today }: ImportWizardProps) {
           {preview.rows.length > 0 ? (
             <ul aria-label="Rows to import" className="flex flex-col divide-y divide-border">
               {preview.rows.map((r, i) => {
-                const duplicate = preview.duplicates.has(i);
+                const duplicate = preview.duplicates.get(i);
                 const category = categoryName.get(rowCategory.get(i) ?? categoryId) ?? "";
                 return (
                   <li key={r.row} className="flex items-center gap-3 py-2 [content-visibility:auto] md:gap-4">
                     <Checkbox checked={ticked.has(i)} onChange={(on) => toggleRow(i, on)}>
                       <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span className="min-w-0 break-words text-body text-text">{r.name}</span>
-                        {duplicate ? <Badge tone="warning">Looks like a duplicate</Badge> : null}
+                        {duplicate ? <Badge tone="warning">{duplicate}</Badge> : null}
                       </span>
                       <span className="text-caption text-muted">
                         {formatDayMonthYear(r.date)} · row {r.row}

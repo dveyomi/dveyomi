@@ -1,5 +1,5 @@
 import type { IsoDate } from "@/lib/calc";
-import type { ExistingExpense, ImportRow } from "@/lib/import/csv";
+import { duplicateWindow, type ExistingExpense, type ImportRow } from "@/lib/import/csv";
 import { isId } from "@/lib/validation/budgetEdit";
 import { MissingReferenceError } from "./transactions";
 import { allRows } from "./paging";
@@ -55,21 +55,22 @@ export async function commitImport(
 }
 
 /**
- * The user's expenses dated within `rows`' first and last dates, as
- * findDuplicates compares them, every page of them.
+ * The user's expenses (any source) dated from 2 days before `rows`' first date
+ * to 2 days after their last (duplicateWindow), as findDuplicates compares
+ * them, every page of them.
  */
 export async function existingExpensesFor(supabase: Db, rows: Pick<ImportRow, "date">[]): Promise<ExistingExpense[]> {
-  if (rows.length === 0) return [];
-  let min = rows[0].date;
-  let max = rows[0].date;
-  for (const r of rows) {
-    if (r.date < min) min = r.date;
-    if (r.date > max) max = r.date;
-  }
+  const window = duplicateWindow(rows);
+  if (!window) return [];
   const data = await allRows((count) =>
-    supabase.from("transactions").select("date, amount_pence, name", count).gte("date", min).lte("date", max).order("id"),
+    supabase
+      .from("transactions")
+      .select("date, amount_pence, name, source", count)
+      .gte("date", window.from)
+      .lte("date", window.to)
+      .order("id"),
   );
-  return data.map((t) => ({ date: t.date, amountPence: t.amount_pence, name: t.name }));
+  return data.map((t) => ({ date: t.date, amountPence: t.amount_pence, name: t.name, source: t.source }));
 }
 
 /** How many past imports the import page lists. */

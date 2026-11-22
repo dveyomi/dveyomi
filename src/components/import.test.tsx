@@ -53,7 +53,7 @@ async function toPreview() {
 beforeEach(() => {
   for (const fn of Object.values(actions)) fn.mockReset();
   router.refresh.mockReset();
-  actions.findDuplicatesAction.mockResolvedValue({ duplicates: [0] });
+  actions.findDuplicatesAction.mockResolvedValue({ duplicates: [{ index: 0, label: "Looks like your Tesco" }] });
   actions.importAction.mockResolvedValue({ batchId: "b1", inserted: 2 });
 });
 
@@ -90,7 +90,8 @@ describe("ImportWizard", () => {
     expect(screen.getByRole("checkbox", { name: /TESCO STORES 2041/ })).not.toBeChecked();
     expect(screen.getByRole("checkbox", { name: /PRET A MANGER/ })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: /WAGAMAMA, LONDON/ })).toBeChecked();
-    expect(screen.getByText("Looks like a duplicate")).toBeInTheDocument();
+    expect(screen.getByText("Looks like your Tesco")).toBeInTheDocument();
+    expect(screen.getByText("Untick transfers to your own accounts or savings pots — they aren't spending.")).toBeInTheDocument();
     expect(screen.getByText(/Row 5: Date “32\/11\/2026” isn’t a real DD\/MM\/YYYY date/)).toBeInTheDocument();
     expect(screen.getByText(/Credits aren’t imported/)).toHaveTextContent("1 row of money in");
     expect(screen.getByRole("button", { name: "Import 2 expenses" })).toBeEnabled();
@@ -136,7 +137,9 @@ describe("ImportWizard", () => {
   });
 
   it("offers nothing to import when every row is already recorded (re-importing the same file)", async () => {
-    actions.findDuplicatesAction.mockResolvedValue({ duplicates: [0, 1, 2] });
+    actions.findDuplicatesAction.mockResolvedValue({
+      duplicates: [0, 1, 2].map((index) => ({ index, label: "Looks like your recurring Gym" })),
+    });
     await toPreview();
     expect(screen.getByText("0 to import · 3 duplicates skipped · 1 error")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import 0 expenses" })).toBeDisabled();

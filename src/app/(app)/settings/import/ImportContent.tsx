@@ -49,7 +49,7 @@ export async function ImportContent() {
           <h2 className="text-caption font-semibold text-muted">Good to know</h2>
           <ul className="flex list-disc flex-col gap-2 pl-5 text-body text-text">
             <li>Imported expenses count in your budget exactly like ones you add.</li>
-            <li>Anything already recorded on the same day for the same amount and name starts unticked.</li>
+            <li>A row with the same amount as an expense you already have, within 2 days of it, starts unticked.</li>
             <li>Money in, like your salary or refunds, isn&rsquo;t imported.</li>
           </ul>
         </Card>
