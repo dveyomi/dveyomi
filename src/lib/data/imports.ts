@@ -2,6 +2,7 @@ import type { IsoDate } from "@/lib/calc";
 import type { ExistingExpense, ImportRow } from "@/lib/import/csv";
 import { isId } from "@/lib/validation/budgetEdit";
 import { MissingReferenceError } from "./transactions";
+import { allRows } from "./paging";
 import type { Db } from "./types";
 
 /**
@@ -53,12 +54,9 @@ export async function commitImport(
   return { batchId: result.batch_id, inserted: result.inserted };
 }
 
-const PAGE = 1000;
-
 /**
  * The user's expenses dated within `rows`' first and last dates, as
- * findDuplicates compares them. Read a page at a time (the Data API returns
- * at most 1,000 rows per request).
+ * findDuplicates compares them, every page of them.
  */
 export async function existingExpensesFor(supabase: Db, rows: Pick<ImportRow, "date">[]): Promise<ExistingExpense[]> {
   if (rows.length === 0) return [];
@@ -68,19 +66,10 @@ export async function existingExpensesFor(supabase: Db, rows: Pick<ImportRow, "d
     if (r.date < min) min = r.date;
     if (r.date > max) max = r.date;
   }
-  const found: ExistingExpense[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("date, amount_pence, name")
-      .gte("date", min)
-      .lte("date", max)
-      .order("id")
-      .range(from, from + PAGE - 1);
-    if (error) throw error;
-    for (const t of data) found.push({ date: t.date, amountPence: t.amount_pence, name: t.name });
-    if (data.length < PAGE) return found;
-  }
+  const data = await allRows((count) =>
+    supabase.from("transactions").select("date, amount_pence, name", count).gte("date", min).lte("date", max).order("id"),
+  );
+  return data.map((t) => ({ date: t.date, amountPence: t.amount_pence, name: t.name }));
 }
 
 /** How many past imports the import page lists. */

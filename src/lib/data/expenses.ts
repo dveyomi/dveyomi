@@ -1,5 +1,6 @@
 import { expenseWindow, type ExpenseRange, type ExpenseWindow, type IsoDate, type Txn, type YearMonth } from "@/lib/calc";
 import type { Kind } from "@/lib/validation/budgetEdit";
+import { allRows } from "./paging";
 import type { Db } from "./types";
 
 /** An expense as the Expenses tab lists it: the calc fields plus what the rows show. */
@@ -40,14 +41,15 @@ export async function loadExpensesView(
   if (categoriesRes.error) throw categoriesRes.error;
 
   const window = expenseWindow(range, month, profile.data.budget_start_day, today);
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("id, name, amount_pence, date, category_id, fund_id, unchecked, categories(name, kind), funds(name)")
-    .gte("date", window.previous.start)
-    .lte("date", window.current.end)
-    .order("date", { ascending: false })
-    .order("id", { ascending: false });
-  if (error) throw error;
+  const data = await allRows((count) =>
+    supabase
+      .from("transactions")
+      .select("id, name, amount_pence, date, category_id, fund_id, unchecked, categories(name, kind), funds(name)", count)
+      .gte("date", window.previous.start)
+      .lte("date", window.current.end)
+      .order("date", { ascending: false })
+      .order("id", { ascending: false }),
+  );
 
   return {
     range,

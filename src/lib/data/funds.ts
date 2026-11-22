@@ -8,6 +8,7 @@ import {
   type Txn,
 } from "@/lib/calc";
 import type { FundDetails, FundMovementInput, SplitInputLine } from "@/lib/validation/funds";
+import { allRows } from "./paging";
 import type { Db } from "./types";
 
 /** One line of a fund's history: the calc entry plus what the row shows. */
@@ -112,16 +113,18 @@ function splitLines(split: unknown, fundIds: Set<string>): SplitLine[] {
  * confirmed split of an earlier period, else its own split (from onboarding).
  */
 export async function loadSavingView(supabase: Db, today: IsoDate): Promise<SavingView> {
-  const [fundsRes, movementsRes, txnsRes, promptsRes] = await Promise.all([
+  const [fundsRes, movementRows, txnRows, promptsRes] = await Promise.all([
     supabase.from("funds").select("id, name, opening_pence, target_pence, target_date").order("name"),
-    supabase.from("fund_movements").select("id, fund_id, date, kind, amount_pence, note"),
-    supabase.from("transactions").select("id, name, amount_pence, date, category_id, fund_id").not("fund_id", "is", null),
+    allRows((count) => supabase.from("fund_movements").select("id, fund_id, date, kind, amount_pence, note", count).order("id")),
+    allRows((count) =>
+      supabase.from("transactions").select("id, name, amount_pence, date, category_id, fund_id", count).not("fund_id", "is", null).order("id"),
+    ),
     supabase.from("savings_prompts").select("period_id, status, split, budget_periods(start_date, end_date, savings_pence)"),
   ]);
-  for (const r of [fundsRes, movementsRes, txnsRes, promptsRes]) if (r.error) throw r.error;
+  for (const r of [fundsRes, promptsRes]) if (r.error) throw r.error;
 
-  const movementsBy = Map.groupBy(movementsRes.data!, (m) => m.fund_id);
-  const txnsBy = Map.groupBy(txnsRes.data!, (t) => t.fund_id!);
+  const movementsBy = Map.groupBy(movementRows, (m) => m.fund_id);
+  const txnsBy = Map.groupBy(txnRows, (t) => t.fund_id!);
 
   const funds: FundView[] = fundsRes.data!.map((f) => {
     const rows = movementsBy.get(f.id) ?? [];
@@ -247,15 +250,17 @@ export async function updateFund(supabase: Db, fundId: string, input: FundInput)
 async function balanceOf(supabase: Db, fundId: string): Promise<number | null> {
   const [fund, movements, txns] = await Promise.all([
     supabase.from("funds").select("opening_pence").eq("id", fundId).maybeSingle(),
-    supabase.from("fund_movements").select("id, date, kind, amount_pence").eq("fund_id", fundId),
-    supabase.from("transactions").select("id, amount_pence, date, category_id, fund_id").eq("fund_id", fundId),
+    allRows((count) => supabase.from("fund_movements").select("id, date, kind, amount_pence", count).eq("fund_id", fundId).order("id")),
+    allRows((count) =>
+      supabase.from("transactions").select("id, amount_pence, date, category_id, fund_id", count).eq("fund_id", fundId).order("id"),
+    ),
   ]);
-  for (const r of [fund, movements, txns]) if (r.error) throw r.error;
+  if (fund.error) throw fund.error;
   if (!fund.data) return null;
   return fundBalance(
     fund.data.opening_pence,
-    movements.data!.map((m) => ({ id: m.id, date: m.date, kind: m.kind as FundMovement["kind"], amountPence: m.amount_pence })),
-    txns.data!.map((t) => ({ id: t.id, amountPence: t.amount_pence, date: t.date, categoryId: t.category_id, fundId: t.fund_id })),
+    movements.map((m) => ({ id: m.id, date: m.date, kind: m.kind as FundMovement["kind"], amountPence: m.amount_pence })),
+    txns.map((t) => ({ id: t.id, amountPence: t.amount_pence, date: t.date, categoryId: t.category_id, fundId: t.fund_id })),
   );
 }
 

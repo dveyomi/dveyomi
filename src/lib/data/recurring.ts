@@ -18,6 +18,7 @@ import {
   type RecurringStatus,
   type Rule,
 } from "@/lib/calc";
+import { allRows } from "./paging";
 import type { Db } from "./types";
 
 /**
@@ -288,12 +289,9 @@ export async function cancelRule(supabase: Db, id: string, endDate: IsoDate): Pr
 
 /** The amounts (amountOn under `prices`) for the rule's unchecked payments matching `include`. */
 async function repriced(supabase: Db, ruleId: string, prices: Price[], from: IsoDate, include: (t: { id: string; date: IsoDate; unchecked: boolean }) => boolean) {
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("id, date, unchecked")
-    .eq("recurring_rule_id", ruleId)
-    .gte("date", from);
-  if (error) throw error;
+  const data = await allRows((count) =>
+    supabase.from("transactions").select("id, date, unchecked", count).eq("recurring_rule_id", ruleId).gte("date", from).order("id"),
+  );
   return data.filter(include).map((t) => ({ id: t.id, amount_pence: amountOn(prices, t.date) }));
 }
 
@@ -415,31 +413,32 @@ type DetectionTxn = { id: string; name: string; date: IsoDate; amount_pence: num
  * Detection over the user's manual expenses with no rule, read once over the
  * widest window (annual payments), then each hit kept only if its three
  * payments fall inside its own frequency's window (detectionWindowDays), less
- * dismissed names and names of existing rules. The most recent 1,000 are read.
+ * dismissed names and names of existing rules.
  */
 async function detect(supabase: Db, today: IsoDate) {
   const widest = Math.max(...Object.values(DETECTION_WINDOW_DAYS));
   const [txns, dismissals, rules] = await Promise.all([
-    supabase
-      .from("transactions")
-      .select("id, name, date, amount_pence, category_id, fund_id")
-      .is("recurring_rule_id", null)
-      .eq("source", "manual")
-      .gte("date", addDays(today, -widest))
-      .lte("date", today)
-      .order("date", { ascending: false })
-      .limit(1000),
+    allRows((count) =>
+      supabase
+        .from("transactions")
+        .select("id, name, date, amount_pence, category_id, fund_id", count)
+        .is("recurring_rule_id", null)
+        .eq("source", "manual")
+        .gte("date", addDays(today, -widest))
+        .lte("date", today)
+        .order("date", { ascending: false })
+        .order("id", { ascending: false }),
+    ),
     supabase.from("recurring_dismissals").select("name_key"),
     supabase.from("recurring_rules").select("name"),
   ]);
-  if (txns.error) throw txns.error;
   if (dismissals.error) throw dismissals.error;
   if (rules.error) throw rules.error;
   const known = new Set([
     ...dismissals.data.map((d) => d.name_key),
     ...rules.data.map((r) => nameKey(r.name)),
   ]);
-  return detectRecurring(txns.data as DetectionTxn[])
+  return detectRecurring(txns as DetectionTxn[])
     .filter((hit) => !known.has(hit.nameKey))
     .filter((hit) => hit.payments[0].date >= addDays(today, -DETECTION_WINDOW_DAYS[hit.frequency]))
     .sort((a, b) => a.name.localeCompare(b.name));

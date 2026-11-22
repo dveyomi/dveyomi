@@ -3,6 +3,7 @@ import { isId, type Kind } from "@/lib/validation/budgetEdit";
 import type { TripInput } from "@/lib/validation/trip";
 import type { ExpenseTxn } from "./expenses";
 import { MissingReferenceError, TransactionNotFoundError } from "./transactions";
+import { allRows } from "./paging";
 import type { Db } from "./types";
 
 /**
@@ -153,13 +154,14 @@ export async function deleteTrip(supabase: Db, id: string): Promise<void> {
 const TXN_COLUMNS = "id, name, amount_pence, date, category_id, fund_id, unchecked, trip_override, categories(name, kind), funds(name)";
 
 async function selectTxns(supabase: Db, filter: string): Promise<TripTxn[]> {
-  const { data, error } = await supabase
-    .from("transactions")
-    .select(TXN_COLUMNS)
-    .or(filter)
-    .order("date", { ascending: false })
-    .order("id", { ascending: false });
-  if (error) throw error;
+  const data = await allRows((count) =>
+    supabase
+      .from("transactions")
+      .select(TXN_COLUMNS, count)
+      .or(filter)
+      .order("date", { ascending: false })
+      .order("id", { ascending: false }),
+  );
   return data.map((t) => ({
     id: t.id,
     name: t.name,

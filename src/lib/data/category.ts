@@ -2,6 +2,7 @@ import type { BudgetSummary, CategoryFigure, IsoDate, Period } from "@/lib/calc"
 import { loadBudgetView } from "./budget";
 import { categoryUse, NameTakenError, type CategoryUse } from "./budgetEdit";
 import type { Kind } from "@/lib/validation/budgetEdit";
+import { allRows } from "./paging";
 import type { CategoryRow, Db } from "./types";
 
 /** An expense as the category detail lists it. `fundName` is set when it was paid from a fund. */
@@ -32,18 +33,19 @@ export async function loadCategoryView(supabase: Db, today: IsoDate, categoryId:
   const category = categories.find((c) => c.id === categoryId);
   if (!category) return null;
 
-  const [{ data, error }, inUse] = await Promise.all([
-    supabase
-      .from("transactions")
-      .select("id, name, amount_pence, date, funds(name)")
-      .eq("category_id", categoryId)
-      .gte("date", period.start)
-      .lte("date", period.end)
-      .order("date", { ascending: false })
-      .order("id", { ascending: false }),
+  const [data, inUse] = await Promise.all([
+    allRows((count) =>
+      supabase
+        .from("transactions")
+        .select("id, name, amount_pence, date, funds(name)", count)
+        .eq("category_id", categoryId)
+        .gte("date", period.start)
+        .lte("date", period.end)
+        .order("date", { ascending: false })
+        .order("id", { ascending: false }),
+    ),
     categoryUse(supabase, categoryId, period.start),
   ]);
-  if (error) throw error;
 
   return {
     period,

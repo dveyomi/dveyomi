@@ -9,6 +9,7 @@ import {
   type Txn,
 } from "@/lib/calc";
 import { ensureCurrentPeriod } from "./ensurePeriod";
+import { allRows } from "./paging";
 import type { CategoryRow, Db, PeriodRow } from "./types";
 
 export type BudgetView = { period: Period; summary: BudgetSummary | null; categories: CategoryRow[] };
@@ -46,16 +47,18 @@ export async function summariseRow(
 ): Promise<{ period: Period; summary: BudgetSummary }> {
   const period: Period = { start: row.start_date, end: row.end_date, nextStart: addDays(row.end_date, 1) };
 
-  const [allocationsRes, txnsRes] = await Promise.all([
+  const [allocationsRes, txnRows] = await Promise.all([
     supabase.from("allocations").select("category_id, amount_pence").eq("period_id", row.id),
-    supabase
-      .from("transactions")
-      .select("id, amount_pence, date, category_id, fund_id")
-      .gte("date", period.start)
-      .lte("date", period.end),
+    allRows((count) =>
+      supabase
+        .from("transactions")
+        .select("id, amount_pence, date, category_id, fund_id", count)
+        .gte("date", period.start)
+        .lte("date", period.end)
+        .order("id"),
+    ),
   ]);
   if (allocationsRes.error) throw allocationsRes.error;
-  if (txnsRes.error) throw txnsRes.error;
 
   const kindOf = new Map(categories.map((c) => [c.id, c.kind]));
   const allocations: Allocation[] = allocationsRes.data.map((a) => ({
@@ -63,7 +66,7 @@ export async function summariseRow(
     kind: kindOf.get(a.category_id)!,
     amountPence: a.amount_pence,
   }));
-  const txns: Txn[] = txnsRes.data.map((t) => ({
+  const txns: Txn[] = txnRows.map((t) => ({
     id: t.id,
     amountPence: t.amount_pence,
     date: t.date,

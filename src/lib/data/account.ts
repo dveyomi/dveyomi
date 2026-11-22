@@ -1,3 +1,4 @@
+import { allRows, PAGE_SIZE } from "./paging";
 import type { Db } from "./types";
 
 /**
@@ -26,37 +27,17 @@ export type UserTable = keyof typeof TABLE_ORDER;
 export const USER_TABLES = Object.keys(TABLE_ORDER) as UserTable[];
 
 /** Rows asked for per request. At most PostgREST's max_rows (1,000); paging doesn't rely on it either way. */
-export const EXPORT_PAGE = 1000;
+export const EXPORT_PAGE = PAGE_SIZE;
 
 export type UserData = Record<UserTable, Record<string, unknown>[]>;
 
-type Page = { rows: Record<string, unknown>[]; count: number | null };
-
-/** Rows `from`..`to` of a table in primary-key order, with the exact count when asked. */
-async function readPage(supabase: Db, table: UserTable, from: number, to: number, withCount: boolean): Promise<Page> {
-  let query = supabase.from(table).select("*", withCount ? { count: "exact" } : {});
-  for (const column of TABLE_ORDER[table]) query = query.order(column as never);
-  const { data, error, count } = await query.range(from, to);
-  if (error) throw error;
-  return { rows: data as Record<string, unknown>[], count };
-}
-
-/**
- * All of one table's rows, in primary-key order. The first page also asks for
- * the exact count, and pages are read until that many rows have arrived (or a
- * page comes back empty), so a server cap smaller than `pageSize` can't cut
- * the export short.
- */
-async function allRows(supabase: Db, table: UserTable, pageSize: number): Promise<Record<string, unknown>[]> {
-  const first = await readPage(supabase, table, 0, pageSize - 1, true);
-  const total = first.count ?? 0;
-  const rows = [...first.rows];
-  while (rows.length < total) {
-    const next = await readPage(supabase, table, rows.length, rows.length + pageSize - 1, false);
-    if (next.rows.length === 0) break;
-    rows.push(...next.rows);
-  }
-  return rows;
+/** All of one table's rows, in primary-key order. */
+function tableRows(supabase: Db, table: UserTable, pageSize: number): Promise<Record<string, unknown>[]> {
+  return allRows<Record<string, unknown>>((count) => {
+    let query = supabase.from(table).select("*", count);
+    for (const column of TABLE_ORDER[table]) query = query.order(column as never);
+    return query;
+  }, pageSize);
 }
 
 /**
@@ -65,7 +46,7 @@ async function allRows(supabase: Db, table: UserTable, pageSize: number): Promis
  * service role.
  */
 export async function exportUserData(supabase: Db, pageSize = EXPORT_PAGE): Promise<UserData> {
-  const tables = await Promise.all(USER_TABLES.map(async (t) => [t, await allRows(supabase, t, pageSize)] as const));
+  const tables = await Promise.all(USER_TABLES.map(async (t) => [t, await tableRows(supabase, t, pageSize)] as const));
   return Object.fromEntries(tables) as UserData;
 }
 
