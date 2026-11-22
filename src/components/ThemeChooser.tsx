@@ -1,14 +1,10 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useSyncExternalStore } from "react";
 import { RadioSegments } from "@/components/ui";
 import { applyTheme, parseTheme, type Theme } from "@/lib/theme";
 
-const options: { value: Theme; label: string }[] = [
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-  { value: "system", label: "Match device" },
-];
 
 /** Re-renders whenever <html data-theme> changes, from this chooser or anywhere else. */
 function subscribe(onChange: () => void) {
@@ -25,6 +21,12 @@ const pageTheme = () => parseTheme(document.documentElement.dataset.theme);
  * cookie, read on the server) is only used for the server render.
  */
 export function ThemeChooser({ initial }: { initial: Theme }) {
+  const { m } = useI18n();
   const theme = useSyncExternalStore(subscribe, pageTheme, () => initial);
-  return <RadioSegments label="Theme" options={options} value={theme} onChange={applyTheme} />;
+  const options: { value: Theme; label: string }[] = [
+    { value: "light", label: m.settingsPage.themes.light },
+    { value: "dark", label: m.settingsPage.themes.dark },
+    { value: "system", label: m.settingsPage.themes.system },
+  ];
+  return <RadioSegments label={m.settingsPage.themeTitle} options={options} value={theme} onChange={applyTheme} />;
 }

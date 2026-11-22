@@ -1,3 +1,4 @@
+import { getServerI18n } from "@/i18n/server";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -10,7 +11,10 @@ import { checkFromPath } from "@/lib/validation/feedback";
 import { FeedbackForm } from "./FeedbackForm";
 import { FeedbackList } from "./FeedbackList";
 
-export const metadata: Metadata = { title: "Help & feedback · Personal Finance OS" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getServerI18n();
+  return { title: m.shell.pageTitle(m.feedback.title) };
+}
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -21,6 +25,7 @@ async function FeedbackContent({ searchParams }: { searchParams: SearchParams })
   const kind = params.kind === "idea" ? "idea" : "bug";
   const from = checkFromPath(params.from);
   const [supabase, zone] = await Promise.all([createClient(), getTimeZone()]);
+  const { m } = await getServerI18n();
   const sent = (await listFeedback(supabase)).map((f) => ({
     id: f.id,
     kind: f.kind,
@@ -36,14 +41,14 @@ async function FeedbackContent({ searchParams }: { searchParams: SearchParams })
       </Card>
       <div className="flex flex-col gap-4">
         <Card as="section" className="flex flex-col gap-3">
-          <h2 className="text-caption font-semibold text-muted">What you&rsquo;ve sent</h2>
+          <h2 className="text-caption font-semibold text-muted">{m.feedback.sent}</h2>
           <FeedbackList items={sent} />
         </Card>
         <Card as="section" className="flex flex-col gap-2">
-          <h2 className="text-caption font-semibold text-muted">Good to know</h2>
+          <h2 className="text-caption font-semibold text-muted">{m.feedback.goodToKnow}</h2>
           <ul className="flex list-disc flex-col gap-2 pl-5 text-body text-text">
-            <li>We read every message.</li>
-            <li>New means it hasn&rsquo;t been looked at yet, Seen that it has, and Done that it&rsquo;s sorted.</li>
+            <li>{m.feedback.readEvery}</li>
+            <li>{m.feedback.statusMeaning}</li>
           </ul>
         </Card>
       </div>
@@ -51,14 +56,15 @@ async function FeedbackContent({ searchParams }: { searchParams: SearchParams })
   );
 }
 
-export default function Page({ searchParams }: { searchParams: SearchParams }) {
+export default async function Page({ searchParams }: { searchParams: SearchParams }) {
+  const { m } = await getServerI18n();
   return (
     <div className="mx-auto flex w-full max-w-phone flex-col gap-4 px-4 py-6 md:mx-0 md:max-w-none md:p-8">
       <div className="flex flex-col items-start gap-2">
         <ButtonLink href="/settings" variant="ghost" icon="chevron-left">
-          Settings
+          {m.feedback.settings}
         </ButtonLink>
-        <h1 className="text-title font-semibold text-text">Help &amp; feedback</h1>
+        <h1 className="text-title font-semibold text-text">{m.feedback.title}</h1>
       </div>
       <Suspense
         fallback={

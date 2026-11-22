@@ -1,15 +1,12 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useRef, useState, useSyncExternalStore, useTransition, type FormEvent } from "react";
 import { Button, ButtonLink, Checkbox, Notice, RadioSegments, TextField } from "@/components/ui";
 import { lastPage } from "@/lib/lastPage";
 import { checkMessage, type DeviceDetails, type FeedbackKindInput } from "@/lib/validation/feedback";
 import { sendFeedbackAction } from "./actions";
 
-const KINDS = [
-  { value: "bug" as const, label: "Bug" },
-  { value: "idea" as const, label: "Idea" },
-];
 
 const noSubscribe = () => () => {};
 const noPage = () => null;
@@ -32,6 +29,8 @@ function deviceDetails(from: string | null): DeviceDetails {
  * the form gives way to a thank-you; "What you've sent" refreshes from the server.
  */
 export function FeedbackForm({ initialKind, from: givenFrom }: { initialKind: FeedbackKindInput; from: string | null }) {
+  const i18n = useI18n();
+  const f = i18n.m.feedback;
   // The page to report: ?from= when given, else the last page outside Settings this tab
   // visited (none on the server, where there's no sessionStorage).
   const remembered = useSyncExternalStore(noSubscribe, lastPage, noPage);
@@ -49,7 +48,7 @@ export function FeedbackForm({ initialKind, from: givenFrom }: { initialKind: Fe
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    const problem = checkMessage(message);
+    const problem = checkMessage(message, i18n);
     setMessageError(problem);
     setError(null);
     if (problem) {
@@ -82,15 +81,15 @@ export function FeedbackForm({ initialKind, from: givenFrom }: { initialKind: Fe
     return (
       <div role="status" className="flex flex-col items-start gap-3">
         <h2 ref={thanksRef} tabIndex={-1} className="text-title font-semibold text-text outline-none">
-          Thanks — we&rsquo;ve got it.
+          {f.thanks}
         </h2>
-        <p className="text-body text-muted">We read everything. You can follow it under What you&rsquo;ve sent.</p>
+        <p className="text-body text-muted">{f.followIt}</p>
         <div className="flex flex-wrap gap-3 pt-2">
           <Button variant="primary" onClick={again}>
-            Send another
+            {f.sendAnother}
           </Button>
           <ButtonLink href="/settings" variant="secondary">
-            Back to Settings
+            {f.backToSettings}
           </ButtonLink>
         </div>
       </div>
@@ -101,19 +100,19 @@ export function FeedbackForm({ initialKind, from: givenFrom }: { initialKind: Fe
     <form onSubmit={submit} noValidate className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
         <span aria-hidden="true" className="text-caption font-medium text-muted">
-          Type
+          {f.type}
         </span>
-        <RadioSegments label="Type" options={KINDS} value={kind} onChange={setKind} />
+        <RadioSegments label={f.type} options={[{ value: "bug" as const, label: f.kinds.bug }, { value: "idea" as const, label: f.kinds.idea }]} value={kind} onChange={setKind} />
       </div>
       <TextField
         multiline
         ref={messageRef}
         rows={7}
-        label={bug ? "What went wrong?" : "What's your idea?"}
-        placeholder={bug ? "e.g. I tapped Save on an expense and nothing happened…" : "e.g. Let me pin a category to the top…"}
+        label={bug ? f.whatWentWrong : f.yourIdea}
+        placeholder={bug ? f.bugPlaceholder : f.ideaPlaceholder}
         name="message"
         autoComplete="off"
-        hint="10 to 2,000 characters. Please don't include passwords or bank details."
+        hint={f.messageHint}
         error={messageError}
         value={message}
         maxLength={2000}
@@ -125,11 +124,10 @@ export function FeedbackForm({ initialKind, from: givenFrom }: { initialKind: Fe
       {bug ? (
         <div className="flex flex-col gap-1">
           <Checkbox checked={includeDevice} onChange={setIncludeDevice}>
-            <span className="text-body text-text">Include device details</span>
+            <span className="text-body text-text">{f.includeDevice}</span>
           </Checkbox>
           <p className="pl-9 text-caption text-muted">
-            {from ? `Adds the page you came from (${from}), phone or desktop,` : "Adds phone or desktop,"} your browser, theme, time zone
-            and app version. Never your expenses or amounts.
+            {f.deviceNote(from)}
           </p>
         </div>
       ) : null}
@@ -140,7 +138,7 @@ export function FeedbackForm({ initialKind, from: givenFrom }: { initialKind: Fe
       ) : null}
       <div className="flex flex-col gap-3 md:flex-row-reverse md:justify-start">
         <Button type="submit" variant="primary" disabled={pending}>
-          {pending ? "Sending…" : bug ? "Send report" : "Send idea"}
+          {pending ? f.sending : bug ? f.sendReport : f.sendIdea}
         </Button>
       </div>
     </form>

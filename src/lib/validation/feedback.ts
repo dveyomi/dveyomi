@@ -1,4 +1,5 @@
 /** Help & feedback input checks, shared by the form and the server action. Client-safe. */
+import { DEFAULT_I18N, type I18n } from "@/i18n/format";
 import { safeNext } from "@/lib/safeNext";
 import { isTimeZone } from "@/lib/timezone";
 
@@ -52,10 +53,10 @@ function checkDevice(raw: unknown): DeviceDetails {
 }
 
 /** The message's own check, for the form to show as you type and the server to enforce. */
-export function checkMessage(raw: unknown): string | null {
+export function checkMessage(raw: unknown, i18n: I18n = DEFAULT_I18N): string | null {
   const length = typeof raw === "string" ? raw.trim().length : 0;
-  if (length < MESSAGE_MIN) return `Tell us a little more: at least ${MESSAGE_MIN} characters.`;
-  if (length > MESSAGE_MAX) return "That's over 2,000 characters. Please shorten it.";
+  if (length < MESSAGE_MIN) return i18n.m.feedback.tooShort(MESSAGE_MIN);
+  if (length > MESSAGE_MAX) return i18n.m.feedback.tooLong;
   return null;
 }
 
@@ -64,11 +65,11 @@ export function checkMessage(raw: unknown): string | null {
  * The message is trimmed; device details are kept only for a bug with
  * includeDevice true, and then only the known fields, each checked.
  */
-export function checkFeedback(raw: unknown): FeedbackCheck {
+export function checkFeedback(raw: unknown, i18n: I18n = DEFAULT_I18N): FeedbackCheck {
   const input = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
   const kind = oneOf(input.kind, FEEDBACK_KINDS);
-  if (!kind) return { ok: false, field: "kind", error: "Choose Bug or Idea." };
-  const messageError = checkMessage(input.message);
+  if (!kind) return { ok: false, field: "kind", error: i18n.m.feedback.chooseKind };
+  const messageError = checkMessage(input.message, i18n);
   if (messageError) return { ok: false, field: "message", error: messageError };
   const device = kind === "bug" && input.includeDevice === true ? checkDevice(input.device) : null;
   return { ok: true, value: { kind, message: (input.message as string).trim(), device } };

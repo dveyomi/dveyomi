@@ -19,7 +19,7 @@ export type SendFeedbackResult = { ok: true } | { error: string; field?: "kind" 
  */
 export async function sendFeedbackAction(raw: unknown): Promise<SendFeedbackResult> {
   if (!(await getUserId())) redirect("/login");
-  const checked = checkFeedback(raw);
+  const checked = checkFeedback(raw, await getServerI18n());
   if (!checked.ok) return { field: checked.field, error: checked.error };
   const { kind, message, device } = checked.value;
   const { locale, currency } = await getServerI18n();
@@ -32,7 +32,7 @@ export async function sendFeedbackAction(raw: unknown): Promise<SendFeedbackResu
   } catch (e) {
     if (e instanceof FeedbackLimitError) return { error: localizeError(e, await getServerI18n()) };
     console.error("sendFeedback failed", e);
-    return { error: "We couldn't send that. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.feedback.sendFailed };
   }
   revalidatePath("/settings/feedback");
   return { ok: true };

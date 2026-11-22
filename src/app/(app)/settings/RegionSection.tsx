@@ -27,7 +27,10 @@ export function RegionSection({ timezone, zones, language, currency }: RegionSec
   const lang = useAutoSave<Locale>(language, saveLanguage);
   const money = useAutoSave<CurrencyCode>(currency, saveCurrency);
   const [pendingCurrency, setPendingCurrency] = useState<CurrencyCode | null>(null);
-  const groups = useMemo(() => timeZoneGroups(zones, timezone), [zones, timezone]);
+  const groups = useMemo(
+    () => timeZoneGroups(zones, timezone).map((g) => ({ ...g, label: m.settings.regions[g.label] ?? g.label })),
+    [zones, timezone, m],
+  );
   return (
     <SettingsSection title={m.settings.regionTitle} description={m.settings.regionDescription}>
       <div className="flex flex-col gap-5">

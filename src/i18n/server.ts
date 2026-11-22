@@ -10,11 +10,10 @@ import { DEFAULT_I18N, makeI18n, type I18n } from "./format";
  * pounds. Unknown cookie values count as the defaults.
  */
 export const getServerI18n = cache(async (): Promise<I18n> => {
-  let store: Awaited<ReturnType<typeof cookies>>;
   try {
-    store = await cookies();
+    const store = await cookies();
+    return makeI18n(parseLocale(store.get(LOCALE_COOKIE)?.value), parseCurrency(store.get(CURRENCY_COOKIE)?.value));
   } catch {
     return DEFAULT_I18N;
   }
-  return makeI18n(parseLocale(store.get(LOCALE_COOKIE)?.value), parseCurrency(store.get(CURRENCY_COOKIE)?.value));
 });
