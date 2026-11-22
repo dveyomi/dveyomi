@@ -21,6 +21,7 @@ From the pre-release design critique and copy review (2026-11-22); none blocks r
 - Long amounts in the Budget gauge shrink to fit. Other large amounts (Expenses total, recurring detail, leftover prompt) don't; they sit on wide cards and fit up to £10m.
 
 ## Parked for after the MVP
+- Onboarding progress is lost on reload or leaving the page (David, 2026-11-22; not started, about 20–30 minutes). Answers live only in the wizard's React state (`src/app/onboarding/Wizard.tsx`) until the last step, so a reload, closed tab or navigating away and back restarts at step 1; the `beforeunload` warning doesn't cover in-app navigation or the back button. Fix: save the step and draft (income, start day, categories, savings, funds) to localStorage as they change, keyed by user id so another account on the device starts fresh; restore on load; clear on completion; wrap every read and write in try/catch so blocked storage falls back to today's behaviour; drop the `beforeunload` warning; add a "Start again" link. This device only; saving drafts in the database for cross-device progress isn't worth it for a one-time setup.
 - Log with AI: plain-language entry to a preview card (nothing saved until Confirm), server-side model call. Later, "ask anything about your money" Q&A (needs transaction data sent to the model). The reference + menu is "Add manually" / "Log with AI".
 - Suggest button on allocations (rule-based such as 50/30/20, or history-based).
 - Weekly / fortnightly budget periods (MVP is monthly only; the reference's period dropdown has more options).
