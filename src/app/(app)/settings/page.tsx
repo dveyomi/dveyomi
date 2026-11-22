@@ -21,7 +21,12 @@ async function ProfileSections() {
   return (
     <>
       <BudgetSection startDay={settings.startDay} nextBudgetStart={settings.nextBudgetStart} />
-      <RegionSection timezone={settings.timezone} zones={Intl.supportedValuesOf("timeZone")} />
+      <RegionSection
+        timezone={settings.timezone}
+        zones={Intl.supportedValuesOf("timeZone")}
+        language={settings.language}
+        currency={settings.currency}
+      />
     </>
   );
 }

@@ -1,8 +1,13 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { saveStartDay, saveHomeTimezone } = vi.hoisted(() => ({ saveStartDay: vi.fn(), saveHomeTimezone: vi.fn() }));
-vi.mock("./settingsActions", () => ({ saveStartDay, saveHomeTimezone }));
+const { saveStartDay, saveHomeTimezone, saveLanguage, saveCurrency } = vi.hoisted(() => ({
+  saveStartDay: vi.fn(),
+  saveHomeTimezone: vi.fn(),
+  saveLanguage: vi.fn(),
+  saveCurrency: vi.fn(),
+}));
+vi.mock("./settingsActions", () => ({ saveStartDay, saveHomeTimezone, saveLanguage, saveCurrency }));
 
 import { BudgetSection } from "./BudgetSection";
 import { DeleteAccount } from "./DeleteAccount";
@@ -106,22 +111,54 @@ describe("saving quickly in a row, earlier save fails", () => {
 describe("RegionSection", () => {
   const zones = ["Europe/London", "America/New_York", "Asia/Tokyo"];
 
-  it("shows the home time zone and GBP as the only currency", () => {
-    render(<RegionSection timezone="Europe/London" zones={zones} />);
+  it("shows the home time zone, the language and both currencies", () => {
+    render(<RegionSection timezone="Europe/London" zones={zones} language="en-GB" currency="GBP" />);
     expect(screen.getByRole("heading", { name: "Region" })).toBeInTheDocument();
     expect(screen.getByLabelText("Home time zone")).toHaveValue("Europe/London");
+    const language = screen.getByLabelText("Language");
+    expect(within(language).getAllByRole("option").map((o) => o.textContent)).toEqual(["English (UK)", "繁體中文（台灣）"]);
     const currency = screen.getByLabelText("Currency");
-    expect(within(currency).getAllByRole("option").map((o) => o.textContent)).toEqual(["Pound sterling (GBP)"]);
-    expect(currency).toHaveAccessibleDescription("More currencies later.");
+    expect(currency).toBeEnabled();
+    expect(within(currency).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Pound sterling (GBP)",
+      "New Taiwan dollar (TWD)",
+    ]);
+  });
+
+  it("saves a new language", async () => {
+    saveLanguage.mockResolvedValue({ ok: true });
+    render(<RegionSection timezone="Europe/London" zones={zones} language="en-GB" currency="GBP" />);
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Language"), { target: { value: "zh-TW" } });
+    });
+    expect(saveLanguage).toHaveBeenCalledWith("zh-TW");
+  });
+
+  it("warns that amounts aren't converted before switching currency", async () => {
+    saveCurrency.mockResolvedValue({ ok: true });
+    render(<RegionSection timezone="Europe/London" zones={zones} language="en-GB" currency="GBP" />);
+    fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "TWD" } });
+    const dialog = screen.getByRole("alertdialog", { name: "Change currency?" });
+    expect(dialog).toHaveTextContent("Your amounts won't be converted. £1,250.00 becomes NT$1,250.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(saveCurrency).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Currency")).toHaveValue("GBP");
+
+    fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "TWD" } });
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Change currency" }));
+    });
+    expect(saveCurrency).toHaveBeenCalledWith("TWD");
+    expect(screen.getByLabelText("Currency")).toHaveValue("TWD");
   });
 
   it("saves a new zone", async () => {
-    render(<RegionSection timezone="Europe/London" zones={zones} />);
+    render(<RegionSection timezone="Europe/London" zones={zones} language="en-GB" currency="GBP" />);
     await act(async () => {
       fireEvent.change(screen.getByLabelText("Home time zone"), { target: { value: "Asia/Tokyo" } });
     });
     expect(saveHomeTimezone).toHaveBeenCalledWith("Asia/Tokyo");
-    expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    await waitFor(() => expect(screen.getAllByRole("status")[0]).toHaveTextContent("Saved"));
   });
 });
 

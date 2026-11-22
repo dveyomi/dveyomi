@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useI18n } from "@/i18n/client";
 import type { SaveResult } from "./settingsActions";
 
 /**
@@ -11,6 +12,7 @@ import type { SaveResult } from "./settingsActions";
  * a polite live region announces ("Saving…", then "Saved.").
  */
 export function useAutoSave<T>(saved: T, save: (value: T) => Promise<SaveResult>) {
+  const { m } = useI18n();
   const [value, setValue] = useState(saved);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -37,5 +39,5 @@ export function useAutoSave<T>(saved: T, save: (value: T) => Promise<SaveResult>
     });
   }
 
-  return { value, change, error, status: pending ? "Saving…" : done ? "Saved." : "" };
+  return { value, change, error, status: pending ? m.common.saving : done ? m.common.saved : "" };
 }

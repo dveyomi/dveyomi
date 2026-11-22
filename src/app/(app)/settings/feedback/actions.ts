@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getServerI18n } from "@/i18n/server";
 import { APP_VERSION } from "@/lib/appVersion";
 import { FeedbackLimitError, sendFeedback } from "@/lib/data/feedback";
 import { createClient, getUserId } from "@/lib/supabase/server";
@@ -20,11 +21,12 @@ export async function sendFeedbackAction(raw: unknown): Promise<SendFeedbackResu
   const checked = checkFeedback(raw);
   if (!checked.ok) return { field: checked.field, error: checked.error };
   const { kind, message, device } = checked.value;
+  const { locale, currency } = await getServerI18n();
   try {
     await sendFeedback(await createClient(), {
       kind,
       message,
-      context: device ? { ...device, appVersion: APP_VERSION } : null,
+      context: device ? { ...device, appVersion: APP_VERSION, language: locale, currency } : null,
     });
   } catch (e) {
     if (e instanceof FeedbackLimitError) return { error: e.message };

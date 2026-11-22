@@ -24,6 +24,24 @@ export const enGB = {
     withYear: (date: string, year: string) => `${date} ${year}`,
     daysLeft: (n: number) => `${n} ${n === 1 ? "day" : "days"} left`,
   },
+  settings: {
+    regionTitle: "Region",
+    regionDescription: "Today's date and your budget days follow your home time zone.",
+    homeTimeZone: "Home time zone",
+    homeTimeZoneHint: "While you travel, today's date follows your device.",
+    language: "Language",
+    languageHint: "Changes every screen. Names you typed stay as they are.",
+    currency: "Currency",
+    currencyHint: "Changes how amounts are written. Amounts aren't converted.",
+    currencyNames: { GBP: "Pound sterling (GBP)", TWD: "New Taiwan dollar (TWD)" },
+    currencyConfirmTitle: "Change currency?",
+    currencyConfirmBody: (from: string, to: string) => `Your amounts won't be converted. ${from} becomes ${to}.`,
+    currencyConfirm: "Change currency",
+    chooseLanguage: "Choose a language from the list.",
+    languageSaveFailed: "We couldn't save your language. Check your connection and try again.",
+    chooseCurrency: "Choose a currency from the list.",
+    currencySaveFailed: "We couldn't save your currency. Check your connection and try again.",
+  },
 };
 
 export type Messages = typeof enGB;

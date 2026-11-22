@@ -7,6 +7,9 @@ export const LOCALES = ["en-GB", "zh-TW"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en-GB";
 
+/** Each language's name in that language, so anyone can find their own in the list. */
+export const LANGUAGE_NAMES: Record<Locale, string> = { "en-GB": "English (UK)", "zh-TW": "繁體中文（台灣）" };
+
 /** A stored value as a locale; anything missing or unknown is English. */
 export function parseLocale(v: unknown): Locale {
   return LOCALES.find((l) => l === v) ?? DEFAULT_LOCALE;

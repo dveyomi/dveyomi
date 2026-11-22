@@ -370,6 +370,7 @@ export type Database = {
         Row: {
           budget_start_day: number;
           currency: string;
+          language: string;
           timezone: string;
           timezone_detected: boolean;
           user_id: string;
@@ -378,6 +379,7 @@ export type Database = {
         Insert: {
           budget_start_day: number;
           currency?: string;
+          language?: string;
           timezone?: string;
           timezone_detected?: boolean;
           user_id?: string;
@@ -385,6 +387,7 @@ export type Database = {
         Update: {
           budget_start_day?: number;
           currency?: string;
+          language?: string;
           timezone?: string;
           timezone_detected?: boolean;
           user_id?: string;

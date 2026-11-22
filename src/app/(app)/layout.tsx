@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import { Nav, NavBar } from "@/components/Nav";
 import { PageMemory } from "@/components/PageMemory";
 import { focusRing } from "@/components/ui/focus";
+import { ProfilePrefs } from "./ProfilePrefs";
 import { RecurringCatchUp } from "./RecurringCatchUp";
 import { SignedInSync } from "./SignedInSync";
 
@@ -30,6 +31,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Reads the session, so it streams in rather than holding up the shell. */}
       <Suspense fallback={null}>
         <SignedInSync />
+      </Suspense>
+      {/* Keeps this device's language and currency cookies in step with the profile. */}
+      <Suspense fallback={null}>
+        <ProfilePrefs />
       </Suspense>
       {/* Adds recurring payments due since the last run; never blocks rendering. */}
       <Suspense fallback={null}>

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, type IsoDate } from "@/lib/calc";
+import { parseCurrency, parseLocale, type CurrencyCode, type Locale } from "@/lib/locale";
 import { isTimeZone } from "@/lib/timezone";
 import { ensureCurrentPeriod } from "./ensurePeriod";
 import type { Db } from "./types";
@@ -26,7 +27,8 @@ export async function adoptDeviceTimezone(
 export type SettingsView = {
   startDay: number;
   timezone: string;
-  currency: string;
+  language: Locale;
+  currency: CurrencyCode;
   /** The day the next budget starts (after the latest one already made), or null with no budget yet. */
   nextBudgetStart: IsoDate | null;
 };
@@ -36,7 +38,7 @@ export async function loadSettings(supabase: Db, today: IsoDate): Promise<Settin
   // Renew first, so "next" is counted from the budget the user is really in.
   await ensureCurrentPeriod(supabase, today);
   const [profile, latest] = await Promise.all([
-    supabase.from("profiles").select("budget_start_day, timezone, currency").single(),
+    supabase.from("profiles").select("budget_start_day, timezone, language, currency").single(),
     supabase.from("budget_periods").select("end_date").order("start_date", { ascending: false }).limit(1).maybeSingle(),
   ]);
   if (profile.error) throw profile.error;
@@ -44,7 +46,8 @@ export async function loadSettings(supabase: Db, today: IsoDate): Promise<Settin
   return {
     startDay: profile.data.budget_start_day,
     timezone: profile.data.timezone,
-    currency: profile.data.currency,
+    language: parseLocale(profile.data.language),
+    currency: parseCurrency(profile.data.currency),
     nextBudgetStart: latest.data ? addDays(latest.data.end_date, 1) : null,
   };
 }
@@ -64,5 +67,17 @@ export async function setHomeTimezone(supabase: Db, userId: string, zone: string
     .from("profiles")
     .update({ timezone: zone, timezone_detected: true })
     .eq("user_id", userId);
+  if (error) throw error;
+}
+
+/** Saves the app's language. */
+export async function setLanguage(supabase: Db, userId: string, locale: Locale): Promise<void> {
+  const { error } = await supabase.from("profiles").update({ language: locale }).eq("user_id", userId);
+  if (error) throw error;
+}
+
+/** Saves the currency amounts are written in. Amounts are not converted. */
+export async function setCurrency(supabase: Db, userId: string, currency: CurrencyCode): Promise<void> {
+  const { error } = await supabase.from("profiles").update({ currency }).eq("user_id", userId);
   if (error) throw error;
 }

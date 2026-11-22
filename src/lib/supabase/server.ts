@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { connection } from "next/server";
 import { cache } from "react";
 import type { Database } from "@/db/database.types";
+import { parseCurrency, parseLocale, type CurrencyCode, type Locale } from "@/lib/locale";
 
 /**
  * Supabase client for Server Components, Server Actions and Route Handlers.
@@ -49,7 +50,7 @@ export const getClaims = cache(async () => {
  */
 export const getUserId = cache(async (): Promise<string | null> => (await getClaims())?.sub ?? null);
 
-export type Profile = { timezone: string; timezoneDetected: boolean };
+export type Profile = { timezone: string; timezoneDetected: boolean; language: Locale; currency: CurrencyCode };
 
 /** The signed-in user's profile, or null when signed out. Read once per request. */
 export const getProfile = cache(async (): Promise<Profile | null> => {
@@ -58,9 +59,16 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("timezone, timezone_detected")
+    .select("timezone, timezone_detected, language, currency")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  return data && { timezone: data.timezone, timezoneDetected: data.timezone_detected };
+  return (
+    data && {
+      timezone: data.timezone,
+      timezoneDetected: data.timezone_detected,
+      language: parseLocale(data.language),
+      currency: parseCurrency(data.currency),
+    }
+  );
 });
