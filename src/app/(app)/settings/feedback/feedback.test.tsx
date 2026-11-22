@@ -9,6 +9,7 @@ import { FeedbackForm } from "./FeedbackForm";
 import { FeedbackList } from "./FeedbackList";
 
 beforeEach(() => {
+  sessionStorage.clear();
   sendFeedbackAction.mockReset().mockResolvedValue({ ok: true });
   document.documentElement.dataset.theme = "dark";
   window.matchMedia = vi.fn((query: string) => ({ matches: query === "(min-width: 768px)" }) as MediaQueryList);
@@ -45,9 +46,32 @@ describe("FeedbackForm", () => {
     expect(screen.getByRole("textbox", { name: "What's your idea?" })).toBeInTheDocument();
   });
 
+  it("uses the last page outside Settings when no page was given, and sends it", async () => {
+    sessionStorage.setItem("lastPage", "/expenses");
+    render(<FeedbackForm initialKind="bug" from={null} />);
+    expect(screen.getByText(/^Adds the page you came from/)).toHaveTextContent("Adds the page you came from (/expenses), phone or desktop");
+    typeMessage("The export button does nothing.");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Send report" }));
+    });
+    expect(sendFeedbackAction.mock.calls[0][0].device.from).toBe("/expenses");
+  });
+
+  it("lists only what is sent when there's no page to report", async () => {
+    render(<FeedbackForm initialKind="bug" from={null} />);
+    expect(screen.queryByText(/page you came from/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Adds phone or desktop, your browser, theme, time zone and app version. Never your expenses or amounts."),
+    ).toBeInTheDocument();
+    typeMessage("The export button does nothing.");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Send report" }));
+    });
+    expect(sendFeedbackAction.mock.calls[0][0].device.from).toBeNull();
+  });
+
   it("switching to Idea hides the device details", () => {
     render(<FeedbackForm initialKind="bug" from={null} />);
-    expect(screen.getByText(/^Adds the page you came from/)).not.toHaveTextContent("(");
     fireEvent.click(screen.getByRole("radio", { name: "Idea" }));
     expect(screen.queryByRole("checkbox", { name: "Include device details" })).not.toBeInTheDocument();
   });
@@ -102,6 +126,22 @@ describe("FeedbackForm", () => {
     });
   });
 
+  it("Send another starts clean: no old message, no old error", async () => {
+    sendFeedbackAction.mockResolvedValueOnce({ error: "We couldn't send that. Check your connection and try again." });
+    render(<FeedbackForm initialKind="idea" from={null} />);
+    typeMessage("Let me pin a category.");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Send idea" }));
+    });
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Send idea" }));
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send another" }));
+    expect(message()).toHaveValue("");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("shows the server's refusal and keeps the message", async () => {
     sendFeedbackAction.mockResolvedValue({ error: "You've sent 20 messages today, the most we take in a day. Please try again tomorrow." });
     render(<FeedbackForm initialKind="idea" from={null} />);
@@ -131,6 +171,21 @@ describe("FeedbackList", () => {
       "BugExport does nothing10 Nov 2026Seen",
       "BugCalendar skips a day2 Nov 2026New",
     ]);
+  });
+
+  it("shows New and Seen as neutral badges and Done as positive", () => {
+    render(
+      <FeedbackList
+        items={[
+          { id: "3", kind: "idea", firstLine: "Pin a category", status: "done", sentOn: "2026-11-21" },
+          { id: "2", kind: "bug", firstLine: "Export does nothing", status: "triaged", sentOn: "2026-11-10" },
+          { id: "1", kind: "bug", firstLine: "Calendar skips a day", status: "new", sentOn: "2026-11-02" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("Done").className).toContain("text-positive-fg");
+    expect(screen.getByText("Seen").className).toContain("text-muted");
+    expect(screen.getByText("New").className).toContain("text-muted");
   });
 
   it("says when nothing has been sent", () => {

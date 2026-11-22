@@ -176,7 +176,7 @@ describe("transaction constraints", () => {
 });
 
 describe("table privileges", () => {
-  it("authenticated has exactly select/insert/update/delete (profiles: no delete; leftover_movements: update on one column; carry_adjustments and feedback: select/insert only); anon has none", () => {
+  it("authenticated has exactly select/insert/update/delete (profiles: no delete; leftover_movements: update on one column; carry_adjustments: select/insert only; feedback: select, insert on some columns); anon has none", () => {
     const rows = queryAsPostgres<{ table_name: string; anon: string | null; authenticated: string | null }>(`
       select t.table_name,
         (select string_agg(privilege_type, ',' order by privilege_type) from information_schema.role_table_grants g
@@ -193,11 +193,22 @@ describe("table privileges", () => {
           ? "INSERT,SELECT,UPDATE"
           : row.table_name === "leftover_movements"
             ? "DELETE,INSERT,SELECT"
-            : row.table_name === "carry_adjustments" || row.table_name === "feedback"
+            : row.table_name === "carry_adjustments"
               ? "INSERT,SELECT"
+              : row.table_name === "feedback"
+                ? "SELECT"
               : "DELETE,INSERT,SELECT,UPDATE";
       expect(row).toEqual({ table_name: row.table_name, anon: null, authenticated: expected });
     }
+  });
+
+  it("on feedback authenticated may insert only user_id, kind, message and context (status, dates and the issue link are the server's)", () => {
+    const rows = queryAsPostgres<{ column_name: string }>(`
+      select column_name from information_schema.column_privileges
+      where table_schema = 'public' and table_name = 'feedback'
+        and grantee = 'authenticated' and privilege_type = 'INSERT'
+      order by column_name`);
+    expect(rows).toEqual([{ column_name: "context" }, { column_name: "kind" }, { column_name: "message" }, { column_name: "user_id" }]);
   });
 
   it("on leftover_movements authenticated may update only nudge_dismissed_at (record_leftover writes the rest)", () => {

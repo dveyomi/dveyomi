@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { admin, createSignedInUser, deleteUser, queryAsPostgres, type TestUser } from "@/db/testClients";
 import { deleteAccount, exportUserData } from "./account";
@@ -7,6 +8,16 @@ import type { Db } from "./types";
 let a: TestUser;
 let b: TestUser;
 let limited: TestUser;
+
+/** Runs SQL as postgres that is expected to end in an error; returns the CLI's output (it carries the message). */
+function probe(sql: string): string {
+  try {
+    execFileSync("npx", ["supabase", "db", "query", "--output-format", "json", sql], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  } catch (e) {
+    return String((e as { stdout?: string }).stdout);
+  }
+  throw new Error("expected the probe to end in an error");
+}
 
 const db = (u: TestUser) => u.client as unknown as Db;
 const MESSAGE = "The calendar skips a day in March.";
@@ -91,16 +102,37 @@ describe("feedback row-level security", () => {
     expect(error?.code).toBe("42501");
   });
 
-  it("an insert must be new, untriaged and without an issue link", async () => {
+  it("an insert must be new, untriaged, without an issue link, and can't choose its own time", async () => {
     for (const extra of [
       { status: "done" },
       { status: "triaged" },
       { triaged_at: "2026-11-22T10:00:00Z" },
       { issue_url: "https://github.com/dveyomi/dveyomi/issues/1" },
+      { created_at: "2020-01-01T00:00:00Z" },
+      { id: "11111111-1111-4111-8111-111111111111" },
     ]) {
       const { error } = await a.client.from("feedback").insert({ kind: "bug", message: MESSAGE, ...extra });
       expect(error?.code, JSON.stringify(extra)).toBe("42501");
     }
+  });
+
+  it("the trigger stamps a user's row as new, now, untriaged, whatever reaches it", () => {
+    // Column privileges already refuse these from the API; the trigger is the second line.
+    // Checked as authenticated with insert widened for the test only: the DO block always
+    // ends in an exception carrying what was stored, so everything rolls back.
+    const result = probe(`do $$
+      declare r record;
+      begin
+        grant insert on public.feedback to authenticated;
+        perform set_config('request.jwt.claims', '{"sub":"${a.id}","role":"authenticated"}', true);
+        set local role authenticated;
+        insert into public.feedback (kind, message, status, triaged_at, issue_url, created_at)
+        values ('bug', 'Backdated and pre-triaged', 'done', now(), 'https://github.com/x/y/issues/1', '2020-01-01')
+        returning status, triaged_at, issue_url, created_at > now() - interval '1 minute' as recent into r;
+        raise exception 'stored: % % % %', r.status, coalesce(r.triaged_at::text, 'none'), coalesce(r.issue_url, 'none'),
+          case when r.recent then 'sent-now' else 'backdated' end;
+      end $$;`);
+    expect(result).toContain("stored: new none none sent-now");
   });
 
   it("A can't update or delete their feedback (no privilege)", async () => {

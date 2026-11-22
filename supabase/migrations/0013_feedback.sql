@@ -27,7 +27,10 @@ create index feedback_user_created_idx on public.feedback (user_id, created_at d
 
 alter table public.feedback enable row level security;
 revoke all on public.feedback from anon, authenticated;
-grant select, insert on public.feedback to authenticated;
+grant select on public.feedback to authenticated;
+-- Insert on these columns only: id, status, triaged_at, issue_url and created_at are
+-- always the defaults for a user's row (the trigger below stamps them too).
+grant insert (user_id, kind, message, context) on public.feedback to authenticated;
 
 create policy "feedback: owner select" on public.feedback for select to authenticated
   using ((select auth.uid()) = user_id);
@@ -36,10 +39,13 @@ create policy "feedback: owner insert" on public.feedback for insert to authenti
   with check ((select auth.uid()) = user_id and status = 'new' and triaged_at is null and issue_url is null);
 -- No update or delete policy (and no privilege): users can't change or remove what they sent.
 
--- Rate limit --------------------------------------------------------------------------
--- At most 20 messages per user in any 24 hours, on every insert path (send_feedback
--- and a direct insert alike). A per-user advisory lock serialises concurrent sends,
--- so two at once can't both slip under the limit. Refused with PT429.
+-- Stamp and rate limit ---------------------------------------------------------------
+-- A row from anyone but the service role (the triage session) or the owner role is
+-- stamped as sent now, new, untriaged and unlinked, whatever the insert said: with the
+-- column grant above this is a second line, so the limit's clock can't be backdated.
+-- Then at most 20 messages per user in any 24 hours, on every insert path
+-- (send_feedback and a direct insert alike). A per-user advisory lock serialises
+-- concurrent sends, so two at once can't both slip under the limit. Refused with PT429.
 
 create function private.feedback_rate_limit()
 returns trigger
@@ -50,6 +56,12 @@ as $$
 declare
   v_sent integer;
 begin
+  if current_user not in ('service_role', 'postgres') then
+    new.created_at := now();
+    new.status := 'new';
+    new.triaged_at := null;
+    new.issue_url := null;
+  end if;
   perform pg_advisory_xact_lock(hashtextextended('feedback:' || new.user_id::text, 0));
   select count(*) into v_sent
   from public.feedback

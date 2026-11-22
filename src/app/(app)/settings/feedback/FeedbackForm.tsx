@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition, type FormEvent } from "react";
+import { useRef, useState, useSyncExternalStore, useTransition, type FormEvent } from "react";
 import { Button, ButtonLink, Checkbox, Notice, RadioSegments, TextField } from "@/components/ui";
+import { lastPage } from "@/lib/lastPage";
 import { checkMessage, type DeviceDetails, type FeedbackKindInput } from "@/lib/validation/feedback";
 import { sendFeedbackAction } from "./actions";
 
@@ -9,6 +10,9 @@ const KINDS = [
   { value: "bug" as const, label: "Bug" },
   { value: "idea" as const, label: "Idea" },
 ];
+
+const noSubscribe = () => () => {};
+const noPage = () => null;
 
 /** This device's details, read when sending (never any financial data). */
 function deviceDetails(from: string | null): DeviceDetails {
@@ -27,7 +31,11 @@ function deviceDetails(from: string | null): DeviceDetails {
  * default), and the line under the box says exactly what they are. Sent,
  * the form gives way to a thank-you; "What you've sent" refreshes from the server.
  */
-export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKindInput; from: string | null }) {
+export function FeedbackForm({ initialKind, from: givenFrom }: { initialKind: FeedbackKindInput; from: string | null }) {
+  // The page to report: ?from= when given, else the last page outside Settings this tab
+  // visited (none on the server, where there's no sessionStorage).
+  const remembered = useSyncExternalStore(noSubscribe, lastPage, noPage);
+  const from = givenFrom ?? remembered;
   const [kind, setKind] = useState<FeedbackKindInput>(initialKind);
   const [message, setMessage] = useState("");
   const [includeDevice, setIncludeDevice] = useState(true);
@@ -65,6 +73,8 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKindI
 
   function again() {
     setMessage("");
+    setMessageError(null);
+    setError(null);
     setSent(false);
   }
 
@@ -118,8 +128,8 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKindI
             <span className="text-body text-text">Include device details</span>
           </Checkbox>
           <p className="pl-9 text-caption text-muted">
-            Adds the page you came from{from ? ` (${from})` : ""}, phone or desktop, your browser, theme, time zone and app version.
-            Never your expenses or amounts.
+            {from ? `Adds the page you came from (${from}), phone or desktop,` : "Adds phone or desktop,"} your browser, theme, time zone
+            and app version. Never your expenses or amounts.
           </p>
         </div>
       ) : null}

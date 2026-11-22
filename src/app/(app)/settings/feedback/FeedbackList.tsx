@@ -6,10 +6,10 @@ export type SentFeedback = { id: string; kind: FeedbackKind; firstLine: string; 
 
 const KIND_LABEL: Record<FeedbackKind, string> = { bug: "Bug", idea: "Idea" };
 
-/** triaged reads as "Seen": someone has looked at it and filed it. */
+/** triaged reads as "Seen": someone has looked at it and filed it. Only Done gets a colour. */
 const STATUS: Record<FeedbackStatus, { label: string; tone: BadgeTone }> = {
   new: { label: "New", tone: "neutral" },
-  triaged: { label: "Seen", tone: "warning" },
+  triaged: { label: "Seen", tone: "neutral" },
   done: { label: "Done", tone: "positive" },
 };
 

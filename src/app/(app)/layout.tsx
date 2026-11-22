@@ -1,5 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { Nav, NavBar } from "@/components/Nav";
+import { PageMemory } from "@/components/PageMemory";
 import { focusRing } from "@/components/ui/focus";
 import { RecurringCatchUp } from "./RecurringCatchUp";
 import { SignedInSync } from "./SignedInSync";
@@ -22,6 +23,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <main id="main" className="flex flex-1 flex-col pb-nav-clearance md:pb-0 md:pl-60">
         {children}
       </main>
+      {/* Remembers the page for "the page you came from" in a bug report. */}
+      <Suspense fallback={null}>
+        <PageMemory />
+      </Suspense>
       {/* Reads the session, so it streams in rather than holding up the shell. */}
       <Suspense fallback={null}>
         <SignedInSync />
