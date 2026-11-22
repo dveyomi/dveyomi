@@ -1,3 +1,4 @@
+import { DEFAULT_I18N, type I18n } from "@/i18n/format";
 import type { IsoDate } from "@/lib/calc";
 import { MAX_FILENAME_LENGTH, MAX_IMPORT_ROWS, type ImportRow } from "@/lib/import/csv";
 import { isId } from "./budgetEdit";
@@ -39,13 +40,17 @@ function checkRow(raw: unknown, range: { min: IsoDate; max: IsoDate } | null): I
  * and 1 to 5,000 rows, each within checkRow's bounds and the expense date
  * range for `today` (the server's today for the user).
  */
-export function validateImport(raw: unknown, today: IsoDate): { ok: true; input: ImportInput } | { ok: false; error: string } {
-  if (!isRecord(raw)) return fail("Something was missing from this import. Start again.");
+export function validateImport(
+  raw: unknown,
+  today: IsoDate,
+  i18n: I18n = DEFAULT_I18N,
+): { ok: true; input: ImportInput } | { ok: false; error: string } {
+  if (!isRecord(raw)) return fail(i18n.m.importer.missing);
   const filename = typeof raw.filename === "string" ? raw.filename.trim() : "";
-  if (!filename || filename.length > MAX_FILENAME_LENGTH) return fail("This file's name wasn't recognised. Choose the file again.");
-  if (!isId(raw.categoryId)) return fail("Choose a category for these expenses.");
-  if (!Array.isArray(raw.rows) || raw.rows.length === 0) return fail("Tick at least one expense to import.");
-  if (raw.rows.length > MAX_IMPORT_ROWS) return fail(`You can import up to ${MAX_IMPORT_ROWS.toLocaleString("en-GB")} expenses at a time.`);
+  if (!filename || filename.length > MAX_FILENAME_LENGTH) return fail(i18n.m.importer.badFilename);
+  if (!isId(raw.categoryId)) return fail(i18n.m.importer.chooseCategory);
+  if (!Array.isArray(raw.rows) || raw.rows.length === 0) return fail(i18n.m.importer.tickOne);
+  if (raw.rows.length > MAX_IMPORT_ROWS) return fail(i18n.m.importer.maxRows(MAX_IMPORT_ROWS.toLocaleString("en-GB")));
 
   const range = expenseDateRange(today);
   const rows: ImportInputRow[] = [];
@@ -53,7 +58,7 @@ export function validateImport(raw: unknown, today: IsoDate): { ok: true; input:
     const row = checkRow(r, range);
     if (!row) {
       const n = isRecord(r) && Number.isSafeInteger(r.row) ? r.row : null;
-      return fail(`${n ? `Row ${n}` : "A row"} can't be imported. Go back to the preview and check it.`);
+      return fail(i18n.m.importer.rowCant(typeof n === "number" ? n : null));
     }
     rows.push(row);
   }

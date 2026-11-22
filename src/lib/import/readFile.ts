@@ -1,3 +1,4 @@
+import { enGB, type Messages } from "@/i18n/messages";
 import { ImportFileError, readCsvFile, type FileReader } from "./csv";
 import { readXlsxFile } from "./xlsx";
 
@@ -13,9 +14,9 @@ const READERS: Record<string, FileReader> = { csv: readCsvFile, xlsx: readXlsxFi
 export const IMPORT_ACCEPT = ".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 /** Reads a chosen file with the reader for its extension. Throws ImportFileError for a type it can't read. */
-export async function readImportFile(file: File): Promise<string[][]> {
+export async function readImportFile(file: File, m: Messages = enGB): Promise<string[][]> {
   const extension = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
   const read = READERS[extension];
-  if (!read) throw new ImportFileError("Choose a .csv or .xlsx file exported from your bank.");
-  return read(file);
+  if (!read) throw new ImportFileError(m.importer.chooseFile);
+  return read(file, m);
 }

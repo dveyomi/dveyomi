@@ -265,7 +265,7 @@ export function ExpenseForm({
 
         {newCategory ? (
           <fieldset className="flex flex-col gap-4 rounded-md border border-border p-4">
-            <legend className="px-1 text-caption font-medium text-muted">New category</legend>
+            <legend className="px-1 text-caption font-medium text-muted">{f.newCategory.replace("…", "")}</legend>
             <TextField
               label={f.categoryName}
               value={newCategory.name}

@@ -1,3 +1,4 @@
+import { getServerI18n } from "@/i18n/server";
 import { redirect } from "next/navigation";
 import { ImportWizard } from "@/components/ImportWizard";
 import { RecentImports } from "@/components/RecentImports";
@@ -13,6 +14,8 @@ export async function ImportContent() {
   if (!(await getUserId())) redirect("/login");
   const [supabase, zone] = await Promise.all([createClient(), getTimeZone()]);
   const [options, batches] = await Promise.all([loadExpenseOptions(supabase), listImports(supabase)]);
+  const { m } = await getServerI18n();
+  const w = m.importer;
   const imports = batches.map((b) => ({
     id: b.id,
     filename: b.filename,
@@ -27,11 +30,11 @@ export async function ImportContent() {
           <Card>
             <EmptyState
               icon="pie"
-              title="Add a category first"
-              body="Imported expenses go into one of your budget categories."
+              title={w.needCategoryTitle}
+              body={w.needCategoryBody}
               action={
                 <ButtonLink href="/budget" variant="primary">
-                  Go to Budget
+                  {w.goToBudget}
                 </ButtonLink>
               }
             />
@@ -42,15 +45,15 @@ export async function ImportContent() {
       </div>
       <div className="flex flex-col gap-4">
         <Card as="section" className="flex flex-col gap-2">
-          <h2 className="text-caption font-semibold text-muted">Recent imports</h2>
+          <h2 className="text-caption font-semibold text-muted">{w.recent}</h2>
           <RecentImports imports={imports} />
         </Card>
         <Card as="section" className="flex flex-col gap-2">
-          <h2 className="text-caption font-semibold text-muted">Good to know</h2>
+          <h2 className="text-caption font-semibold text-muted">{w.goodToKnow}</h2>
           <ul className="flex list-disc flex-col gap-2 pl-5 text-body text-text">
-            <li>Imported expenses count in your budget exactly like ones you add.</li>
-            <li>A row with the same amount as an expense you already have, within 2 days of it, starts unticked.</li>
-            <li>Money in, like your salary or refunds, isn&rsquo;t imported.</li>
+            <li>{w.tipBudget}</li>
+            <li>{w.tipDuplicates}</li>
+            <li>{w.tipMoneyIn}</li>
           </ul>
         </Card>
       </div>

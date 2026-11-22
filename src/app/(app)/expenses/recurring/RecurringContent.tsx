@@ -1,3 +1,4 @@
+import { getServerI18n } from "@/i18n/server";
 import { redirect } from "next/navigation";
 import { RecurringList } from "@/components/RecurringList";
 import { ButtonLink, Card } from "@/components/ui";
@@ -10,6 +11,7 @@ export async function RecurringContent() {
   if (!(await getUserId())) redirect("/login");
   const [supabase, today] = await Promise.all([createClient(), getToday()]);
   const { rules, period } = await loadRecurringView(supabase, today);
+  const { m } = await getServerI18n();
 
   return (
     <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3 lg:gap-6">
@@ -17,17 +19,12 @@ export async function RecurringContent() {
         <RecurringList rules={rules} period={period} today={today} />
       </div>
       <Card as="section" className="flex flex-col gap-3">
-        <h2 className="text-caption font-semibold text-muted">How it works</h2>
-        <p className="text-body text-text">
-          Each payment is added to your expenses on the day it&rsquo;s due, marked unchecked until you check it.
-        </p>
-        <p className="text-body text-muted">
-          To add one, switch on Repeat when you add an expense. Paying the same thing three times? We&rsquo;ll ask on the
-          Expenses tab.
-        </p>
+        <h2 className="text-caption font-semibold text-muted">{m.overview.howItWorks}</h2>
+        <p className="text-body text-text">{m.overview.recurringAdded}</p>
+        <p className="text-body text-muted">{m.overview.recurringHow}</p>
         <div>
           <ButtonLink href="/expenses/new?returnTo=%2Fexpenses%2Frecurring" variant="secondary" icon="plus">
-            Add expense
+            {m.overview.addExpense}
           </ButtonLink>
         </div>
       </Card>

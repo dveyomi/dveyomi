@@ -1,3 +1,4 @@
+import { getServerI18n } from "@/i18n/server";
 import { redirect } from "next/navigation";
 import { TripList } from "@/components/TripList";
 import { ButtonLink, Card, EmptyState } from "@/components/ui";
@@ -10,11 +11,12 @@ export async function TripsContent() {
   if (!(await getUserId())) redirect("/login");
   const [supabase, today] = await Promise.all([createClient(), getToday()]);
   const trips = await listTrips(supabase);
+  const { m } = await getServerI18n();
   const groups = [
-    { label: "Now", trips: trips.filter((t) => t.startDate <= today && today <= t.endDate) },
+    { label: m.trips.now, trips: trips.filter((t) => t.startDate <= today && today <= t.endDate) },
     // listTrips is latest first; upcoming reads soonest first.
-    { label: "Upcoming", trips: trips.filter((t) => t.startDate > today).reverse() },
-    { label: "Past", trips: trips.filter((t) => t.endDate < today) },
+    { label: m.trips.upcoming, trips: trips.filter((t) => t.startDate > today).reverse() },
+    { label: m.trips.past, trips: trips.filter((t) => t.endDate < today) },
   ].filter((g) => g.trips.length > 0);
 
   return (
@@ -24,11 +26,11 @@ export async function TripsContent() {
           <Card>
             <EmptyState
               icon="plane"
-              title="No trips yet"
-              body="A trip groups what you spend while away, so you can see what it cost. Your budget stays the same."
+              title={m.trips.emptyTitle}
+              body={m.trips.emptyBody}
               action={
                 <ButtonLink href="/expenses/trips/new" variant="primary" icon="plus">
-                  New trip
+                  {m.trips.newTrip}
                 </ButtonLink>
               }
             />
@@ -37,21 +39,15 @@ export async function TripsContent() {
           groups.map((g) => (
             <Card key={g.label} as="section" className="flex flex-col gap-2 px-2">
               <h2 className="px-2 text-caption font-semibold text-muted">{g.label}</h2>
-              <TripList trips={g.trips} today={today} label={`${g.label} trips`} />
+              <TripList trips={g.trips} today={today} label={m.trips.groupLabel(g.label)} />
             </Card>
           ))
         )}
       </div>
       <Card as="section" className="flex flex-col gap-3">
-        <h2 className="text-caption font-semibold text-muted">How trips work</h2>
-        <p className="text-body text-text">
-          Expenses dated in a trip join it automatically. You can take one out, or add one from another day, such as
-          flights booked earlier.
-        </p>
-        <p className="text-body text-muted">
-          A trip is a label: its expenses still count in your budget, or in the fund they were paid from, exactly as
-          before.
-        </p>
+        <h2 className="text-caption font-semibold text-muted">{m.trips.howTitle}</h2>
+        <p className="text-body text-text">{m.trips.howJoin}</p>
+        <p className="text-body text-muted">{m.trips.howLabel}</p>
       </Card>
     </div>
   );

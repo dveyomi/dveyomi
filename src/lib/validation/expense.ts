@@ -97,42 +97,42 @@ function optionalText(raw: unknown, max: number): { ok: true; value?: string } |
  */
 export function validateExpense(raw: unknown, today: IsoDate, i18n: I18n = DEFAULT_I18N): ExpenseValidation {
   const fail = (error: string, field?: ExpenseField): ExpenseValidation => ({ ok: false, error, ...(field ? { field } : {}) });
-  if (!isRecord(raw)) return fail("Something was missing from this expense. Check it and try again.");
+  if (!isRecord(raw)) return fail(i18n.m.expenseChecks.missing);
 
   if (!isAmount(raw.amountPence, 1, i18n.currency)) return fail(amountRequiredError(i18n), "amount");
   const name = typeof raw.name === "string" ? raw.name.trim() : "";
-  if (!name) return fail("Give this expense a name, e.g. Tesco.", "name");
-  if (name.length > MAX_EXPENSE_NAME_LENGTH) return fail(`Names can be up to ${MAX_EXPENSE_NAME_LENGTH} characters.`, "name");
+  if (!name) return fail(i18n.m.expenseChecks.name, "name");
+  if (name.length > MAX_EXPENSE_NAME_LENGTH) return fail(i18n.m.expenseChecks.nameLength(MAX_EXPENSE_NAME_LENGTH), "name");
 
   let category: ExpenseCategory;
   const c = raw.category;
   if (isRecord(c) && "id" in c) {
-    if (!isId(c.id)) return fail("Choose a category.", "category");
+    if (!isId(c.id)) return fail(i18n.m.expenseChecks.category, "category");
     category = { id: c.id };
   } else if (isRecord(c) && "name" in c) {
-    const catName = checkCategoryName(c.name);
+    const catName = checkCategoryName(c.name, i18n);
     if (!catName.ok) {
       const empty = typeof c.name !== "string" || !c.name.trim();
-      return fail(empty ? "Give the new category a name." : catName.error, "newCategory");
+      return fail(empty ? i18n.m.expenseChecks.newCategoryName : catName.error, "newCategory");
     }
-    if (c.kind !== "need" && c.kind !== "want") return fail(`Mark ${catName.value} as a need or a want.`, "newCategory");
+    if (c.kind !== "need" && c.kind !== "want") return fail(i18n.m.expenseChecks.markKind(catName.value), "newCategory");
     category = { name: catName.value, kind: c.kind };
   } else {
-    return fail("Choose a category.", "category");
+    return fail(i18n.m.expenseChecks.category, "category");
   }
 
-  if (!isIsoDate(raw.date)) return fail("Enter a date, e.g. 21/11/2026.", "date");
+  if (!isIsoDate(raw.date)) return fail(i18n.m.expenseChecks.date, "date");
   const range = expenseDateRange(today);
-  if (raw.date < range.min || raw.date > range.max) return fail(DATE_RANGE_ERROR, "date");
-  if (raw.fundId !== null && raw.fundId !== undefined && !isId(raw.fundId)) return fail("That fund wasn't recognised.", "fund");
+  if (raw.date < range.min || raw.date > range.max) return fail(i18n.m.expenseChecks.dateRange, "date");
+  if (raw.fundId !== null && raw.fundId !== undefined && !isId(raw.fundId)) return fail(i18n.m.expenseChecks.fund, "fund");
 
   const accountLabel = optionalText(raw.accountLabel, MAX_ACCOUNT_LABEL_LENGTH);
-  if (!accountLabel.ok) return fail(`Account names can be up to ${MAX_ACCOUNT_LABEL_LENGTH} characters.`, "accountLabel");
+  if (!accountLabel.ok) return fail(i18n.m.expenseChecks.accountLength(MAX_ACCOUNT_LABEL_LENGTH), "accountLabel");
   const notes = optionalText(raw.notes, MAX_NOTES_LENGTH);
-  if (!notes.ok) return fail(`Notes can be up to ${MAX_NOTES_LENGTH} characters.`, "notes");
-  if (raw.repeat !== undefined && raw.repeat !== null && !isFrequency(raw.repeat)) return fail("Choose how often it repeats.", "repeat");
+  if (!notes.ok) return fail(i18n.m.expenseChecks.notesLength(MAX_NOTES_LENGTH), "notes");
+  if (raw.repeat !== undefined && raw.repeat !== null && !isFrequency(raw.repeat)) return fail(i18n.m.expenseChecks.repeat, "repeat");
   const trip = raw.trip;
-  if (trip !== undefined && trip !== null && trip !== "auto" && trip !== "none" && !isId(trip)) return fail("That trip wasn't recognised.", "trip");
+  if (trip !== undefined && trip !== null && trip !== "auto" && trip !== "none" && !isId(trip)) return fail(i18n.m.expenseChecks.trip, "trip");
 
   return {
     ok: true,

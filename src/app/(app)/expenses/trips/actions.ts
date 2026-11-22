@@ -38,7 +38,7 @@ const known = async (e: unknown): Promise<string | null> =>
 /** Creates a trip from the form, then opens it. An overlap is shown on the start date. */
 export async function createTripAction(raw: unknown): Promise<TripActionResult> {
   await signedIn();
-  const checked = validateTrip(raw);
+  const checked = validateTrip(raw, await getServerI18n());
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
   let id: string;
   try {
@@ -56,7 +56,7 @@ export async function createTripAction(raw: unknown): Promise<TripActionResult> 
 export async function updateTripAction(id: unknown, raw: unknown): Promise<TripActionResult> {
   await signedIn();
   if (!isId(id)) return { error: (await getServerI18n()).m.actions.tripNotRecognised };
-  const checked = validateTrip(raw);
+  const checked = validateTrip(raw, await getServerI18n());
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
   try {
     await updateTrip(await createClient(), id, checked.input);

@@ -1,9 +1,13 @@
+import { getServerI18n } from "@/i18n/server";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ExpenseFormSkeleton } from "../ExpenseFormSkeleton";
 import { EditExpenseContent } from "./EditExpenseContent";
 
-export const metadata: Metadata = { title: "Edit expense · Personal Finance OS" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getServerI18n();
+  return { title: m.shell.pageTitle(m.expenseForm.editTitle) };
+}
 
 export default function Page({ params, searchParams }: PageProps<"/expenses/[id]">) {
   return (
