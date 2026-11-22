@@ -12,7 +12,8 @@ import { Live } from "./Live";
 import { Savings } from "./Savings";
 import { Spending } from "./Spending";
 
-const STEPS = ["The basics", "Spending budget", "Savings", "You're live"] as const;
+/** Four steps: the basics, spending budget, savings, you're live. */
+const STEP_COUNT = 4;
 
 /**
  * The onboarding flow. Answers live here, client-side, until the last step's
@@ -20,6 +21,7 @@ const STEPS = ["The basics", "Spending budget", "Savings", "You're live"] as con
  */
 export function OnboardingWizard({ today }: { today: IsoDate }) {
   const i18n = useI18n();
+  const o = i18n.m.onboarding;
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Draft>({
     startDay: 1,
@@ -94,14 +96,14 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
     });
   }
 
-  const last = step === STEPS.length - 1;
+  const last = step === STEP_COUNT - 1;
 
   return (
     <div className="flex flex-1 flex-col md:flex-row">
       <aside className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-80 md:shrink-0 md:flex-col md:gap-8 md:overflow-y-auto md:border-r md:border-border md:bg-card md:px-6 md:py-8 lg:w-96 lg:px-8">
-        <p className="text-body font-semibold text-text">Set up your budget</p>
+        <p className="text-body font-semibold text-text">{o.setUp}</p>
         <ol className="flex flex-col gap-1">
-          {STEPS.map((label, i) => (
+          {o.steps.map((label, i) => (
             <li
               key={label}
               aria-current={i === step ? "step" : undefined}
@@ -117,11 +119,11 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
           ))}
         </ol>
         <Card raised className="flex flex-col gap-3">
-          <p className="text-caption font-semibold text-muted">So far</p>
-          <SoFar label="Monthly income" pence={incomePence} />
-          <SoFar label="Savings" pence={savingsPence} />
-          <SoFar label="To spend" pence={totals.poolPence} />
-          <SoFar label="Allocated" pence={totals.allocatedPence} />
+          <p className="text-caption font-semibold text-muted">{o.soFar}</p>
+          <SoFar label={o.monthlyIncome} pence={incomePence} />
+          <SoFar label={o.savings} pence={savingsPence} />
+          <SoFar label={o.toSpend} pence={totals.poolPence} />
+          <SoFar label={o.allocated} pence={totals.allocatedPence} />
         </Card>
       </aside>
 
@@ -129,13 +131,13 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
         <div className="mx-auto flex w-full max-w-phone flex-1 flex-col gap-6 px-4 pt-4 md:max-w-2xl md:flex-none md:px-8 md:pt-12 [&_:is(input,select,button)]:scroll-mb-32">
           <div className="flex items-center gap-3">
             {step > 0 ? (
-              <IconButton icon="chevron-left" label="Back" onClick={() => go(step - 1)} disabled={saving} />
+              <IconButton icon="chevron-left" label={i18n.m.common.back} onClick={() => go(step - 1)} disabled={saving} />
             ) : null}
             <div className="flex flex-1 flex-col gap-2">
               <p className="text-caption text-muted">
-                Step {step + 1} of {STEPS.length}
+                {o.stepOf(step + 1, STEP_COUNT)}
               </p>
-              <ProgressBar percent={((step + 1) / STEPS.length) * 100} state="normal" label="Setup progress" />
+              <ProgressBar percent={((step + 1) / STEP_COUNT) * 100} state="normal" label={o.progress} />
             </div>
           </div>
 
@@ -199,11 +201,11 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
             ) : null}
             {last ? (
               <Button variant="primary" size="lg" fullWidth onClick={confirm} disabled={saving} className="md:w-auto">
-                {saving ? "Saving…" : "Go to my budget"}
+                {saving ? i18n.m.common.saving : o.goToBudget}
               </Button>
             ) : (
               <Button variant="primary" size="lg" fullWidth onClick={next} className="md:w-auto md:min-w-48">
-                Continue
+                {i18n.m.common.continue}
               </Button>
             )}
           </div>

@@ -23,7 +23,7 @@ export async function completeOnboardingAction(raw: unknown): Promise<{ error: s
     // Already saved (a repeat or double submit): the budget is there.
     if (!(e instanceof AlreadyOnboardedError)) {
       console.error("completeOnboarding failed", e);
-      return { error: "We couldn't save your budget. Check your connection and try again." };
+      return { error: (await getServerI18n()).m.onboarding.saveFailed };
     }
   }
   redirect("/budget");

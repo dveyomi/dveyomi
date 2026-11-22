@@ -41,8 +41,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isId = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 
 /** A category name: trimmed, 1–50 characters. */
-export function checkCategoryName(raw: unknown): Check<string> {
-  return checkName(raw, "category");
+export function checkCategoryName(raw: unknown, i18n: I18n = DEFAULT_I18N): Check<string> {
+  return checkName(raw, "category", i18n);
 }
 
 /**
@@ -81,7 +81,7 @@ export function validateBudgetEdit(raw: unknown, i18n: I18n = DEFAULT_I18N): Bud
       categories.push({ id, name: c.name, kind: c.kind, amountPence: 0, removed: true });
       continue;
     }
-    const name = checkCategoryName(c.name);
+    const name = checkCategoryName(c.name, i18n);
     if (!name.ok) return name;
     if (c.kind !== "need" && c.kind !== "want") return fail(`Mark ${name.value} as a need or a want.`);
     if (!isAmount(c.amountPence, 0, currency)) {

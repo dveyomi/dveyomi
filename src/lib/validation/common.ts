@@ -1,4 +1,4 @@
-import type { I18n } from "@/i18n/format";
+import { DEFAULT_I18N, type I18n } from "@/i18n/format";
 import type { CurrencyCode } from "@/lib/locale";
 
 /**
@@ -43,11 +43,11 @@ export function amountRequiredError(i18n: I18n, gbpExample = "12.50"): string {
 export const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
 /** A category or fund name: trimmed, 1 to MAX_NAME_LENGTH characters. */
-export function checkName(raw: unknown, what: "category" | "fund"): Check<string> {
-  if (typeof raw !== "string" || !raw.trim()) return { ok: false, error: `Give every ${what} a name.` };
+export function checkName(raw: unknown, what: "category" | "fund", i18n: I18n = DEFAULT_I18N): Check<string> {
+  if (typeof raw !== "string" || !raw.trim()) return { ok: false, error: i18n.m.names.required[what] };
   const name = raw.trim();
   if (name.length > MAX_NAME_LENGTH) {
-    return { ok: false, error: `${what === "category" ? "Category" : "Fund"} names can be up to ${MAX_NAME_LENGTH} characters.` };
+    return { ok: false, error: i18n.m.names.tooLong[what](MAX_NAME_LENGTH) };
   }
   return { ok: true, value: name };
 }

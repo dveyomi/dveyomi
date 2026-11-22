@@ -7,7 +7,7 @@ import {
   AddCategoryForm,
   AllocationRows,
   AllocationSummary,
-  KIND_TABS,
+  kindTabs,
   nameClash,
   type Kind,
 } from "@/components/AllocationEditor";
@@ -215,7 +215,7 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
           <h2 id="categories-heading" className="text-title font-semibold text-text">
             Categories
           </h2>
-          <SegmentedTabs label="Category type" options={KIND_TABS} value={tab} onChange={changeTab} />
+          <SegmentedTabs label={i18n.m.allocation.categoryType} options={kindTabs(i18n.m)} value={tab} onChange={changeTab} />
           <Card className="flex flex-col gap-4">
             <AllocationRows
               kind={tab}

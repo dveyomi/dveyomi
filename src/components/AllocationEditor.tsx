@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/i18n/client";
+import type { Messages } from "@/i18n/messages";
 import { amountRequiredError } from "@/lib/validation/common";
 import { useState, type FormEvent } from "react";
 import { AmountInput, Button, Card, EmptyState, IconButton, Money, TextField } from "@/components/ui";
@@ -15,10 +16,13 @@ import { MAX_CATEGORIES, MAX_NAME_LENGTH } from "@/lib/validation/common";
 
 export type Kind = "need" | "want";
 
-export const KIND_TABS = [
-  { value: "need" as const, label: "Needs" },
-  { value: "want" as const, label: "Wants" },
-];
+/** The Needs / Wants tabs, labelled in the user's language. */
+export function kindTabs(m: Messages) {
+  return [
+    { value: "need" as const, label: m.kinds.plural.need },
+    { value: "want" as const, label: m.kinds.plural.want },
+  ];
+}
 
 /** A name already used by another category, ignoring case; undefined when free. */
 export function nameClash(name: string, taken: string[]): string | undefined {
@@ -35,18 +39,18 @@ type SummaryProps = {
 
 /** To spend each month, allocated, and how much is left to allocate or "£X over" in red. */
 export function AllocationSummary({ totals, caption, hasCategories }: SummaryProps) {
-  const { fmt } = useI18n();
+  const { fmt, m, currency } = useI18n();
   return (
     <Card className="grid grid-cols-2 gap-4" as="div">
-      <Figure label="To spend each month" pence={totals.poolPence} caption={caption} />
-      <Figure label="Allocated" pence={totals.allocatedPence} />
+      <Figure label={m.allocation.toSpend} pence={totals.poolPence} caption={caption} />
+      <Figure label={m.allocation.allocated} pence={totals.allocatedPence} />
       <p aria-live="polite" className="col-span-2 text-body font-semibold">
         {totals.overAllocatedPence > 0 ? (
-          <span className="text-danger-fg">{fmt.money(totals.overAllocatedPence)} over</span>
+          <span className="text-danger-fg">{m.allocation.over(fmt.money(totals.overAllocatedPence))}</span>
         ) : totals.unallocatedPence > 0 ? (
-          <span className="text-muted">{fmt.money(totals.unallocatedPence)} left to allocate</span>
+          <span className="text-muted">{m.allocation.leftToAllocate(fmt.money(totals.unallocatedPence))}</span>
         ) : hasCategories ? (
-          <span className="text-positive-fg">Every pound has a job</span>
+          <span className="text-positive-fg">{m.allocation.everyPound[currency]}</span>
         ) : null}
       </p>
     </Card>
@@ -82,12 +86,13 @@ type RowsProps = {
 
 /** One kind's categories, each an amount with its remove (and optional edit) button. */
 export function AllocationRows({ kind, rows, onAmount, onRemove, onEdit, allowZero, focusKey, errors }: RowsProps) {
+  const { m } = useI18n();
   if (rows.length === 0) {
     return (
       <EmptyState
         icon="pie"
-        title={kind === "need" ? "No needs yet" : "No wants yet"}
-        body={kind === "need" ? "Rent, bills, groceries, travel to work." : "Eating out, shopping, hobbies, treats."}
+        title={kind === "need" ? m.allocation.noNeedsTitle : m.allocation.noWantsTitle}
+        body={kind === "need" ? m.allocation.noNeedsBody : m.allocation.noWantsBody}
       />
     );
   }
@@ -108,8 +113,8 @@ export function AllocationRows({ kind, rows, onAmount, onRemove, onEdit, allowZe
               />
             </div>
             <div className={`flex ${error ? "" : "pb-2.5"}`}>
-              {onEdit ? <IconButton icon="edit" label={`Edit ${r.name}`} onClick={() => onEdit(r.key)} /> : null}
-              <IconButton icon="trash" label={`Remove ${r.name}`} onClick={() => onRemove(r.key)} />
+              {onEdit ? <IconButton icon="edit" label={m.allocation.edit(r.name)} onClick={() => onEdit(r.key)} /> : null}
+              <IconButton icon="trash" label={m.allocation.remove(r.name)} onClick={() => onRemove(r.key)} />
             </div>
           </li>
         );
@@ -130,7 +135,8 @@ export function AddCategoryForm({
   onAdd: (name: string, amountText: string) => void;
 }) {
   const i18n = useI18n();
-  const { fmt } = i18n;
+  const { fmt, m } = i18n;
+  const t = m.allocation;
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
@@ -141,10 +147,10 @@ export function AddCategoryForm({
     const trimmed = name.trim();
     const clash = nameClash(trimmed, taken);
     setAmountError(null);
-    if (!trimmed) return setNameError("Enter a name for the category.");
-    if (clash) return setNameError(`You already have a category called ${clash}.`);
-    if (trimmed.length > MAX_NAME_LENGTH) return setNameError(`Use up to ${MAX_NAME_LENGTH} characters.`);
-    if (taken.length >= MAX_CATEGORIES) return setNameError(`You can add up to ${MAX_CATEGORIES} categories.`);
+    if (!trimmed) return setNameError(t.nameRequired);
+    if (clash) return setNameError(t.nameTaken(clash));
+    if (trimmed.length > MAX_NAME_LENGTH) return setNameError(t.nameTooLong(MAX_NAME_LENGTH));
+    if (taken.length >= MAX_CATEGORIES) return setNameError(t.tooMany(MAX_CATEGORIES));
     setNameError(null);
     if (fmt.parse(amount) === null) return setAmountError(amountRequiredError(i18n));
     onAdd(trimmed, amount);
@@ -153,19 +159,19 @@ export function AddCategoryForm({
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3 border-t border-border pt-4" aria-label={`Add a ${kind}`}>
+    <form onSubmit={submit} className="flex flex-col gap-3 border-t border-border pt-4" aria-label={t.addA(m.kinds.singular[kind])}>
       <TextField
-        label="Category name"
+        label={t.categoryName}
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder={kind === "need" ? "e.g. Rent…" : "e.g. Eating out…"}
+        placeholder={kind === "need" ? t.namePlaceholderNeed : t.namePlaceholderWant}
         autoComplete="off"
         maxLength={MAX_NAME_LENGTH}
         error={nameError}
       />
-      <AmountInput label="Amount" value={amount} onChange={setAmount} error={amountError} />
+      <AmountInput label={t.amount} value={amount} onChange={setAmount} error={amountError} />
       <Button type="submit" variant="secondary">
-        Add category
+        {t.addCategory}
       </Button>
     </form>
   );

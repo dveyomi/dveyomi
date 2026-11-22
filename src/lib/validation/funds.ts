@@ -48,8 +48,8 @@ const targetError = ({ m, fmt, currency }: I18n) =>
 /** A fund's name (trimmed, 1–50), optional target and optional target date. */
 export function validateFund(raw: unknown, i18n: I18n = DEFAULT_I18N): { ok: true; input: FundDetails } | Failure<FundField> {
   if (!isRecord(raw)) return fail("Something was missing from this fund. Check it and try again.");
-  const name = checkName(raw.name, "fund");
-  if (!name.ok) return fail(name.error === "Give every fund a name." ? "Give this fund a name." : name.error, "name");
+  const name = checkName(raw.name, "fund", i18n);
+  if (!name.ok) return fail(name.error === i18n.m.names.required.fund ? "Give this fund a name." : name.error, "name");
   const target = checkTarget(raw.targetPence, i18n);
   if (!target.ok) return fail(targetError(i18n), "target");
   let targetDate: IsoDate | null = null;
@@ -128,8 +128,8 @@ export function validateConfirmSplit(raw: unknown, i18n: I18n = DEFAULT_I18N): {
   for (const line of raw) {
     if (!isRecord(line) || !isAmount(line.amountPence, 0, i18n.currency)) return fail(i18n.m.validation.eachFund(i18n.fmt.money(0)));
     if (isRecord(line.newFund)) {
-      const name = checkName(line.newFund.name, "fund");
-      if (!name.ok) return fail(name.error === "Give every fund a name." ? "Give the new fund a name." : name.error);
+      const name = checkName(line.newFund.name, "fund", i18n);
+      if (!name.ok) return fail(name.error === i18n.m.names.required.fund ? "Give the new fund a name." : name.error);
       const target = checkTarget(line.newFund.targetPence, i18n);
       if (!target.ok) return fail(targetError(i18n));
       lines.push({ newFund: { name: name.value, targetPence: target.value }, amountPence: line.amountPence });
