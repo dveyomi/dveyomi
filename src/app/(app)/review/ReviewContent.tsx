@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { LeftoverBreakdown, LeftoverPrompt } from "@/components/LeftoverPrompt";
+import { LeftoverBreakdown, LeftoverPrompt, OverspendPrompt } from "@/components/LeftoverPrompt";
 import { OverspendReview } from "@/components/OverspendReview";
 import { ButtonLink, Card, EmptyState } from "@/components/ui";
 import { loadReview } from "@/lib/data/review";
@@ -50,7 +50,12 @@ export async function ReviewContent() {
       />
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <div className="lg:col-start-1 lg:row-start-1">
-          <LeftoverBreakdown monthLabel={review.monthLabel} period={review.period} breakdown={review.breakdown} />
+          <LeftoverBreakdown
+            monthLabel={review.monthLabel}
+            period={review.period}
+            breakdown={review.breakdown}
+            overspendPence={review.overspendPence}
+          />
         </div>
         <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <OverspendReview
@@ -63,13 +68,23 @@ export async function ReviewContent() {
           />
         </div>
         <div className="lg:col-start-1 lg:row-start-2">
-          <LeftoverPrompt
-            monthLabel={review.monthLabel}
-            currentLabel={review.raiseApplies.currentLabel}
-            totalPence={review.breakdown.totalPence}
-            funds={review.funds}
-            record={recordLeftoverAction.bind(null, review.periodId)}
-          />
+          {review.overspendPence > 0 ? (
+            <OverspendPrompt
+              monthLabel={review.monthLabel}
+              currentLabel={review.raiseApplies.currentLabel}
+              overspendPence={review.overspendPence}
+              funds={review.funds}
+              record={recordLeftoverAction.bind(null, review.periodId)}
+            />
+          ) : (
+            <LeftoverPrompt
+              monthLabel={review.monthLabel}
+              currentLabel={review.raiseApplies.currentLabel}
+              totalPence={review.breakdown.totalPence}
+              funds={review.funds}
+              record={recordLeftoverAction.bind(null, review.periodId)}
+            />
+          )}
         </div>
       </div>
     </>

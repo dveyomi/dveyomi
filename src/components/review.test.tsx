@@ -11,7 +11,7 @@ vi.mock("@/app/(app)/budget/fundActions", () => ({ confirmSavingsAction: vi.fn()
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 
 import { BudgetOverview } from "./BudgetOverview";
-import { LeftoverBreakdown, LeftoverPrompt } from "./LeftoverPrompt";
+import { LeftoverBreakdown, LeftoverPrompt, OverspendPrompt } from "./LeftoverPrompt";
 import { OverspendReview } from "./OverspendReview";
 
 const october: Period = { start: "2026-10-01", end: "2026-10-31", nextStart: "2026-11-01" };
@@ -42,6 +42,13 @@ describe("LeftoverBreakdown", () => {
       "Freed by paused payments£15.00",
       "Unspent in categories£1,005.00",
     ]);
+  });
+
+  it("an overspent month shows how far it went over, not £0 left over", () => {
+    render(<LeftoverBreakdown monthLabel="October" period={october} breakdown={{ totalPence: 0, sources: [] }} overspendPence={3000} />);
+    expect(screen.getByRole("heading", { name: "October went over budget" })).toBeInTheDocument();
+    expect(screen.getByText("£30.00")).toBeInTheDocument();
+    expect(screen.queryByText("Nothing left over")).not.toBeInTheDocument();
   });
 
   it("with nothing left over says so, with no £0 breakdown", () => {
@@ -112,6 +119,49 @@ describe("LeftoverPrompt", () => {
   });
 });
 
+describe("OverspendPrompt", () => {
+  const funds = [
+    { id: "6f1c2e2a-3b4d-4e5f-8a9b-0c1d2e3f4a5b", name: "Emergency" },
+    { id: "7a2d3e4f-5b6c-4d7e-8f9a-0b1c2d3e4f5a", name: "Holiday" },
+  ];
+
+  it("asks where the whole overspend comes from, next month's spending money by default", async () => {
+    const record = vi.fn().mockResolvedValue({});
+    render(<OverspendPrompt monthLabel="October" currentLabel="November" overspendPence={3000} funds={funds} record={record} />);
+    expect(screen.getByRole("heading", { name: "October went £30.00 over. Where should it come from?" })).toBeInTheDocument();
+    const group = screen.getByRole("radiogroup", { name: "Where should it come from?" });
+    expect(within(group).getByRole("radio", { name: "Take it from November's spending money" })).toBeChecked();
+    expect(within(group).getByRole("radio", { name: "Cover it from a savings fund" })).not.toBeChecked();
+    expect(screen.queryByRole("combobox", { name: "Fund" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(record).toHaveBeenCalledWith({ destination: "next_period" }));
+  });
+
+  it("covers it from a chosen fund", async () => {
+    const record = vi.fn().mockResolvedValue({});
+    render(<OverspendPrompt monthLabel="October" currentLabel="November" overspendPence={3000} funds={funds} record={record} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Cover it from a savings fund" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Fund" }), { target: { value: funds[1].id } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(record).toHaveBeenCalledWith({ destination: "fund", fundId: funds[1].id }));
+  });
+
+  it("shows a short fund's refusal, so another fund or next month can be chosen", async () => {
+    const record = vi.fn().mockResolvedValue({ error: "Emergency only has £20.00." });
+    render(<OverspendPrompt monthLabel="October" currentLabel="November" overspendPence={3000} funds={funds} record={record} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Cover it from a savings fund" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Emergency only has £20.00.");
+    expect(screen.getByRole("radio", { name: "Take it from November's spending money" })).toBeEnabled();
+  });
+
+  it("offers only next month when there are no funds", () => {
+    render(<OverspendPrompt monthLabel="October" currentLabel="November" overspendPence={3000} funds={[]} record={vi.fn()} />);
+    expect(screen.queryByRole("radio", { name: "Cover it from a savings fund" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Take it from November's spending money" })).toBeChecked();
+  });
+});
+
 describe("OverspendReview", () => {
   const current: CurrentFigures = {
     incomePence: 300000,
@@ -124,7 +174,7 @@ describe("OverspendReview", () => {
   const nov = { currentLabel: "November", nextLabel: null };
   const groceries: RaiseSuggestion = { categoryId: "food", name: "Groceries", kind: "need", currentPence: 40000, suggestedPence: 42100 };
 
-  it("lists overspent categories with the amount over, and says overspending isn't carried forward", () => {
+  it("lists overspent categories with the amount over, and says category budgets start fresh", () => {
     render(
       <OverspendReview
         monthLabel="October"
@@ -138,7 +188,7 @@ describe("OverspendReview", () => {
     const list = screen.getByRole("list", { name: "Over budget in October" });
     expect(within(list).getByText("Groceries")).toBeInTheDocument();
     expect(within(list).getByText("£30.00")).toBeInTheDocument();
-    expect(screen.getByText("Overspending isn't carried forward.")).toBeInTheDocument();
+    expect(screen.getByText("Category budgets start fresh each month.")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /raise/i })).not.toBeInTheDocument();
   });
 

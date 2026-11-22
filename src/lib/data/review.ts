@@ -4,6 +4,7 @@ import {
   formatMonth,
   freedInPeriod,
   leftoverBreakdown,
+  overBudgetPence,
   suggestedBudget,
   sumPence,
   type Frequency,
@@ -16,7 +17,7 @@ import type { LeftoverChoice } from "@/lib/validation/review";
 import { loadPeriodSummary, summariseRow } from "./budget";
 import { editTarget } from "./budgetEdit";
 import { ensureCurrentPeriod } from "./ensurePeriod";
-import { FundNameTakenError, FundNotFoundError } from "./funds";
+import { balanceOf, FundNameTakenError, FundNotFoundError, FundShortError } from "./funds";
 import type { CategoryRow, Db, PeriodRow } from "./types";
 
 export { dismissUnassignedNudge } from "./budgetEdit";
@@ -50,6 +51,8 @@ export type Review = {
   monthLabel: string;
   /** The leftover (one whole amount) and where it came from, in calc order. */
   breakdown: { totalPence: number; sources: LeftoverSource[] };
+  /** How far the whole period went over (overBudgetPence); 0 unless left to spend ended below zero. */
+  overspendPence: number;
   overspent: Overspend[];
   suggestions: RaiseSuggestion[];
   current: CurrentFigures;
@@ -76,7 +79,13 @@ export type ReviewStatus = {
  * October", the change to this period's money, so −£40.00 for £40 more
  * spent), or money moved in from a fund ("from Emergency fund", positive).
  */
-export type CarryAdjustmentLine = { kind: "late_change" | "from_fund"; label: string; amountPence: number };
+export type CarryAdjustmentLine = { kind: "late_change" | "from_fund" | "overspend"; label: string; amountPence: number };
+
+/** "from Emergency fund", or "from Rainy Day Fund" when the name already says fund. */
+export function fromFundLabel(name: string | null): string {
+  if (!name) return "from a fund";
+  return /fund$/i.test(name.trim()) ? `from ${name}` : `from ${name} fund`;
+}
 
 /** The period was reviewed already (a second record changes nothing). */
 export class AlreadyReviewedError extends Error {
@@ -99,6 +108,14 @@ export class ReviewNotFoundError extends Error {
   constructor() {
     super("That budget wasn't found. Reload the page and try again.");
     this.name = "ReviewNotFoundError";
+  }
+}
+
+/** An overspend can only come from next month's spending money or an existing fund (or no choice was made). */
+export class OverspendChoiceError extends Error {
+  constructor() {
+    super("Choose where the overspend comes from: next month's spending money or a savings fund.");
+    this.name = "OverspendChoiceError";
   }
 }
 
@@ -204,6 +221,7 @@ export async function loadReview(supabase: Db, today: IsoDate): Promise<Review |
     period,
     monthLabel: monthOf(target.start_date),
     breakdown: leftoverBreakdown(summary, target.unassigned_carry_pence, freed),
+    overspendPence: overBudgetPence(summary),
     overspent: budgeted
       .at(-1)!
       .filter((f) => f.overPence > 0)
@@ -246,7 +264,8 @@ export async function loadReviewStatus(supabase: Db, today: IsoDate): Promise<Re
     supabase
       .from("leftover_movements")
       .select("period_id, destination, amount_pence, nudge_dismissed_at")
-      .eq("carried_to_period_id", currentRes.data.id),
+      .eq("carried_to_period_id", currentRes.data.id)
+      .eq("kind", "leftover"),
     loadAdjustments(supabase, currentRes.data.id),
   ]);
   if (movesRes.error) throw movesRes.error;
@@ -286,11 +305,22 @@ async function loadAdjustments(supabase: Db, periodId: string): Promise<CarryAdj
     data.filter((a) => a.reason === "late_change" && a.source),
     (a) => a.source!.start_date,
   );
+  const overspends = Map.groupBy(
+    data.filter((a) => a.reason === "overspend" && a.source),
+    (a) => a.source!.start_date,
+  );
   const fromFunds = Map.groupBy(
     data.filter((a) => a.reason === "from_fund"),
     (a) => a.funds?.name ?? "",
   );
   const lines: CarryAdjustmentLine[] = [
+    ...[...overspends]
+      .toSorted(([a], [b]) => (a < b ? -1 : 1))
+      .map(([start, rows]) => ({
+        kind: "overspend" as const,
+        label: `${monthOf(start)} overspend`,
+        amountPence: sumPence(rows.map((r) => r.amount_pence)),
+      })),
     ...[...late]
       .toSorted(([a], [b]) => (a < b ? -1 : 1))
       .map(([start, rows]) => ({
@@ -302,7 +332,7 @@ async function loadAdjustments(supabase: Db, periodId: string): Promise<CarryAdj
       .toSorted(([a], [b]) => a.localeCompare(b))
       .map(([name, rows]) => ({
         kind: "from_fund" as const,
-        label: name ? `from ${name} fund` : "from a fund",
+        label: fromFundLabel(name || null),
         amountPence: sumPence(rows.map((r) => r.amount_pence)),
       })),
   ];
@@ -310,14 +340,18 @@ async function loadAdjustments(supabase: Db, periodId: string): Promise<CarryAdj
 }
 
 /**
- * Records the review of an ended period in one transaction (`record_leftover`):
- * the leftover, worked out here from the stored figures (never taken from the
- * browser), goes whole to the choice: a fund contribution dated `today`, or
- * the current period's unassigned carry ("next_period" or "unassigned"). With
- * nothing left over, `choice` is ignored and the period is only marked
- * reviewed. Throws AlreadyReviewedError, PeriodNotEndedError,
- * ReviewNotFoundError, LeftoverChangedError, FundNotFoundError or
- * FundNameTakenError, recording nothing.
+ * Records the review of an ended period in one transaction (`record_leftover`).
+ * Its whole result, worked out here from the stored figures (never taken from
+ * the browser) and signed, settles in one place:
+ * - a leftover goes to a fund contribution dated `today`, or the current
+ *   period's unassigned carry ("next_period" or "unassigned");
+ * - an overspend comes from the current period's spending money
+ *   ("next_period": its carry goes down, shown as "October overspend") or an
+ *   existing fund (a withdrawal dated `today`);
+ * - with neither, `choice` is ignored and the period is only marked reviewed.
+ * Throws AlreadyReviewedError, PeriodNotEndedError, ReviewNotFoundError,
+ * LeftoverChangedError, FundNotFoundError, FundNameTakenError,
+ * OverspendChoiceError or FundShortError, recording nothing.
  */
 export async function recordLeftover(
   supabase: Db,
@@ -335,18 +369,26 @@ export async function recordLeftover(
     if ((e as { code?: string }).code === "PGRST116") throw new ReviewNotFoundError();
     throw e;
   }
-  const { totalPence } = leftoverBreakdown(stored.summary, stored.row.unassigned_carry_pence, 0);
-  if (totalPence > 0 && choice === null) throw new Error("recordLeftover: choose where the leftover goes");
-  const to = totalPence > 0 ? choice : null;
+  // The period's whole result, signed: a leftover, or (below zero) an overspend.
+  const resultPence = stored.summary.leftToSpendPence;
+  if (resultPence > 0 && choice === null) throw new Error("recordLeftover: choose where the leftover goes");
+  if (resultPence < 0 && (choice === null || choice.destination === "unassigned" || "newFundName" in choice)) {
+    throw new OverspendChoiceError();
+  }
+  const to = resultPence !== 0 ? choice : null;
 
   const { error } = await supabase.rpc("record_leftover", {
     p_period_id: periodId,
     p_today: today,
-    p_amount_pence: totalPence,
+    p_amount_pence: resultPence,
     ...(to ? { p_destination: to.destination } : {}),
     ...(to && "fundId" in to ? { p_fund_id: to.fundId } : {}),
     ...(to && "newFundName" in to ? { p_new_fund_name: to.newFundName } : {}),
   });
+  if (error?.code === "PT402" && to && "fundId" in to) {
+    const fund = await supabase.from("funds").select("name").eq("id", to.fundId).maybeSingle();
+    throw new FundShortError(fund.data?.name ?? "This fund", (await balanceOf(supabase, to.fundId)) ?? 0);
+  }
   if (!error) return;
   if (error.code === "PT409") throw new AlreadyReviewedError();
   if (error.code === "PT425") throw new PeriodNotEndedError();

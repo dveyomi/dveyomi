@@ -1,4 +1,5 @@
 import {
+  formatGBP,
   fundBalance,
   fundHistory,
   fundProgressPercent,
@@ -93,6 +94,17 @@ export class InsufficientFundsError extends Error {
   constructor(readonly balancePence: number) {
     super("You can't withdraw more than the fund holds.");
     this.name = "InsufficientFundsError";
+  }
+}
+
+/** A fund holds less than an overspend it was asked to cover. */
+export class FundShortError extends Error {
+  constructor(
+    readonly fundName: string,
+    readonly balancePence: number,
+  ) {
+    super(`${fundName} only has ${formatGBP(Math.max(0, balancePence))}.`);
+    this.name = "FundShortError";
   }
 }
 
@@ -256,7 +268,7 @@ export async function updateFund(supabase: Db, fundId: string, input: FundInput)
 }
 
 /** A fund's balance now, from calc, or null when the user has no such fund. */
-async function balanceOf(supabase: Db, fundId: string): Promise<number | null> {
+export async function balanceOf(supabase: Db, fundId: string): Promise<number | null> {
   const [fund, movements, txns] = await Promise.all([
     supabase.from("funds").select("opening_pence").eq("id", fundId).maybeSingle(),
     allRows((count) => supabase.from("fund_movements").select("id, date, kind, amount_pence", count).eq("fund_id", fundId).order("id")),

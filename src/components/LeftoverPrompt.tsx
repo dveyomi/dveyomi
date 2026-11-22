@@ -15,11 +15,24 @@ type LeftoverBreakdownProps = {
   monthLabel: string;
   period: Period;
   breakdown: { totalPence: number; sources: LeftoverSource[] };
+  /** How far the whole period went over; 0 when it didn't. */
+  overspendPence?: number;
 };
 
-/** What was left over when the period ended, and where it came from (calc order). */
-export function LeftoverBreakdown({ monthLabel, period, breakdown }: LeftoverBreakdownProps) {
+/** What was left over when the period ended and where it came from (calc order), or how far it went over. */
+export function LeftoverBreakdown({ monthLabel, period, breakdown, overspendPence = 0 }: LeftoverBreakdownProps) {
   const range = <p className="text-caption text-muted">{formatPeriodRange(period.start, period.end)}</p>;
+  if (overspendPence > 0) {
+    return (
+      <Card as="section" className="flex flex-col gap-1">
+        <h2 className="text-body font-semibold text-muted">{monthLabel} went over budget</h2>
+        <span className="text-danger-fg">
+          <Money pence={overspendPence} size="display" tone="neutral" />
+        </span>
+        {range}
+      </Card>
+    );
+  }
   if (breakdown.totalPence === 0) {
     return (
       <Card as="section" className="flex flex-col gap-2">
@@ -154,6 +167,85 @@ export function LeftoverPrompt({ monthLabel, currentLabel, totalPence, funds, re
 
         <Button type="submit" variant="primary" size="lg" fullWidth disabled={busy}>
           {busy ? "Saving…" : totalPence > 0 ? "Confirm" : "Done"}
+        </Button>
+      </form>
+    </Card>
+  );
+}
+
+type OverspendSource = "next_period" | "fund";
+
+type OverspendPromptProps = {
+  monthLabel: string;
+  /** The current budget's month, which takes the overspend by default, e.g. "November". */
+  currentLabel: string;
+  overspendPence: number;
+  funds: { id: string; name: string }[];
+  /** Records the review (the server works out the amount). Resolves with an error to show, or redirects. */
+  record: (choice: LeftoverChoice) => Promise<{ error?: string }>;
+};
+
+/**
+ * Where a whole overspend comes from (spec §5.9, David 2026-11-22): this
+ * month's spending money (the default) or a savings fund. Category budgets
+ * never carry; only the period's whole figure does.
+ */
+export function OverspendPrompt({ monthLabel, currentLabel, overspendPence, funds, record }: OverspendPromptProps) {
+  const [source, setSource] = useState<OverspendSource>("next_period");
+  const [fundId, setFundId] = useState(funds[0]?.id ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const question = "Where should it come from?";
+
+  const options: RadioCardOption<OverspendSource>[] = [
+    {
+      value: "next_period",
+      title: `Take it from ${currentLabel}'s spending money`,
+      description: `Your ${currentLabel} Left to spend goes down by ${formatGBP(overspendPence)}.`,
+    },
+    ...(funds.length > 0
+      ? [{ value: "fund" as const, title: "Cover it from a savings fund", description: "Take it out of a fund instead. Your budget doesn't change." }]
+      : []),
+  ];
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await record(source === "fund" ? { destination: "fund", fundId } : { destination: "next_period" });
+      if (result?.error) setError(result.error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card as="section" className="flex flex-col gap-4">
+      <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+        <h2 className="text-title font-semibold text-text">
+          {monthLabel} went {formatGBP(overspendPence)} over. {question}
+        </h2>
+        <p className="text-caption text-muted">The whole amount comes from one place.</p>
+        <RadioCards
+          label={question}
+          options={options}
+          value={source}
+          onChange={(v) => {
+            setSource(v);
+            setError(null);
+          }}
+        />
+        {source === "fund" ? (
+          <Select label="Fund" value={fundId} onChange={(e) => setFundId(e.target.value)} options={funds.map((f) => ({ value: f.id, label: f.name }))} />
+        ) : null}
+        {error ? (
+          <div role="alert">
+            <Notice tone="danger">{error}</Notice>
+          </div>
+        ) : null}
+        <Button type="submit" variant="primary" size="lg" fullWidth disabled={busy}>
+          {busy ? "Saving…" : "Confirm"}
         </Button>
       </form>
     </Card>

@@ -20,7 +20,8 @@ vi.mock("@/lib/data/review", async (importOriginal) => ({
   dismissUnassignedNudge,
 }));
 
-import { AlreadyReviewedError, RaiseRefusedError } from "@/lib/data/review";
+import { FundShortError } from "@/lib/data/funds";
+import { AlreadyReviewedError, OverspendChoiceError, RaiseRefusedError } from "@/lib/data/review";
 import { applyRaiseAction, dismissNudgeAction, recordLeftoverAction } from "./actions";
 
 const PERIOD = "11111111-1111-4111-8111-111111111111";
@@ -50,6 +51,15 @@ describe("recordLeftoverAction", () => {
   it("shows a known refusal's message", async () => {
     recordLeftover.mockRejectedValue(new AlreadyReviewedError());
     expect(await recordLeftoverAction(PERIOD, { destination: "next_period" })).toEqual({ error: "This budget has already been reviewed." });
+  });
+
+  it("shows an overspend's refusals: a short fund, or a choice an overspend can't take", async () => {
+    recordLeftover.mockRejectedValueOnce(new FundShortError("Emergency", 2000));
+    expect(await recordLeftoverAction(PERIOD, { destination: "fund", fundId: PERIOD })).toEqual({ error: "Emergency only has £20.00." });
+    recordLeftover.mockRejectedValueOnce(new OverspendChoiceError());
+    expect(await recordLeftoverAction(PERIOD, { destination: "unassigned" })).toEqual({
+      error: "Choose where the overspend comes from: next month's spending money or a savings fund.",
+    });
   });
 
   it("sends a signed-out visitor to /login", async () => {

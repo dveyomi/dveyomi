@@ -8,7 +8,7 @@ vi.mock("./budget", async (importOriginal) => ({ ...(await importOriginal<typeof
 vi.mock("./ensurePeriod", () => ({ ensureCurrentPeriod }));
 
 import { FundNameTakenError } from "./funds";
-import { AlreadyReviewedError, recordLeftover } from "./review";
+import { AlreadyReviewedError, fromFundLabel, recordLeftover } from "./review";
 import { saveBudget } from "./budgetEdit";
 import type { Db } from "./types";
 
@@ -60,5 +60,21 @@ describe("saveBudget", () => {
     ).resolves.toBeUndefined();
     expect(error).toHaveBeenCalled();
     error.mockRestore();
+  });
+});
+
+describe("fromFundLabel", () => {
+  it("adds fund after a plain name", () => {
+    expect(fromFundLabel("Emergency")).toBe("from Emergency fund");
+  });
+
+  it("doesn't say fund twice when the name already ends with it, in any case", () => {
+    expect(fromFundLabel("Rainy Day Fund")).toBe("from Rainy Day Fund");
+    expect(fromFundLabel("holiday fund")).toBe("from holiday fund");
+    expect(fromFundLabel("Refund")).toBe("from Refund");
+  });
+
+  it("says a fund when it has been deleted", () => {
+    expect(fromFundLabel(null)).toBe("from a fund");
   });
 });

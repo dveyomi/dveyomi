@@ -189,18 +189,6 @@ describe("recordLeftover", () => {
     });
   });
 
-  it("an overspend is never carried forward: a period spent past its money leaves the current carry at 0", async () => {
-    const u = await signIn();
-    const groceries = await createCategory(db(u), { name: "Groceries", kind: "need" });
-    const october = await insertPeriod(u, "2026-10-01", "2026-10-31", { [groceries]: 250000 });
-    const november = await insertPeriod(u, "2026-11-01", "2026-11-30", { [groceries]: 250000 });
-    await spend(u, groceries, "2026-10-03", 253000); // £30 over the whole pool
-    const before = await leftToSpend(u);
-    await recordLeftover(db(u), TODAY, october, null);
-    expect((await periodRow(u, november)).unassigned_carry_pence).toBe(0);
-    expect(await leftToSpend(u)).toBe(before);
-  });
-
   it("move to a fund: adds a contribution dated today and leaves the current pool alone", async () => {
     const { u, october } = await seed();
     const fund = await createFund(db(u), { name: "Holiday", targetPence: null, targetDate: null });
@@ -247,7 +235,7 @@ describe("recordLeftover", () => {
     const groceries = await createCategory(db(u), { name: "Groceries", kind: "need" });
     const october = await insertPeriod(u, "2026-10-01", "2026-10-31", { [groceries]: 250000 });
     const november = await insertPeriod(u, "2026-11-01", "2026-11-30", { [groceries]: 250000 });
-    await spend(u, groceries, "2026-10-03", 260000);
+    await spend(u, groceries, "2026-10-03", 250000); // exactly the pool: on budget
     const review = (await loadReview(db(u), TODAY))!;
     expect(review.breakdown).toEqual({ totalPence: 0, sources: [] });
 

@@ -17,7 +17,7 @@ type OverspendReviewProps = {
   apply: (categoryId: string, amountPence: number) => Promise<{ error?: string }>;
 };
 
-/** The ended period's overspent categories (never carried forward), and budgets worth raising. */
+/** The ended period's overspent categories (category budgets never carry; the period's whole result is settled in the review), and budgets worth raising. */
 export function OverspendReview({ monthLabel, raiseApplies, overspent, suggestions, current, apply }: OverspendReviewProps) {
   // The suggestions as first shown: once one is applied the refreshed page stops suggesting it,
   // but its confirmation stays for this visit.
@@ -43,7 +43,7 @@ export function OverspendReview({ monthLabel, raiseApplies, overspent, suggestio
                 </li>
               ))}
             </ul>
-            <p className="text-caption text-muted">Overspending isn&apos;t carried forward.</p>
+            <p className="text-caption text-muted">Category budgets start fresh each month.</p>
           </>
         )}
       </Card>

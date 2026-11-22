@@ -242,6 +242,7 @@ describe("BudgetOverview", () => {
           carried: [],
           nudgePence: null,
           adjustments: [
+            { kind: "overspend", label: "October overspend", amountPence: -3000 },
             { kind: "late_change", label: "Adjustment for October", amountPence: -4000 },
             { kind: "from_fund", label: "from Emergency fund", amountPence: 10000 },
           ],
@@ -249,6 +250,7 @@ describe("BudgetOverview", () => {
       />,
     );
     const card = screen.getByRole("region", { name: "This period" });
+    expect(within(card).getByText("October overspend −£30.00")).toBeInTheDocument();
     expect(within(card).getByText("Adjustment for October: −£40.00")).toBeInTheDocument();
     expect(within(card).getByText("+£100.00 from Emergency fund")).toBeInTheDocument();
   });

@@ -277,6 +277,7 @@ export type Database = {
           destination: string;
           fund_id: string | null;
           id: string;
+          kind: string;
           nudge_dismissed_at: string | null;
           period_id: string;
           user_id: string;
@@ -288,6 +289,7 @@ export type Database = {
           destination: string;
           fund_id?: string | null;
           id?: string;
+          kind?: string;
           nudge_dismissed_at?: string | null;
           period_id: string;
           user_id?: string;
@@ -298,6 +300,7 @@ export type Database = {
           destination?: string;
           fund_id?: string | null;
           id?: string;
+          kind?: string;
           nudge_dismissed_at?: string | null;
           period_id?: string;
           user_id?: string;

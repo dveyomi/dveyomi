@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NoBudgetError } from "@/lib/data/budgetEdit";
-import { FundNameTakenError, FundNotFoundError } from "@/lib/data/funds";
+import { FundNameTakenError, FundNotFoundError, FundShortError } from "@/lib/data/funds";
 import {
   AlreadyReviewedError,
   dismissUnassignedNudge,
   LeftoverChangedError,
+  OverspendChoiceError,
   PeriodNotEndedError,
   RaiseRefusedError,
   raiseBudget,
@@ -24,8 +25,8 @@ import { validateLeftoverChoice, validateRaise } from "@/lib/validation/review";
 const FAILED = { error: "We couldn't save that. Check your connection and try again." };
 
 /**
- * Records where an ended period's leftover goes (or, with none, that it was
- * reviewed), then opens the Budget tab. The amount is never taken from the
+ * Records where an ended period's leftover goes, or where its overspend
+ * comes from (or, with neither, that it was reviewed), then opens the Budget tab. The amount is never taken from the
  * browser: recordLeftover works it out from the stored figures.
  */
 export async function recordLeftoverAction(periodId: unknown, rawChoice: unknown): Promise<{ error: string }> {
@@ -42,7 +43,9 @@ export async function recordLeftoverAction(periodId: unknown, rawChoice: unknown
       e instanceof ReviewNotFoundError ||
       e instanceof LeftoverChangedError ||
       e instanceof FundNotFoundError ||
-      e instanceof FundNameTakenError
+      e instanceof FundNameTakenError ||
+      e instanceof FundShortError ||
+      e instanceof OverspendChoiceError
     ) {
       return { error: e.message };
     }

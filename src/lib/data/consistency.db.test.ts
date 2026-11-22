@@ -199,7 +199,8 @@ describe("one set of figures", () => {
     expect(review!.breakdown).toEqual(leftoverBreakdown(october, 0, 0));
     expect(review!.breakdown.totalPence).toBe(october.leftToSpendPence);
     expect(review!.breakdown.totalPence).toBe(INCOME - SAVINGS - 195000);
-    // October's Groceries overspend is shown, not carried into November.
+    // October's Groceries overspend is listed; category budgets never carry (October as a whole had money left).
+    expect(review!.overspendPence).toBe(0);
     expect(review!.overspent).toEqual([{ categoryId: ids.groceries, name: "Groceries", overPence: 5000 }]);
   });
 });

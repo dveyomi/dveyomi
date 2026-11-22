@@ -149,7 +149,9 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
                 <p key={`${a.kind}-${a.label}`} className="text-caption text-muted">
                   {a.kind === "late_change"
                     ? `${a.label}: ${formatSignedGBP(a.amountPence)}`
-                    : `${formatSignedGBP(a.amountPence)} ${a.label}`}
+                    : a.kind === "overspend"
+                      ? `${a.label} ${formatSignedGBP(a.amountPence)}`
+                      : `${formatSignedGBP(a.amountPence)} ${a.label}`}
                 </p>
               ))}
             </div>
