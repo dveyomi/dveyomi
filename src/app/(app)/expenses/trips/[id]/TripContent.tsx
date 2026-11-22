@@ -1,7 +1,7 @@
 import { getServerI18n } from "@/i18n/server";
 import { notFound, redirect } from "next/navigation";
 import { TripEditor } from "@/components/TripEditor";
-import { tripSubtitle } from "@/components/TripList";
+import { tripSubtitle } from "@/components/tripSubtitle";
 import { TripSummary } from "@/components/TripSummary";
 import { ButtonLink } from "@/components/ui";
 import { tripLength } from "@/lib/calc";

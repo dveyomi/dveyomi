@@ -1,17 +1,10 @@
 "use client";
 
 import { useI18n } from "@/i18n/client";
-import type { Messages } from "@/i18n/messages";
-import type { Locale } from "@/lib/locale";
 import { Badge, ListRow } from "@/components/ui";
-import { formatTripRange, tripLength, type IsoDate } from "@/lib/calc";
+import { tripLength, type IsoDate } from "@/lib/calc";
 import type { Trip } from "@/lib/data/trips";
-
-/** "Taipei · 1–15 Dec 2026", or just the dates without a place. */
-export function tripSubtitle(m: Messages, locale: Locale, trip: Trip): string {
-  const dates = formatTripRange(trip.startDate, trip.endDate, locale);
-  return trip.place ? m.trips.subtitle(trip.place, dates) : dates;
-}
+import { tripSubtitle } from "./tripSubtitle";
 
 /** Trips as rows that open the trip; the one covering today is marked "Now". */
 export function TripList({ trips, today, label }: { trips: Trip[]; today: IsoDate; label: string }) {
