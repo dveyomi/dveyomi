@@ -46,6 +46,10 @@ let octoberTxns: Txn[];
 const expected = (txns: Txn[]): BudgetSummary =>
   summarise({ incomePence: INCOME, savingsPence: SAVINGS, unassignedCarryPence: 0, allocations }, txns, NOVEMBER, TODAY)!;
 
+/** The summary with its categories in id order: the database returns allocations in no set order. */
+const byId = (s: BudgetSummary | null) =>
+  s && { ...s, categories: s.categories.toSorted((a, b) => a.categoryId.localeCompare(b.categoryId)) };
+
 beforeAll(async () => {
   u = await createSignedInUser("consistency");
   const profile = await u.client.from("profiles").update({ budget_start_day: 1 }).eq("user_id", u.id);
@@ -137,7 +141,7 @@ describe("one set of figures", () => {
     const { budget, groceries, expenses, analytics } = await figures();
     const want = expected(novemberTxns);
 
-    expect(budget.summary).toEqual(want);
+    expect(byId(budget.summary)).toEqual(byId(want));
     // The gauge: its percent and its amount.
     expect(leftToSpendPercent(budget.summary!)).toBe(leftToSpendPercent(want));
     expect(budget.summary!.leftToSpendPence).toBe(INCOME - SAVINGS - (150000 + 2500 + 1199));
@@ -167,7 +171,7 @@ describe("one set of figures", () => {
     const before = await figures();
     await createTrip(u.client, { name: "Lisbon", place: "Lisbon", startDate: "2026-11-10", endDate: "2026-11-14" });
     const after = await figures();
-    expect(after.budget.summary).toEqual(before.budget.summary);
+    expect(byId(after.budget.summary)).toEqual(byId(before.budget.summary));
     expect(after.groceries!.figure).toEqual(before.groceries!.figure);
     expect(after.analytics).toEqual(before.analytics);
   });
@@ -183,7 +187,7 @@ describe("one set of figures", () => {
     const withImport = [...novemberTxns, txn(imported.data.id, 1800, "2026-11-15", ids.fun)];
 
     const { budget, analytics } = await figures();
-    expect(budget.summary).toEqual(expected(withImport));
+    expect(byId(budget.summary)).toEqual(byId(expected(withImport)));
     expect(analytics.totalPence).toBe(totalSpent(withImport, NOVEMBER));
     novemberTxns = withImport;
   });
