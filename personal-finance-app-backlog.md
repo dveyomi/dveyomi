@@ -35,6 +35,11 @@ From the pre-release design critique and copy review (2026-11-22); none blocks r
 - Open Banking for other banks (GoCardless free tier is one option).
 
 ## Decided
+- Savings edits after moving (David, 2026-11-22): once this month's savings are moved into funds, "This month" can't change them ("This month's savings are already moved, so change them from next month."); "From next period" can.
+- Late changes to a reviewed month (David, 2026-11-22): the current month's unassigned money changes by the difference (it can go below zero), shown under the gauge as "Adjustment for October: −£40.00". Fund-paid expenses don't count.
+- Import duplicates (David, 2026-11-22): same amount within ±2 days of any recorded expense ("Looks like your Netflix", "…your recurring Netflix"), or a repeat row in the same file; duplicates start unticked.
+- Negative safe to spend (David, 2026-11-22): shown as £0.00 a day with Out of Budget; the info sheet explains it.
+- Fund withdrawals (David, 2026-11-22): "Add to this month's spending money" (default, shown as "+£100.00 from Emergency fund") or "Just take it out"; and "Move to another fund", which leaves the budget alone.
 - A category's Need/Want type is fixed once created (David, 2026-11-21). To move one, remove it from the next budget and add a new category of the other type. Status shows at least Spending Fast when any category is overspent or allocations exceed the spending money (David, 2026-11-21).
 - Themes: Light, Dark and Match device, chosen in Settings; light is the default (David, 2026-11-21). Replaces "dark theme only". The light theme uses a deeper lime for accent text and icons so it stays readable on white.
 - Sign out sits in Settings, added early (David, 2026-11-21).

@@ -1,39 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Personal Finance OS
 
-## Getting Started
+A personal budgeting web app for David and a few friends and family: an income-first monthly budget
+(Needs, Wants and savings), safe to spend per day, expenses with a calendar and analytics, savings funds,
+recurring payments, trips, CSV/Excel import and a period-end review. Mobile-first, with a designed
+desktop layout, light and dark themes, and Google sign-in.
 
-First, run the development server:
+- **Stack:** Next.js 16 (App Router, `src/proxy.ts`), React 19, Tailwind CSS v4 (tokens in
+  `src/design/tokens.css`, shared pieces in `src/components/ui`), Supabase (Postgres with row-level
+  security on every table, Auth, pg_cron, Vault).
+- **Where things are:** every figure is worked out in `src/lib/calc` (money is integer pence, dates are
+  `YYYY-MM-DD`); `src/lib/data` reads and writes through Supabase; the schema and database functions are
+  the migrations in `supabase/migrations` (0001 to 0011). The product design is
+  `docs/superpowers/specs/2026-11-20-personal-finance-os-design.md`; start with `docs/START-HERE.md`.
+
+## Local setup
+
+Needs Node 22+, npm and Docker.
+
+1. Start Docker if it isn't running (in a container or VM without a service manager: `sudo dockerd &`).
+2. Install and start the local Supabase stack (applies every migration):
+
+   ```bash
+   npm install
+   SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io npx supabase start
+   ```
+
+3. Copy `.env.example` to `.env.local` and fill it from `npx supabase status -o env`
+   (`API_URL` → `NEXT_PUBLIC_SUPABASE_URL`, `ANON_KEY` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+   `SERVICE_ROLE_KEY` → `SUPABASE_SERVICE_ROLE_KEY`), plus any long random `CRON_SECRET`. For Google
+   sign-in locally, also set `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `_SECRET` (read by
+   `supabase/config.toml`) and restart the stack.
+4. `npm run dev` and open http://localhost:3000.
+
+To start the database again from the migrations: `SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io npx supabase db reset`.
+
+## Tests
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm test           # unit and component tests (Vitest, jsdom)
+npm run test:db    # *.db.test.ts against the local stack (refuses any URL but http://127.0.0.1:<port> / http://localhost:<port>)
+npm run test:e2e   # Playwright end-to-end tests against a local build and the local stack
+npm run lint
+npm run build
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
 ## Recurring payments: the hourly job
 
@@ -68,14 +77,37 @@ privacy page says backups are kept by the database provider, so this must be on.
 
 ## Deploy checklist
 
-- **Environment variables** (server): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-  `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`.
-- **Service role stays on the server.** `SUPABASE_SERVICE_ROLE_KEY` is never `NEXT_PUBLIC_`; only
-  `src/lib/supabase/admin.ts` (marked `server-only`) reads it, for the hourly recurring job and for
-  account deletion (`POST /api/account/delete`).
-- **Vault secrets** `app_url` and `cron_secret` (see "Recurring payments: the hourly job" above).
-- **Google OAuth redirect URLs:** in Supabase Auth → URL Configuration, set the Site URL to the app's URL
-  and add `https://<your app>/auth/callback` to the redirect allow list (plus any preview URLs); the
-  Google client in Google Cloud keeps Supabase's own callback, `https://<project>.supabase.co/auth/v1/callback`.
-- **Backups** on (see above).
-- **Region:** create the project in an EU or UK region.
+Supabase (hosted project, in an EU or UK region):
+
+- [ ] `npx supabase link --project-ref <ref>`, then `npx supabase db push` to apply every migration,
+      `0001_schema.sql` through `0011_final.sql`, in order.
+- [ ] Database → Extensions: `pg_cron` and `pg_net` are enabled (0007 enables them where available).
+- [ ] The hourly job exists: `select * from cron.job;` lists `recurring-payments` (`0 * * * *`).
+- [ ] Vault secrets `app_url` (the production URL) and `cron_secret` (see "Recurring payments" above).
+- [ ] Auth → Providers: **Google** enabled with the client ID and secret from Google Cloud; the Google
+      client keeps Supabase's own callback, `https://<project>.supabase.co/auth/v1/callback`.
+- [ ] Auth → Providers: **Email** disabled, and new sign-ups only through Google (Auth → Sign In / Up).
+- [ ] Auth → URL Configuration: Site URL = the production URL; redirect URLs include
+      `https://<your app>/auth/callback` and the Vercel previews, e.g. `https://*-<team>.vercel.app/auth/callback`.
+- [ ] Backups: daily backups on, and Point-in-Time Recovery if the plan allows it (see "Backups").
+
+Vercel:
+
+- [ ] Environment variables, per environment (Production and Preview):
+  - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`: set **before the build**, because
+    `NEXT_PUBLIC_` values are inlined at build time (redeploy after changing them);
+  - `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET`: server-only, never `NEXT_PUBLIC_`. Only
+    `src/lib/supabase/admin.ts` (marked `server-only`) reads the service-role key, for the hourly
+    recurring job and account deletion; `CRON_SECRET` must equal the Vault `cron_secret`.
+- [ ] Every response carries `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY`
+      (`next.config.ts`); check with `curl -sI https://<your app>/login`.
+
+After each deploy:
+
+- [ ] Sign in with Google on the deployed URL (and on a preview URL): the round trip lands on the Budget
+      tab or onboarding, and signing out returns to the login page.
+- [ ] Run the end-to-end tests against the preview URL: `E2E_BASE_URL=https://<preview> npm run test:e2e`.
+      The tests create and sign in users through the local stack only (they refuse any other Supabase
+      URL), so this needs a preview built with the local stack's `NEXT_PUBLIC_SUPABASE_*` values; for a
+      preview on the hosted project, the manual Google round trip above is the check.
+- [ ] Check the hourly job's last run: `select * from cron.job_run_details order by start_time desc limit 5;`.
