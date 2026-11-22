@@ -64,7 +64,7 @@ export async function pauseAction(id: unknown, until: unknown): Promise<Recurrin
   await signedIn();
   if (!isId(id)) return await NOT_RECOGNISED();
   const today = await getToday();
-  if (!isIsoDate(until) || until <= today) return { error: "Choose a date after today." };
+  if (!isIsoDate(until) || until <= today) return { error: (await getServerI18n()).m.recurring.chooseAfterToday };
   const zone = await getTimeZone();
   return run("pause", (db) => pauseRule(db, id, until, zone, new Date()));
 }

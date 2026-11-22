@@ -19,7 +19,7 @@ export async function adoptDeviceTimezone(zone: string): Promise<void> {
 /** "Back home? End your trip?": the trip covering today now ends today (refused for a trip not on today). */
 export async function endCurrentTrip(id: string): Promise<{ error?: string }> {
   const userId = await getUserId();
-  if (!userId) return { error: "Sign in again to end this trip." };
+  if (!userId) return { error: (await getServerI18n()).m.settings.signInToEndTrip };
   if (!isId(id)) return { error: (await getServerI18n()).m.actions.tripNotRecognised };
   try {
     await endTrip(await createClient(), id, await getToday());
