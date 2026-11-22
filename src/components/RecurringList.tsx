@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
@@ -27,11 +28,9 @@ import {
   addDays,
   formatDayMonth,
   formatDayMonthYear,
-  formatGBP,
   formatRelativeDay,
   formatWeekdayDate,
   freedByPause,
-  parsePence,
   type IsoDate,
   type Period,
   type RecurringStatus,
@@ -72,6 +71,7 @@ function StatusBadgeFor({ status, today, compact = false }: { status: RecurringS
  * from a date, and Cancel (after confirming; past payments stay).
  */
 export function RecurringList({ rules, period, today }: RecurringListProps) {
+  const { fmt } = useI18n();
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("menu");
@@ -140,7 +140,7 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
     open && isIsoDate(pauseUntil) && pauseUntil > today
       ? freedByPause(open.rule, open.prices, pauseUntil, period, today)
       : null;
-  const amountPence = parsePence(amountText);
+  const amountPence = fmt.parse(amountText);
   const ended = open?.status.kind === "ends";
 
   return (
@@ -259,7 +259,7 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
                   required
                 />
                 {freed !== null ? (
-                  <p className="text-title font-semibold text-text">Frees {formatGBP(freed)} this period</p>
+                  <p className="text-title font-semibold text-text">Frees {fmt.money(freed)} this period</p>
                 ) : (
                   <p className="text-body text-muted">Choose a date after today.</p>
                 )}

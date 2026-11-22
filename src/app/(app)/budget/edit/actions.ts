@@ -1,5 +1,6 @@
 "use server";
 
+import { getServerI18n } from "@/i18n/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { BudgetChangedError, NameTakenError, NoBudgetError, SavingsMovedError, saveBudget, validateBudgetEdit } from "@/lib/data/budgetEdit";
@@ -16,7 +17,7 @@ import { getToday } from "@/lib/today";
 export async function saveBudgetAction(raw: unknown): Promise<{ error: string; savingsMoved?: true }> {
   if (!(await getUserId())) redirect("/login");
 
-  const checked = validateBudgetEdit(raw);
+  const checked = validateBudgetEdit(raw, await getServerI18n());
   if (!checked.ok) return { error: checked.error };
 
   try {

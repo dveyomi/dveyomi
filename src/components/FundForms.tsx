@@ -1,9 +1,11 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
+import { amountRequiredError } from "@/lib/validation/common";
 import { useState, type FormEvent } from "react";
 import { addFundMovementAction, moveBetweenFundsAction, saveFundAction, withdrawFromFundAction } from "@/app/(app)/budget/fundActions";
 import { AmountInput, BottomSheet, Button, Money, Notice, RadioCards, Select, TextField } from "@/components/ui";
-import { formatGBP, parseOptionalPence, parsePence, penceToInputText, type IsoDate } from "@/lib/calc";
+import { type IsoDate } from "@/lib/calc";
 import type { FundView } from "@/lib/data/funds";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
 import { expenseDateRange } from "@/lib/validation/expense";
@@ -53,6 +55,8 @@ const destinations = [
  * out of the fund.
  */
 export function FundMovementSheet({ fund, kind, today, onClose, onDone }: MovementSheetProps) {
+  const i18n = useI18n();
+  const { fmt } = i18n;
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
   const [note, setNote] = useState("");
@@ -66,9 +70,9 @@ export function FundMovementSheet({ fund, kind, today, onClose, onDone }: Moveme
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
-    const amountPence = parsePence(amount);
+    const amountPence = fmt.parse(amount);
     if (amountPence === null) {
-      setProblem({ message: "Enter an amount greater than £0.00, e.g. 25.00", field: "amount" });
+      setProblem({ message: amountRequiredError(i18n, "25.00"), field: "amount" });
       return;
     }
     setBusy(true);
@@ -84,7 +88,7 @@ export function FundMovementSheet({ fund, kind, today, onClose, onDone }: Moveme
         adding
           ? `Added to ${fund.name}`
           : destination === "spending"
-            ? `${formatGBP(amountPence)} from ${fund.name} added to this month's spending money`
+            ? `${fmt.money(amountPence)} from ${fund.name} added to this month's spending money`
             : `Withdrawn from ${fund.name}`,
       );
     } catch {
@@ -153,6 +157,8 @@ type MoveSheetProps = {
 
 /** Move money from one fund to another: a withdrawal here and a contribution there, same date. Fund-only: the budget is untouched. */
 export function FundMoveSheet({ fund, others, today, onClose, onDone }: MoveSheetProps) {
+  const i18n = useI18n();
+  const { fmt } = i18n;
   const [to, setTo] = useState(others[0]?.id ?? "");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
@@ -165,9 +171,9 @@ export function FundMoveSheet({ fund, others, today, onClose, onDone }: MoveShee
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
-    const amountPence = parsePence(amount);
+    const amountPence = fmt.parse(amount);
     if (amountPence === null) {
-      setProblem({ message: "Enter an amount greater than £0.00, e.g. 25.00", field: "amount" });
+      setProblem({ message: amountRequiredError(i18n, "25.00"), field: "amount" });
       return;
     }
     setBusy(true);
@@ -177,7 +183,7 @@ export function FundMoveSheet({ fund, others, today, onClose, onDone }: MoveShee
         setProblem({ message: result.error, field: result.field });
         return;
       }
-      onDone(`${formatGBP(amountPence)} moved from ${fund.name} to ${target?.name ?? "your other fund"}`);
+      onDone(`${fmt.money(amountPence)} moved from ${fund.name} to ${target?.name ?? "your other fund"}`);
     } catch {
       setProblem({ message: FAILED });
     } finally {
@@ -248,8 +254,10 @@ type EditSheetProps = {
 
 /** A fund's name, optional target and optional target date (new or existing). */
 export function FundEditSheet({ fund, onClose, onDone }: EditSheetProps) {
+  const i18n = useI18n();
+  const { fmt } = i18n;
   const [name, setName] = useState(fund?.name ?? "");
-  const [target, setTarget] = useState(fund?.targetPence ? penceToInputText(fund.targetPence) : "");
+  const [target, setTarget] = useState(fund?.targetPence ? fmt.inputText(fund.targetPence) : "");
   const [targetDate, setTargetDate] = useState(fund?.targetDate ?? "");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem<FundField>>(null);
@@ -258,9 +266,9 @@ export function FundEditSheet({ fund, onClose, onDone }: EditSheetProps) {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
-    const targetPence = parseOptionalPence(target);
+    const targetPence = fmt.parseOptional(target);
     if (targetPence === null) {
-      setProblem({ message: "Enter a target of £0.00 or more, or leave it empty.", field: "target" });
+      setProblem({ message: i18n.m.validation.targetOptional(fmt.money(0)), field: "target" });
       return;
     }
     setBusy(true);

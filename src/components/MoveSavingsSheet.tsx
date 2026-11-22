@@ -1,9 +1,10 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useId, useState } from "react";
 import { confirmSavingsAction } from "@/app/(app)/budget/fundActions";
 import { AmountInput, BottomSheet, Button, Money, Notice, TextField } from "@/components/ui";
-import { formatGBP, formatPeriodRange, parseOptionalPence, penceToInputText, splitDifference } from "@/lib/calc";
+import { formatPeriodRange, splitDifference } from "@/lib/calc";
 import type { FundView, WaitingPrompt } from "@/lib/data/funds";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
 import type { SplitInputLine } from "@/lib/validation/funds";
@@ -30,8 +31,9 @@ const PREFILL_NOTE = {
  * of it to a new fund. Confirm stays off until the split adds up exactly.
  */
 export function MoveSavingsSheet({ prompt, funds, onClose, onDone }: MoveSavingsSheetProps) {
+  const { fmt } = useI18n();
   const [amounts, setAmounts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(prompt.prefill.map((l) => [l.fundId, penceToInputText(l.amountPence)])),
+    Object.fromEntries(prompt.prefill.map((l) => [l.fundId, fmt.inputText(l.amountPence)])),
   );
   const [newFund, setNewFund] = useState<NewFund | null>(() =>
     funds.length === 0 ? { name: "", target: "", amount: "" } : null,
@@ -40,9 +42,9 @@ export function MoveSavingsSheet({ prompt, funds, onClose, onDone }: MoveSavings
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fundPence = funds.map((f) => ({ fundId: f.id, amountPence: parseOptionalPence(amounts[f.id] ?? "") }));
-  const newPence = newFund ? parseOptionalPence(newFund.amount) : 0;
-  const newTarget = newFund ? parseOptionalPence(newFund.target) : 0;
+  const fundPence = funds.map((f) => ({ fundId: f.id, amountPence: fmt.parseOptional(amounts[f.id] ?? "") }));
+  const newPence = newFund ? fmt.parseOptional(newFund.amount) : 0;
+  const newTarget = newFund ? fmt.parseOptional(newFund.target) : 0;
   const allValid = fundPence.every((l) => l.amountPence !== null) && newPence !== null && newTarget !== null;
   const diff = splitDifference(prompt.savingsPence, [...fundPence.map((l) => l.amountPence ?? 0), newPence ?? 0]);
   const newNameOk = !newFund || (newFund.name.trim().length > 0 && newFund.name.trim().length <= MAX_NAME_LENGTH);
@@ -98,7 +100,7 @@ export function MoveSavingsSheet({ prompt, funds, onClose, onDone }: MoveSavings
               <AmountInput
                 key={f.id}
                 label={f.name}
-                hint={`Balance ${formatGBP(f.balancePence)}`}
+                hint={`Balance ${fmt.money(f.balancePence)}`}
                 value={amounts[f.id] ?? ""}
                 onChange={(t) => setAmounts((a) => ({ ...a, [f.id]: t }))}
                 allowZero
@@ -149,10 +151,10 @@ export function MoveSavingsSheet({ prompt, funds, onClose, onDone }: MoveSavings
           className={`text-body font-semibold ${diff.state === "exact" ? "text-positive-fg" : diff.state === "over" ? "text-danger-fg" : "text-warning-fg"}`}
         >
           {diff.state === "exact"
-            ? `All ${formatGBP(prompt.savingsPence)} placed`
+            ? `All ${fmt.money(prompt.savingsPence)} placed`
             : diff.state === "over"
-              ? `${formatGBP(diff.pence)} over`
-              : `${formatGBP(diff.pence)} left to place`}
+              ? `${fmt.money(diff.pence)} over`
+              : `${fmt.money(diff.pence)} left to place`}
         </p>
 
         <Button variant="primary" size="lg" fullWidth disabled={!canConfirm} aria-describedby={statusId} onClick={() => void confirm()}>

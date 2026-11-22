@@ -3,6 +3,7 @@
 import { AddCategoryForm, AllocationRows, AllocationSummary, KIND_TABS } from "@/components/AllocationEditor";
 import { Card, SegmentedTabs } from "@/components/ui";
 import { allocationTotals } from "@/lib/calc";
+import { useI18n } from "@/i18n/client";
 import { livePence, type CategoryDraft } from "./draft";
 import { StepHeading } from "./StepHeading";
 
@@ -23,10 +24,11 @@ type SpendingProps = {
 
 /** Step 2: categories with an amount each, on Needs and Wants tabs, against what there is to spend. */
 export function Spending({ incomePence, savingsPence, savingsEntered, categories, tab, onTab, onAdd, onAmount, onRemove }: SpendingProps) {
+  const { currency } = useI18n();
   const totals = allocationTotals(
     incomePence,
     savingsPence,
-    categories.map((c) => ({ kind: c.kind, amountPence: livePence(c.amountText) })),
+    categories.map((c) => ({ kind: c.kind, amountPence: livePence(c.amountText, currency) })),
   );
 
   return (

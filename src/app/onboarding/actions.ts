@@ -1,5 +1,6 @@
 "use server";
 
+import { getServerI18n } from "@/i18n/server";
 import { redirect } from "next/navigation";
 import { AlreadyOnboardedError, completeOnboarding, validateOnboarding } from "@/lib/data/onboarding";
 import { createClient, getUserId } from "@/lib/supabase/server";
@@ -13,7 +14,7 @@ import { getToday } from "@/lib/today";
 export async function completeOnboardingAction(raw: unknown): Promise<{ error: string }> {
   if (!(await getUserId())) redirect("/login");
 
-  const checked = validateOnboarding(raw);
+  const checked = validateOnboarding(raw, await getServerI18n());
   if (!checked.ok) return { error: checked.error };
 
   try {

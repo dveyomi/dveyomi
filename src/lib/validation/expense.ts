@@ -1,6 +1,7 @@
 import type { Frequency, IsoDate } from "@/lib/calc";
 import { checkCategoryName, isId, type Kind } from "./budgetEdit";
-import { isPence, isRecord } from "./common";
+import { DEFAULT_I18N, type I18n } from "@/i18n/format";
+import { amountRequiredError, isAmount, isRecord } from "./common";
 
 /**
  * The add/edit expense form's input and its checks. Client-safe: the form runs
@@ -94,11 +95,11 @@ function optionalText(raw: unknown, max: number): { ok: true; value?: string } |
  * account label (≤50) and notes (≤500), and an optional repeat frequency. Returns the input cleaned, or the
  * first problem in words a person can act on, with its field.
  */
-export function validateExpense(raw: unknown, today: IsoDate): ExpenseValidation {
+export function validateExpense(raw: unknown, today: IsoDate, i18n: I18n = DEFAULT_I18N): ExpenseValidation {
   const fail = (error: string, field?: ExpenseField): ExpenseValidation => ({ ok: false, error, ...(field ? { field } : {}) });
   if (!isRecord(raw)) return fail("Something was missing from this expense. Check it and try again.");
 
-  if (!isPence(raw.amountPence, 1)) return fail(AMOUNT_ERROR, "amount");
+  if (!isAmount(raw.amountPence, 1, i18n.currency)) return fail(amountRequiredError(i18n), "amount");
   const name = typeof raw.name === "string" ? raw.name.trim() : "";
   if (!name) return fail("Give this expense a name, e.g. Tesco.", "name");
   if (name.length > MAX_EXPENSE_NAME_LENGTH) return fail(`Names can be up to ${MAX_EXPENSE_NAME_LENGTH} characters.`, "name");

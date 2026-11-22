@@ -1,5 +1,6 @@
 import { isId } from "./budgetEdit";
-import { checkName, isPence, isRecord } from "./common";
+import { DEFAULT_I18N, type I18n } from "@/i18n/format";
+import { amountLimits, checkName, isAmount, isRecord } from "./common";
 
 /**
  * Where an ended period's leftover goes (one whole amount, spec §5.9). The
@@ -34,8 +35,15 @@ export function validateLeftoverChoice(raw: unknown): LeftoverChoiceCheck {
 }
 
 /** A raised budget for one category: whole pence, £0.01 to £10m. */
-export function validateRaise(categoryId: unknown, amountPence: unknown): { ok: true } | { ok: false; error: string } {
+export function validateRaise(
+  categoryId: unknown,
+  amountPence: unknown,
+  i18n: I18n = DEFAULT_I18N,
+): { ok: true } | { ok: false; error: string } {
   if (!isId(categoryId)) return { ok: false, error: "That category wasn't found. Reload the page and try again." };
-  if (!isPence(amountPence, 1)) return { ok: false, error: "Enter an amount between £0.01 and £10,000,000.00." };
+  if (!isAmount(amountPence, 1, i18n.currency)) {
+    const { min, max } = amountLimits(i18n, 1);
+    return { ok: false, error: i18n.m.validation.amountRange(min, max) };
+  }
   return { ok: true };
 }

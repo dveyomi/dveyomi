@@ -1,3 +1,6 @@
+"use client";
+
+import { useI18n } from "@/i18n/client";
 import { AllocationCard } from "@/components/AllocationCard";
 import { BudgetTabs, type BudgetTab } from "@/components/BudgetTabs";
 import { categoryIcon } from "@/components/categoryIcon";
@@ -10,9 +13,7 @@ import {
   displaySafeToSpend,
   formatDaysLeft,
   formatPeriodRange,
-  formatGBP,
   formatShortDate,
-  formatSignedGBP,
   leftToSpendPercent,
   overBudgetPence,
   type BudgetSummary,
@@ -46,6 +47,7 @@ const groups = [
 
 /** The Budget tab (§5.4). Every figure is read from `summary`; nothing is worked out here. */
 export function BudgetOverview({ period, summary, categories, tab, saving, today, notice, review }: BudgetOverviewProps) {
+  const { fmt } = useI18n();
   if (!summary) {
     return (
       <Card>
@@ -99,8 +101,8 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
             label="Left to spend"
             valueText={
               over > 0
-                ? `Over budget by ${formatGBP(over)}`
-                : `${formatGBP(summary.leftToSpendPence)} left`
+                ? `Over budget by ${fmt.money(over)}`
+                : `${fmt.money(summary.leftToSpendPence)} left`
             }
           >
             {over > 0 ? (
@@ -148,10 +150,10 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
               {review.adjustments.map((a) => (
                 <p key={`${a.kind}-${a.label}`} className="text-caption text-muted">
                   {a.kind === "late_change"
-                    ? `${a.label}: ${formatSignedGBP(a.amountPence)}`
+                    ? `${a.label}: ${fmt.signedMoney(a.amountPence)}`
                     : a.kind === "overspend"
-                      ? `${a.label} ${formatSignedGBP(a.amountPence)}`
-                      : `${formatSignedGBP(a.amountPence)} ${a.label}`}
+                      ? `${a.label} ${fmt.signedMoney(a.amountPence)}`
+                      : `${fmt.signedMoney(a.amountPence)} ${a.label}`}
                 </p>
               ))}
             </div>

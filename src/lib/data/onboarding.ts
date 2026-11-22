@@ -1,10 +1,12 @@
+import { DEFAULT_I18N, type I18n } from "@/i18n/format";
 import { periodContaining, splitRemainder, type IsoDate } from "@/lib/calc";
 import {
   MAX_CATEGORIES,
   MAX_FUNDS,
   checkName,
+  amountLimits,
   firstDuplicate,
-  isPence,
+  isAmount,
   isRecord,
   type Check,
 } from "@/lib/validation/common";
@@ -37,9 +39,14 @@ export class AlreadyOnboardedError extends Error {
 export { MAX_CATEGORIES, MAX_FUNDS, MAX_NAME_LENGTH, MAX_PENCE, type Check } from "@/lib/validation/common";
 
 /** Step 1: monthly income and start day. */
-export function checkBasics(incomePence: unknown, startDay: unknown): Check<{ incomePence: number; startDay: number }> {
-  if (!isPence(incomePence, 1)) {
-    return { ok: false, field: "income", error: "Enter a monthly income between £0.01 and £10,000,000.00." };
+export function checkBasics(
+  incomePence: unknown,
+  startDay: unknown,
+  i18n: I18n = DEFAULT_I18N,
+): Check<{ incomePence: number; startDay: number }> {
+  if (!isAmount(incomePence, 1, i18n.currency)) {
+    const { min, max } = amountLimits(i18n, 1);
+    return { ok: false, field: "income", error: i18n.m.validation.incomeRange(min, max) };
   }
   if (typeof startDay !== "number" || !Number.isInteger(startDay) || startDay < 1 || startDay > 31) {
     return { ok: false, error: "Choose a start day between the 1st and the 31st." };
@@ -48,7 +55,7 @@ export function checkBasics(incomePence: unknown, startDay: unknown): Check<{ in
 }
 
 /** Step 2: at least one category, each with a unique name, a kind and an amount; names trimmed. */
-export function checkCategories(raw: unknown): Check<OnboardingCategory[]> {
+export function checkCategories(raw: unknown, i18n: I18n = DEFAULT_I18N): Check<OnboardingCategory[]> {
   const fail = (error: string): Check<OnboardingCategory[]> => ({ ok: false, error });
   if (!Array.isArray(raw) || raw.length === 0) return fail("Add at least one category to continue.");
   if (raw.length > MAX_CATEGORIES) return fail(`You can add up to ${MAX_CATEGORIES} categories.`);
@@ -59,7 +66,10 @@ export function checkCategories(raw: unknown): Check<OnboardingCategory[]> {
     if (!checked.ok) return checked;
     const name = checked.value;
     if (c.kind !== "need" && c.kind !== "want") return fail(`Mark ${name} as a need or a want.`);
-    if (!isPence(c.amountPence, 1)) return fail(`Enter an amount between £0.01 and £10,000,000.00 for ${name}.`);
+    if (!isAmount(c.amountPence, 1, i18n.currency)) {
+      const { min, max } = amountLimits(i18n, 1);
+      return fail(i18n.m.validation.amountRangeFor(name, min, max));
+    }
     categories.push({ name, kind: c.kind, amountPence: c.amountPence });
   }
   const dup = firstDuplicate(categories.map((c) => c.name));
@@ -76,11 +86,12 @@ export function checkSavings(
   incomePence: number,
   savingsPence: unknown,
   raw: unknown,
+  i18n: I18n = DEFAULT_I18N,
 ): Check<{ savingsPence: number; funds: OnboardingFund[] }> {
   type Out = Check<{ savingsPence: number; funds: OnboardingFund[] }>;
   const fail = (error: string): Out => ({ ok: false, error });
-  if (!isPence(savingsPence, 0)) {
-    return { ok: false, field: "savings", error: "Enter a savings amount, e.g. 250.00, or leave it empty to skip." };
+  if (!isAmount(savingsPence, 0, i18n.currency)) {
+    return { ok: false, field: "savings", error: i18n.m.validation.savingsOptional[i18n.currency] };
   }
   if (savingsPence > incomePence) {
     return { ok: false, field: "savings", error: "Your savings can't be more than your income." };
@@ -93,8 +104,8 @@ export function checkSavings(
     const checked = checkName(f.name, "fund");
     if (!checked.ok) return checked;
     const name = checked.value;
-    if (!isPence(f.amountPence, 0)) return fail(`Enter a monthly amount for ${name}, or leave it empty.`);
-    if (!isPence(f.alreadySavedPence, 0)) return fail(`Enter how much is already saved in ${name}.`);
+    if (!isAmount(f.amountPence, 0, i18n.currency)) return fail(`Enter a monthly amount for ${name}, or leave it empty.`);
+    if (!isAmount(f.alreadySavedPence, 0, i18n.currency)) return fail(`Enter how much is already saved in ${name}.`);
     funds.push({ name, amountPence: f.amountPence, alreadySavedPence: f.alreadySavedPence });
   }
   if (savingsPence > 0 && funds.length === 0) return fail("Add a fund for your savings to go into.");
@@ -111,13 +122,13 @@ export function checkSavings(
  * names trimmed, or the first problem in words a person can act on. The
  * wizard runs the same per-step checks as each step is completed.
  */
-export function validateOnboarding(raw: unknown): Validation {
+export function validateOnboarding(raw: unknown, i18n: I18n = DEFAULT_I18N): Validation {
   if (!isRecord(raw)) return { ok: false, error: "Something was missing from your budget. Go back and check each step." };
-  const basics = checkBasics(raw.incomePence, raw.startDay);
+  const basics = checkBasics(raw.incomePence, raw.startDay, i18n);
   if (!basics.ok) return basics;
-  const categories = checkCategories(raw.categories);
+  const categories = checkCategories(raw.categories, i18n);
   if (!categories.ok) return categories;
-  const savings = checkSavings(basics.value.incomePence, raw.savingsPence, raw.funds);
+  const savings = checkSavings(basics.value.incomePence, raw.savingsPence, raw.funds, i18n);
   if (!savings.ok) return savings;
   return { ok: true, input: { ...basics.value, ...savings.value, categories: categories.value } };
 }

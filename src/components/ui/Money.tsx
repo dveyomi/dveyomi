@@ -1,5 +1,7 @@
+"use client";
+
+import { useI18n } from "@/i18n/client";
 import type { CSSProperties } from "react";
-import { formatGBP } from "@/lib/calc";
 
 const sizes = {
   inherit: "",
@@ -24,8 +26,9 @@ const fitTo = (text: string): CSSProperties => ({
 });
 
 export function Money({ pence, tone = "auto", size = "inherit" }: MoneyProps) {
+  const { fmt } = useI18n();
   const danger = tone === "auto" && pence < 0;
-  const text = formatGBP(pence);
+  const text = fmt.money(pence);
   return (
     <span
       className={`tabular-nums whitespace-nowrap ${sizes[size]} ${danger ? "text-danger-fg" : ""}`}

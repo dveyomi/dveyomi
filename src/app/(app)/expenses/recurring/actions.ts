@@ -20,8 +20,9 @@ import type { Db } from "@/lib/data/types";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { getTimeZone, getToday } from "@/lib/today";
 import { isId } from "@/lib/validation/budgetEdit";
-import { isPence } from "@/lib/validation/common";
-import { AMOUNT_ERROR, isIsoDate } from "@/lib/validation/expense";
+import { getServerI18n } from "@/i18n/server";
+import { amountRequiredError, isAmount } from "@/lib/validation/common";
+import { isIsoDate } from "@/lib/validation/expense";
 
 /**
  * The recurring payments list's actions, the Expenses tab's detection cards
@@ -90,7 +91,8 @@ export async function cancelAction(id: unknown): Promise<RecurringActionResult> 
 export async function changeAmountAction(id: unknown, from: unknown, amountPence: unknown): Promise<RecurringActionResult> {
   await signedIn();
   if (!isId(id)) return NOT_RECOGNISED;
-  if (!isPence(amountPence, 1)) return { error: AMOUNT_ERROR, field: "amount" };
+  const i18n = await getServerI18n();
+  if (!isAmount(amountPence, 1, i18n.currency)) return { error: amountRequiredError(i18n), field: "amount" };
   if (!isIsoDate(from)) return { error: "Enter the date it changes from, e.g. 1/12/2026.", field: "from" };
   if (from < (await getToday())) return { error: CHANGE_FROM_PAST, field: "from" };
   return run("change the amount", (db) => changePrice(db, id, from, amountPence));

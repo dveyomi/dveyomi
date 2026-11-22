@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button, Card, Icon, IconButton, Money, ProgressBar } from "@/components/ui";
 import { allocationTotals, type IsoDate } from "@/lib/calc";
@@ -18,6 +19,7 @@ const STEPS = ["The basics", "Spending budget", "Savings", "You're live"] as con
  * confirm sends them to the server in one go.
  */
 export function OnboardingWizard({ today }: { today: IsoDate }) {
+  const i18n = useI18n();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Draft>({
     startDay: 1,
@@ -55,14 +57,14 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
     setStep(to);
   };
 
-  const incomePence = livePence(draft.incomeText);
-  const savingsPence = livePence(draft.savingsText);
+  const incomePence = livePence(draft.incomeText, i18n.currency);
+  const savingsPence = livePence(draft.savingsText, i18n.currency);
   const totals = allocationTotals(
     incomePence,
     savingsPence,
-    draft.categories.map((c) => ({ kind: c.kind, amountPence: livePence(c.amountText) })),
+    draft.categories.map((c) => ({ kind: c.kind, amountPence: livePence(c.amountText, i18n.currency) })),
   );
-  const input = toInput(draft);
+  const input = toInput(draft, i18n.currency);
 
   // Each step runs the same check the server runs on the whole input.
   function next() {
@@ -71,10 +73,10 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
     setSavingsError(null);
     const check =
       step === 0
-        ? checkBasics(input.incomePence, input.startDay)
+        ? checkBasics(input.incomePence, input.startDay, i18n)
         : step === 1
-          ? checkCategories(input.categories)
-          : checkSavings(input.incomePence, input.savingsPence, input.funds);
+          ? checkCategories(input.categories, i18n)
+          : checkSavings(input.incomePence, input.savingsPence, input.funds, i18n);
     if (!check.ok) {
       if (check.field === "income") return setIncomeError(check.error);
       if (check.field === "savings") return setSavingsError(check.error);
@@ -84,7 +86,7 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
   }
 
   function confirm() {
-    const checked = validateOnboarding(input);
+    const checked = validateOnboarding(input, i18n);
     if (!checked.ok) return setStepError(checked.error);
     startSaving(async () => {
       const result = await completeOnboardingAction(checked.input);

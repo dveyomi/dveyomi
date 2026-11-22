@@ -1,11 +1,12 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { removeExpenseAction } from "@/app/(app)/expenses/actions";
 import { confirmOccurrenceAction } from "@/app/(app)/expenses/recurring/actions";
 import { BottomSheet, ButtonLink, ConfirmDialog, IconButton, Money, Notice } from "@/components/ui";
-import { formatGBP, formatWeekdayDate, totalsByDay, type IsoDate } from "@/lib/calc";
+import { formatWeekdayDate, totalsByDay, type IsoDate } from "@/lib/calc";
 import type { ExpenseTxn } from "@/lib/data/expenses";
 import { ExpenseRow } from "./TransactionList";
 
@@ -21,6 +22,7 @@ type DaySheetProps = {
 
 /** A calendar day's expenses (§5.6): add one on that day, tap one to edit it, delete it, or mark an auto-added one as checked (§5.8). */
 export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProps) {
+  const { fmt } = useI18n();
   const router = useRouter();
   const [confirming, setConfirming] = useState<ExpenseTxn | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -153,7 +155,7 @@ export function DaySheet({ day, txns: allTxns, returnTo, onClose }: DaySheetProp
         title="Delete this expense?"
         body={
           confirming
-            ? `${confirming.name} (${formatGBP(confirming.amountPence)}) will be removed from your expenses. This can't be undone.`
+            ? `${confirming.name} (${fmt.money(confirming.amountPence)}) will be removed from your expenses. This can't be undone.`
             : ""
         }
         confirmLabel={deleting ? "Deleting…" : "Delete"}

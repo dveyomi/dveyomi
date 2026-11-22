@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
+import type { Format } from "@/i18n/format";
 import { useRef, useState, useTransition } from "react";
 import {
   AddCategoryForm,
@@ -25,9 +27,6 @@ import {
   allocationTotals,
   formatPeriodRange,
   formatShortDate,
-  parseOptionalPence,
-  parsePence,
-  penceToInputText,
   type Period,
 } from "@/lib/calc";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
@@ -65,13 +64,11 @@ const SCOPES = [
   { value: "next" as const, label: "From next period" },
 ];
 
-const livePence = (t: string) => parseOptionalPence(t) ?? 0;
-
-function formFrom(f: BudgetFigures): Form {
+function formFrom(f: BudgetFigures, fmt: Format): Form {
   return {
-    incomeText: penceToInputText(f.incomePence),
-    savingsText: penceToInputText(f.savingsPence),
-    rows: f.categories.map((c) => ({ key: c.id, id: c.id, name: c.name, kind: c.kind, amountText: penceToInputText(c.amountPence), removed: false })),
+    incomeText: fmt.inputText(f.incomePence),
+    savingsText: fmt.inputText(f.savingsPence),
+    rows: f.categories.map((c) => ({ key: c.id, id: c.id, name: c.name, kind: c.kind, amountText: fmt.inputText(c.amountPence), removed: false })),
   };
 }
 
@@ -85,11 +82,14 @@ const sameForm = (a: Form, b: Form) => JSON.stringify(a) === JSON.stringify(b);
  * as it was.
  */
 export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside, focusCategoryId }: BudgetEditorProps) {
+  const i18n = useI18n();
+  const { fmt } = i18n;
+  const livePence = (t: string) => fmt.parseOptional(t) ?? 0;
   const [scope, setScope] = useState<BudgetEditScope>("this");
   // What the form started from for this scope: switching scope with changes asks first.
-  const [base, setBase] = useState<Form>(() => formFrom(budget));
+  const [base, setBase] = useState<Form>(() => formFrom(budget, fmt));
   const [form, setForm] = useState<Form>(() => {
-    const start = formFrom(budget);
+    const start = formFrom(budget, fmt);
     const added = outside.find((c) => c.id === focusCategoryId);
     if (!added) return start;
     return { ...start, rows: [...start.rows, { key: added.id, id: added.id, name: added.name, kind: added.kind, amountText: "0.00", removed: false }] };
@@ -107,7 +107,7 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
   const { rows } = form;
   const kept = rows.filter((r) => !r.removed);
   const totals = allocationTotals(
-    parsePence(form.incomeText) ?? 0,
+    fmt.parse(form.incomeText) ?? 0,
     livePence(form.savingsText),
     kept.map((r) => ({ kind: r.kind, amountPence: livePence(r.amountText) })),
   );
@@ -126,7 +126,7 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
     setScope(next);
     setPendingScope(null);
     if (!nextBudget) return;
-    const start = formFrom(next === "next" ? nextBudget : budget);
+    const start = formFrom(next === "next" ? nextBudget : budget, fmt);
     setForm(start);
     setBase(start);
     setFocusKey(undefined);
@@ -166,8 +166,8 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
   function save() {
     setError(null);
     const raw = {
-      incomePence: parsePence(form.incomeText) ?? Number.NaN,
-      savingsPence: parseOptionalPence(form.savingsText) ?? Number.NaN,
+      incomePence: fmt.parse(form.incomeText) ?? Number.NaN,
+      savingsPence: fmt.parseOptional(form.savingsText) ?? Number.NaN,
       scope,
       categories: rows
         .filter((r) => r.id || !r.removed)
@@ -175,11 +175,11 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
           ...(r.id ? { id: r.id } : {}),
           name: r.name,
           kind: r.kind,
-          amountPence: r.removed ? livePence(r.amountText) : (parseOptionalPence(r.amountText) ?? Number.NaN),
+          amountPence: r.removed ? livePence(r.amountText) : (fmt.parseOptional(r.amountText) ?? Number.NaN),
           ...(r.removed ? { removed: true } : {}),
         })),
     };
-    const checked = validateBudgetEdit(raw);
+    const checked = validateBudgetEdit(raw, i18n);
     if (!checked.ok) return setError({ message: checked.error, field: checked.field });
     startSaving(async () => {
       const result = await saveBudgetAction(raw);

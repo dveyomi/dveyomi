@@ -1,5 +1,6 @@
 "use server";
 
+import { getServerI18n } from "@/i18n/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NoBudgetError } from "@/lib/data/budgetEdit";
@@ -37,6 +38,10 @@ export async function recordLeftoverAction(periodId: unknown, rawChoice: unknown
   try {
     await recordLeftover(await createClient(), await getToday(), periodId, checked.choice);
   } catch (e) {
+    if (e instanceof FundShortError) {
+      const { m, fmt } = await getServerI18n();
+      return { error: m.errors.fundShort(e.fundName, fmt.money(Math.max(0, e.balancePence))) };
+    }
     if (
       e instanceof AlreadyReviewedError ||
       e instanceof PeriodNotEndedError ||
@@ -44,7 +49,6 @@ export async function recordLeftoverAction(periodId: unknown, rawChoice: unknown
       e instanceof LeftoverChangedError ||
       e instanceof FundNotFoundError ||
       e instanceof FundNameTakenError ||
-      e instanceof FundShortError ||
       e instanceof OverspendChoiceError
     ) {
       return { error: e.message };
@@ -59,7 +63,7 @@ export async function recordLeftoverAction(periodId: unknown, rawChoice: unknown
 /** Raises a category's budget from the current period on (a review suggestion). */
 export async function applyRaiseAction(categoryId: unknown, amountPence: unknown): Promise<{ error?: string }> {
   if (!(await getUserId())) redirect("/login");
-  const checked = validateRaise(categoryId, amountPence);
+  const checked = validateRaise(categoryId, amountPence, await getServerI18n());
   if (!checked.ok) return { error: checked.error };
   try {
     await raiseBudget(await createClient(), await getToday(), categoryId as string, amountPence as number);

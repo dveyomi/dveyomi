@@ -1,11 +1,15 @@
+"use client";
+
+import { useI18n } from "@/i18n/client";
 import type { ReactNode } from "react";
 import { Card, Money } from "@/components/ui";
-import { allocationTotals, formatGBP, formatWeekdayDate, periodContaining, startDayLabel, type IsoDate } from "@/lib/calc";
+import { allocationTotals, formatWeekdayDate, periodContaining, startDayLabel, type IsoDate } from "@/lib/calc";
 import type { OnboardingInput } from "@/lib/data/onboarding";
 import { StepHeading } from "./StepHeading";
 
 /** Step 4: a short summary of the budget about to go live. */
 export function Live({ input, today }: { input: OnboardingInput; today: IsoDate }) {
+  const { fmt } = useI18n();
   const totals = allocationTotals(input.incomePence, input.savingsPence, input.categories);
   const nextOn = formatWeekdayDate(periodContaining(today, input.startDay).nextStart);
   const resets = input.startDay === 1 ? "on the first day of each month" : `on the ${startDayLabel(input.startDay)} of each month`;
@@ -22,7 +26,7 @@ export function Live({ input, today }: { input: OnboardingInput; today: IsoDate 
           <Row label="Needs" value={<Money pence={totals.needsPence} />} />
           <Row label="Wants" value={<Money pence={totals.wantsPence} />} />
           {totals.overAllocatedPence > 0 ? (
-            <Row label="Over allocated" value={<span className="text-danger-fg">{formatGBP(totals.overAllocatedPence)}</span>} />
+            <Row label="Over allocated" value={<span className="text-danger-fg">{fmt.money(totals.overAllocatedPence)}</span>} />
           ) : (
             <Row label="Left to allocate" value={<Money pence={totals.unallocatedPence} />} />
           )}
@@ -37,7 +41,7 @@ export function Live({ input, today }: { input: OnboardingInput; today: IsoDate 
               <Row
                 key={f.name}
                 label={f.name}
-                sub={f.alreadySavedPence > 0 ? `${formatGBP(f.alreadySavedPence)} already saved` : undefined}
+                sub={f.alreadySavedPence > 0 ? `${fmt.money(f.alreadySavedPence)} already saved` : undefined}
                 value={input.savingsPence > 0 ? <span><Money pence={f.amountPence} /> a month</span> : null}
               />
             ))}

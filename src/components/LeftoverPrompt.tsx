@@ -1,8 +1,9 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useState, type FormEvent } from "react";
 import { Button, Card, Money, Notice, RadioCards, Select, TextField, type RadioCardOption } from "@/components/ui";
-import { formatGBP, formatPeriodRange, type LeftoverSource, type Period } from "@/lib/calc";
+import { formatPeriodRange, type LeftoverSource, type Period } from "@/lib/calc";
 import { validateLeftoverChoice, type LeftoverChoice } from "@/lib/validation/review";
 
 const sourceLabels: Record<LeftoverSource["kind"], string> = {
@@ -80,6 +81,7 @@ type LeftoverPromptProps = {
  * unassigned (both stay spendable, §5.5). With nothing left over, only Done.
  */
 export function LeftoverPrompt({ monthLabel, currentLabel, totalPence, funds, record }: LeftoverPromptProps) {
+  const { fmt } = useI18n();
   const [destination, setDestination] = useState<Destination | null>(null);
   const [fundId, setFundId] = useState(funds[0]?.id ?? NEW_FUND);
   const [newFundName, setNewFundName] = useState("");
@@ -129,11 +131,11 @@ export function LeftoverPrompt({ monthLabel, currentLabel, totalPence, funds, re
         {totalPence > 0 ? (
           <>
             <h2 id="leftover-choice" className="text-title font-semibold text-text">
-              Where should {formatGBP(totalPence)} go?
+              Where should {fmt.money(totalPence)} go?
             </h2>
             <p className="text-caption text-muted">The whole amount goes to one place.</p>
             <RadioCards
-              label={`Where should ${formatGBP(totalPence)} go?`}
+              label={`Where should ${fmt.money(totalPence)} go?`}
               options={options}
               value={destination}
               onChange={(v) => {
@@ -191,6 +193,7 @@ type OverspendPromptProps = {
  * never carry; only the period's whole figure does.
  */
 export function OverspendPrompt({ monthLabel, currentLabel, overspendPence, funds, record }: OverspendPromptProps) {
+  const { fmt } = useI18n();
   const [source, setSource] = useState<OverspendSource>("next_period");
   const [fundId, setFundId] = useState(funds[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -201,7 +204,7 @@ export function OverspendPrompt({ monthLabel, currentLabel, overspendPence, fund
     {
       value: "next_period",
       title: `Take it from ${currentLabel}'s spending money`,
-      description: `Your ${currentLabel} Left to spend goes down by ${formatGBP(overspendPence)}.`,
+      description: `Your ${currentLabel} Left to spend goes down by ${fmt.money(overspendPence)}.`,
     },
     ...(funds.length > 0
       ? [{ value: "fund" as const, title: "Cover it from a savings fund", description: "Take it out of a fund instead. Your budget doesn't change." }]
@@ -224,7 +227,7 @@ export function OverspendPrompt({ monthLabel, currentLabel, overspendPence, fund
     <Card as="section" className="flex flex-col gap-4">
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         <h2 className="text-title font-semibold text-text">
-          {monthLabel} went {formatGBP(overspendPence)} over. {question}
+          {monthLabel} went {fmt.money(overspendPence)} over. {question}
         </h2>
         <p className="text-caption text-muted">The whole amount comes from one place.</p>
         <RadioCards

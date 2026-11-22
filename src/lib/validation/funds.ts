@@ -1,6 +1,8 @@
 import type { IsoDate } from "@/lib/calc";
 import { isId } from "./budgetEdit";
-import { checkName, firstDuplicate, isPence, isRecord, MAX_FUNDS } from "./common";
+import { DEFAULT_I18N, type I18n } from "@/i18n/format";
+import { CURRENCIES } from "@/lib/locale";
+import { amountRequiredError, checkName, firstDuplicate, isAmount, isRecord, MAX_FUNDS } from "./common";
 import { expenseDateRange, isIsoDate } from "./expense";
 
 /**
@@ -35,20 +37,21 @@ type Failure<F> = { ok: false; error: string; field?: F };
 const fail = <F extends string>(error: string, field?: F): Failure<F> => ({ ok: false, error, ...(field ? { field } : {}) });
 
 /** An optional target: empty or £0 means none; otherwise whole pence up to £10m. */
-function checkTarget(raw: unknown): { ok: true; value: number | null } | { ok: false } {
+function checkTarget(raw: unknown, i18n: I18n): { ok: true; value: number | null } | { ok: false } {
   if (raw === undefined || raw === null || raw === 0) return { ok: true, value: null };
-  return isPence(raw, 1) ? { ok: true, value: raw } : { ok: false };
+  return isAmount(raw, 1, i18n.currency) ? { ok: true, value: raw } : { ok: false };
 }
 
-const TARGET_ERROR = "Enter a target of £0.00 or more, up to £10m, or leave it empty.";
+const targetError = ({ m, fmt, currency }: I18n) =>
+  m.validation.target(fmt.money(0), m.validation.tenMillion(CURRENCIES[currency].symbol));
 
 /** A fund's name (trimmed, 1–50), optional target and optional target date. */
-export function validateFund(raw: unknown): { ok: true; input: FundDetails } | Failure<FundField> {
+export function validateFund(raw: unknown, i18n: I18n = DEFAULT_I18N): { ok: true; input: FundDetails } | Failure<FundField> {
   if (!isRecord(raw)) return fail("Something was missing from this fund. Check it and try again.");
   const name = checkName(raw.name, "fund");
   if (!name.ok) return fail(name.error === "Give every fund a name." ? "Give this fund a name." : name.error, "name");
-  const target = checkTarget(raw.targetPence);
-  if (!target.ok) return fail(TARGET_ERROR, "target");
+  const target = checkTarget(raw.targetPence, i18n);
+  if (!target.ok) return fail(targetError(i18n), "target");
   let targetDate: IsoDate | null = null;
   if (raw.targetDate !== undefined && raw.targetDate !== null && raw.targetDate !== "") {
     if (!isIsoDate(raw.targetDate) || raw.targetDate < TARGET_DATE_MIN || raw.targetDate > TARGET_DATE_MAX) {
@@ -63,11 +66,15 @@ export function validateFund(raw: unknown): { ok: true; input: FundDetails } | F
  * Money added to or taken from a fund: an amount from 1p to £10m, a date
  * from 10 years before `today` up to `today`, and an optional note (≤200).
  */
-export function validateMovement(raw: unknown, today: IsoDate): { ok: true; input: FundMovementInput } | Failure<MovementField> {
+export function validateMovement(
+  raw: unknown,
+  today: IsoDate,
+  i18n: I18n = DEFAULT_I18N,
+): { ok: true; input: FundMovementInput } | Failure<MovementField> {
   if (!isRecord(raw) || (raw.kind !== "contribution" && raw.kind !== "withdrawal")) {
     return fail("Something was missing. Check it and try again.");
   }
-  if (!isPence(raw.amountPence, 1)) return fail("Enter an amount greater than £0.00, e.g. 25.00", "amount");
+  if (!isAmount(raw.amountPence, 1, i18n.currency)) return fail(amountRequiredError(i18n, "25.00"), "amount");
   if (!isIsoDate(raw.date)) return fail("Enter a date, e.g. 21/11/2026.", "date");
   if (raw.date < expenseDateRange(today).min || raw.date > today) {
     return fail("Choose a date within the last 10 years, up to today.", "date");
@@ -86,11 +93,12 @@ export function validateMovement(raw: unknown, today: IsoDate): { ok: true; inpu
 export function validateWithdrawal(
   raw: unknown,
   today: IsoDate,
+  i18n: I18n = DEFAULT_I18N,
 ): { ok: true; input: FundMovementInput; destination: WithdrawDestination } | Failure<MovementField> {
   if (!isRecord(raw) || (raw.destination !== "spending" && raw.destination !== "out")) {
     return fail("Choose where the money goes.");
   }
-  const checked = validateMovement({ ...raw, kind: "withdrawal" }, today);
+  const checked = validateMovement({ ...raw, kind: "withdrawal" }, today, i18n);
   return checked.ok ? { ...checked, destination: raw.destination } : checked;
 }
 
@@ -98,9 +106,10 @@ export function validateWithdrawal(
 export function validateFundMove(
   raw: unknown,
   today: IsoDate,
+  i18n: I18n = DEFAULT_I18N,
 ): { ok: true; input: Omit<FundMovementInput, "kind"> } | Failure<MovementField> {
   if (!isRecord(raw)) return fail("Something was missing. Check it and try again.");
-  const checked = validateMovement({ ...raw, kind: "withdrawal" }, today);
+  const checked = validateMovement({ ...raw, kind: "withdrawal" }, today, i18n);
   if (!checked.ok) return checked;
   const { amountPence, date, note } = checked.input;
   return { ok: true, input: { amountPence, date, note } };
@@ -112,17 +121,17 @@ export function validateFundMove(
  * unique among themselves. The total is checked by the database against the
  * period's current savings.
  */
-export function validateConfirmSplit(raw: unknown): { ok: true; lines: SplitInputLine[] } | Failure<never> {
+export function validateConfirmSplit(raw: unknown, i18n: I18n = DEFAULT_I18N): { ok: true; lines: SplitInputLine[] } | Failure<never> {
   if (!Array.isArray(raw) || raw.length === 0) return fail("Choose where your savings go.");
   if (raw.length > MAX_FUNDS) return fail(`You can split your savings across up to ${MAX_FUNDS} funds.`);
   const lines: SplitInputLine[] = [];
   for (const line of raw) {
-    if (!isRecord(line) || !isPence(line.amountPence, 0)) return fail("Enter £0.00 or more for each fund.");
+    if (!isRecord(line) || !isAmount(line.amountPence, 0, i18n.currency)) return fail(i18n.m.validation.eachFund(i18n.fmt.money(0)));
     if (isRecord(line.newFund)) {
       const name = checkName(line.newFund.name, "fund");
       if (!name.ok) return fail(name.error === "Give every fund a name." ? "Give the new fund a name." : name.error);
-      const target = checkTarget(line.newFund.targetPence);
-      if (!target.ok) return fail(TARGET_ERROR);
+      const target = checkTarget(line.newFund.targetPence, i18n);
+      if (!target.ok) return fail(targetError(i18n));
       lines.push({ newFund: { name: name.value, targetPence: target.value }, amountPence: line.amountPence });
     } else if (isId(line.fundId)) {
       lines.push({ fundId: line.fundId, amountPence: line.amountPence });

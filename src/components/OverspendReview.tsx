@@ -1,8 +1,9 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useState } from "react";
 import { AmountInput, Button, Card, Money, Notice } from "@/components/ui";
-import { allocationTotals, formatGBP, parsePence, penceToInputText } from "@/lib/calc";
+import { allocationTotals } from "@/lib/calc";
 import type { CurrentFigures, Overspend, RaiseSuggestion } from "@/lib/data/review";
 
 type OverspendReviewProps = {
@@ -78,11 +79,12 @@ function RaiseRow({
   applies: OverspendReviewProps["raiseApplies"];
   apply: OverspendReviewProps["apply"];
 }) {
-  const [text, setText] = useState(() => penceToInputText(suggestion.suggestedPence));
+  const { fmt } = useI18n();
+  const [text, setText] = useState(() => fmt.inputText(suggestion.suggestedPence));
   const [applied, setApplied] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const pence = parsePence(text);
+  const pence = fmt.parse(text);
 
   const allocationsWith = (amountPence: number) => {
     const others = current.allocations.filter((a) => a.categoryId !== suggestion.categoryId);
@@ -109,7 +111,7 @@ function RaiseRow({
       <div role="status">
         <Notice tone="neutral">
           <p>
-            {suggestion.name} is now {formatGBP(applied)} from this budget on.
+            {suggestion.name} is now {fmt.money(applied)} from this budget on.
           </p>
         </Notice>
       </div>
@@ -125,7 +127,7 @@ function RaiseRow({
           setText(t);
           setError(null);
         }}
-        hint={`Now ${formatGBP(suggestion.currentPence)}. Suggested from your average spending.`}
+        hint={`Now ${fmt.money(suggestion.currentPence)}. Suggested from your average spending.`}
       />
       {after ? (
         after.overAllocatedPence > 0 ? (
@@ -145,7 +147,7 @@ function RaiseRow({
         </div>
       ) : null}
       <Button variant="secondary" onClick={onApply} disabled={busy || pence === null}>
-        {busy ? "Saving…" : `Raise ${suggestion.name} to ${pence === null ? "…" : formatGBP(pence)}`}
+        {busy ? "Saving…" : `Raise ${suggestion.name} to ${pence === null ? "…" : fmt.money(pence)}`}
       </Button>
       <p className="text-caption text-muted">
         {applies.nextLabel

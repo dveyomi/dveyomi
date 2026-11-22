@@ -1,7 +1,8 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { AmountInput, Button, Card, IconButton, Money, TextField, Toggle } from "@/components/ui";
-import { formatGBP, splitRemainder } from "@/lib/calc";
+import { splitRemainder } from "@/lib/calc";
 import { MAX_FUNDS, MAX_NAME_LENGTH } from "@/lib/validation/common";
 import { livePence, type FundDraft } from "./draft";
 import { StepHeading } from "./StepHeading";
@@ -31,11 +32,12 @@ export function Savings({
   onFund,
   onRemoveFund,
 }: SavingsProps) {
-  const savingsPence = livePence(savingsText);
+  const { fmt, currency } = useI18n();
+  const savingsPence = livePence(savingsText, currency);
   const saving = savingsPence > 0;
   const remainder = splitRemainder(
     savingsPence,
-    funds.map((f) => livePence(f.amountText)),
+    funds.map((f) => livePence(f.amountText, currency)),
   );
 
   return (
@@ -57,7 +59,7 @@ export function Savings({
         <p aria-live="polite" className="text-caption text-muted">
           That leaves <Money pence={poolPence} /> a month to spend.
           {overAllocatedPence > 0 ? (
-            <span className="text-danger-fg"> Your categories are {formatGBP(overAllocatedPence)} over that.</span>
+            <span className="text-danger-fg"> Your categories are {fmt.money(overAllocatedPence)} over that.</span>
           ) : null}
         </p>
       </Card>
@@ -119,9 +121,9 @@ export function Savings({
         {saving && funds.length > 0 ? (
           <p aria-live="polite" className="text-body font-semibold">
             {remainder > 0 ? (
-              <span className="text-warning-fg">{formatGBP(remainder)} still to split</span>
+              <span className="text-warning-fg">{fmt.money(remainder)} still to split</span>
             ) : remainder < 0 ? (
-              <span className="text-danger-fg">{formatGBP(-remainder)} more than your savings</span>
+              <span className="text-danger-fg">{fmt.money(-remainder)} more than your savings</span>
             ) : (
               <span className="text-positive-fg">Your funds add up to your savings</span>
             )}

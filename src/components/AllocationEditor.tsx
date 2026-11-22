@@ -1,9 +1,10 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
+import { amountRequiredError } from "@/lib/validation/common";
 import { useState, type FormEvent } from "react";
 import { AmountInput, Button, Card, EmptyState, IconButton, Money, TextField } from "@/components/ui";
-import { AMOUNT_ERROR } from "@/components/ui/AmountInput";
-import { formatGBP, parsePence, type AllocationTotals } from "@/lib/calc";
+import { type AllocationTotals } from "@/lib/calc";
 import { MAX_CATEGORIES, MAX_NAME_LENGTH } from "@/lib/validation/common";
 
 /**
@@ -34,15 +35,16 @@ type SummaryProps = {
 
 /** To spend each month, allocated, and how much is left to allocate or "£X over" in red. */
 export function AllocationSummary({ totals, caption, hasCategories }: SummaryProps) {
+  const { fmt } = useI18n();
   return (
     <Card className="grid grid-cols-2 gap-4" as="div">
       <Figure label="To spend each month" pence={totals.poolPence} caption={caption} />
       <Figure label="Allocated" pence={totals.allocatedPence} />
       <p aria-live="polite" className="col-span-2 text-body font-semibold">
         {totals.overAllocatedPence > 0 ? (
-          <span className="text-danger-fg">{formatGBP(totals.overAllocatedPence)} over</span>
+          <span className="text-danger-fg">{fmt.money(totals.overAllocatedPence)} over</span>
         ) : totals.unallocatedPence > 0 ? (
-          <span className="text-muted">{formatGBP(totals.unallocatedPence)} left to allocate</span>
+          <span className="text-muted">{fmt.money(totals.unallocatedPence)} left to allocate</span>
         ) : hasCategories ? (
           <span className="text-positive-fg">Every pound has a job</span>
         ) : null}
@@ -127,6 +129,8 @@ export function AddCategoryForm({
   taken: string[];
   onAdd: (name: string, amountText: string) => void;
 }) {
+  const i18n = useI18n();
+  const { fmt } = i18n;
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
@@ -142,7 +146,7 @@ export function AddCategoryForm({
     if (trimmed.length > MAX_NAME_LENGTH) return setNameError(`Use up to ${MAX_NAME_LENGTH} characters.`);
     if (taken.length >= MAX_CATEGORIES) return setNameError(`You can add up to ${MAX_CATEGORIES} categories.`);
     setNameError(null);
-    if (parsePence(amount) === null) return setAmountError(AMOUNT_ERROR);
+    if (fmt.parse(amount) === null) return setAmountError(amountRequiredError(i18n));
     onAdd(trimmed, amount);
     setName("");
     setAmount("");

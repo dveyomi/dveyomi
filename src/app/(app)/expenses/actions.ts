@@ -1,5 +1,6 @@
 "use server";
 
+import { getServerI18n } from "@/i18n/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NameTakenError } from "@/lib/data/budgetEdit";
@@ -53,7 +54,7 @@ export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promis
   if (target.id !== undefined && !isId(target.id)) return { error: "This expense wasn't recognised." };
   const id = target.id as string | undefined;
 
-  const checked = validateExpense(raw, await getToday());
+  const checked = validateExpense(raw, await getToday(), await getServerI18n());
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
 
   const { repeat, ...edit } = checked.input;

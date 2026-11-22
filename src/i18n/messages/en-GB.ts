@@ -24,6 +24,38 @@ export const enGB = {
     withYear: (date: string, year: string) => `${date} ${year}`,
     daysLeft: (n: number) => `${n} ${n === 1 ? "day" : "days"} left`,
   },
+  errors: {
+    withdrawTooMuch: (balance: string) => `You can't withdraw more than the fund holds (${balance}).`,
+    moveTooMuch: (balance: string) => `You can't move more than this fund holds (${balance}).`,
+    fundShort: (name: string, balance: string) => `${name} only has ${balance}.`,
+  },
+  validation: {
+    /** An amount field that needs more than zero; `example` is "12.50" (GBP) or "1250" (TWD). */
+    amountRequired: {
+      GBP: (example: string) => `Enter an amount greater than £0.00, e.g. ${example}`,
+      TWD: (example: string) => `Enter a whole number of dollars, e.g. ${example}`,
+    },
+    amountOptional: {
+      GBP: "Enter £0.00 or more, e.g. 12.50",
+      TWD: "Enter 0 or a whole number of dollars, e.g. 1250",
+    },
+    incomeRange: (min: string, max: string) => `Enter a monthly income between ${min} and ${max}.`,
+    amountRange: (min: string, max: string) => `Enter an amount between ${min} and ${max}.`,
+    amountRangeFor: (name: string, min: string, max: string) => `Enter an amount between ${min} and ${max} for ${name}.`,
+    /** The largest amount, briefly: "£10m". */
+    tenMillion: (symbol: string) => `${symbol}10m`,
+    target: (zero: string, max: string) => `Enter a target of ${zero} or more, up to ${max}, or leave it empty.`,
+    targetOptional: (zero: string) => `Enter a target of ${zero} or more, or leave it empty.`,
+    eachFund: (zero: string) => `Enter ${zero} or more for each fund.`,
+    savingsOptional: {
+      GBP: "Enter a savings amount, e.g. 250.00, or leave it empty to skip.",
+      TWD: "Enter a savings amount in whole dollars, e.g. 5000, or leave it empty to skip.",
+    },
+    savingsAmount: {
+      GBP: "Enter a savings amount, e.g. 250.00, or 0.",
+      TWD: "Enter a savings amount in whole dollars, e.g. 5000, or 0.",
+    },
+  },
   settings: {
     regionTitle: "Region",
     regionDescription: "Today's date and your budget days follow your home time zone.",

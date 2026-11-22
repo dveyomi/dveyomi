@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import {
@@ -12,7 +13,7 @@ import {
   Select,
   TextField,
 } from "@/components/ui";
-import { formatRelativeDay, parsePence, tripOn, type Frequency, type IsoDate } from "@/lib/calc";
+import { formatRelativeDay, tripOn, type Frequency, type IsoDate } from "@/lib/calc";
 import type { Kind } from "@/lib/validation/budgetEdit";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
 import {
@@ -90,8 +91,10 @@ export function ExpenseForm({
   unchecked = false,
   markChecked,
 }: ExpenseFormProps) {
+  const { fmt } = useI18n();
   const router = useRouter();
   const editing = remove !== undefined;
+  const i18n = useI18n();
   const [values, setValues] = useState(initial);
   const [newCategory, setNewCategory] = useState<{ name: string; kind: Kind } | null>(null);
   const [error, setError] = useState<{ message: string; field?: ExpenseField } | null>(null);
@@ -132,7 +135,7 @@ export function ExpenseForm({
     if (busy) return;
     const raw = {
       name: values.name,
-      amountPence: parsePence(values.amountText) ?? Number.NaN,
+      amountPence: fmt.parse(values.amountText) ?? Number.NaN,
       date: values.date,
       category: newCategory ?? (values.categoryId ? { id: values.categoryId } : null),
       fundId: values.fundId,
@@ -141,10 +144,10 @@ export function ExpenseForm({
       ...(repeat && !editing ? { repeat } : {}),
       ...(trips.length > 0 ? { trip: values.trip ?? "auto" } : {}),
     };
-    const checked = validateExpense(raw, today);
+    const checked = validateExpense(raw, today, i18n);
     if (!checked.ok) return setError({ message: checked.error, field: checked.field });
     setError(null);
-    if (recurring && checked.input.amountPence !== parsePence(initial.amountText)) return setAskingScope(raw);
+    if (recurring && checked.input.amountPence !== fmt.parse(initial.amountText)) return setAskingScope(raw);
     send(raw);
   }
 

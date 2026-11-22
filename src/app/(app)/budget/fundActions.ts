@@ -1,8 +1,8 @@
 "use server";
 
+import { getServerI18n } from "@/i18n/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { formatGBP } from "@/lib/calc";
 import {
   FundNameTakenError,
   FundNotFoundError,
@@ -42,7 +42,7 @@ export type FundActionResult<F extends string = never> = { error?: string; field
 export async function confirmSavingsAction(periodId: unknown, rawSplit: unknown): Promise<FundActionResult> {
   if (!(await getUserId())) redirect("/login");
   if (!isId(periodId)) return { error: "These savings weren't recognised. Reload the page and try again." };
-  const checked = validateConfirmSplit(rawSplit);
+  const checked = validateConfirmSplit(rawSplit, await getServerI18n());
   if (!checked.ok) return { error: checked.error };
   try {
     await confirmSavingsSplit(await createClient(), periodId, checked.lines, await getToday());
@@ -66,7 +66,7 @@ export async function confirmSavingsAction(periodId: unknown, rawSplit: unknown)
 export async function saveFundAction(fundId: unknown, raw: unknown): Promise<FundActionResult<FundField>> {
   if (!(await getUserId())) redirect("/login");
   if (fundId !== null && !isId(fundId)) return UNKNOWN_FUND;
-  const checked = validateFund(raw);
+  const checked = validateFund(raw, await getServerI18n());
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
   try {
     const supabase = await createClient();
@@ -86,13 +86,14 @@ export async function saveFundAction(fundId: unknown, raw: unknown): Promise<Fun
 export async function addFundMovementAction(fundId: unknown, raw: unknown): Promise<FundActionResult<MovementField>> {
   if (!(await getUserId())) redirect("/login");
   if (!isId(fundId)) return UNKNOWN_FUND;
-  const checked = validateMovement(raw, await getToday());
+  const checked = validateMovement(raw, await getToday(), await getServerI18n());
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
   try {
     await addFundMovement(await createClient(), fundId, checked.input);
   } catch (e) {
     if (e instanceof InsufficientFundsError) {
-      return { error: `You can't withdraw more than the fund holds (${formatGBP(e.balancePence)}).`, field: "amount" };
+      const { m, fmt } = await getServerI18n();
+      return { error: m.errors.withdrawTooMuch(fmt.money(e.balancePence)), field: "amount" };
     }
     if (e instanceof FundNotFoundError) return { error: e.message };
     console.error("addFundMovement failed", e);
@@ -111,13 +112,14 @@ export async function withdrawFromFundAction(fundId: unknown, raw: unknown): Pro
   if (!(await getUserId())) redirect("/login");
   if (!isId(fundId)) return UNKNOWN_FUND;
   const today = await getToday();
-  const checked = validateWithdrawal(raw, today);
+  const checked = validateWithdrawal(raw, today, await getServerI18n());
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
   try {
     await withdrawFromFund(await createClient(), today, fundId, checked.input, checked.destination);
   } catch (e) {
     if (e instanceof InsufficientFundsError) {
-      return { error: `You can't withdraw more than the fund holds (${formatGBP(e.balancePence)}).`, field: "amount" };
+      const { m, fmt } = await getServerI18n();
+      return { error: m.errors.withdrawTooMuch(fmt.money(e.balancePence)), field: "amount" };
     }
     if (e instanceof FundNotFoundError) return { error: e.message };
     console.error("withdrawFromFund failed", e);
@@ -131,13 +133,14 @@ export async function withdrawFromFundAction(fundId: unknown, raw: unknown): Pro
 export async function moveBetweenFundsAction(fromId: unknown, toId: unknown, raw: unknown): Promise<FundActionResult<FundMoveField>> {
   if (!(await getUserId())) redirect("/login");
   if (!isId(fromId) || !isId(toId)) return UNKNOWN_FUND;
-  const checked = validateFundMove(raw, await getToday());
+  const checked = validateFundMove(raw, await getToday(), await getServerI18n());
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
   try {
     await moveBetweenFunds(await createClient(), fromId, toId, checked.input);
   } catch (e) {
     if (e instanceof InsufficientFundsError) {
-      return { error: `You can't move more than this fund holds (${formatGBP(e.balancePence)}).`, field: "amount" };
+      const { m, fmt } = await getServerI18n();
+      return { error: m.errors.moveTooMuch(fmt.money(e.balancePence)), field: "amount" };
     }
     if (e instanceof SameFundError) return { error: e.message, field: "to" };
     if (e instanceof FundNotFoundError) return { error: e.message };

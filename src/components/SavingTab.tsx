@@ -1,12 +1,14 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
+import type { Format } from "@/i18n/format";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { FundEditSheet, FundMoveSheet, FundMovementSheet } from "@/components/FundForms";
 import { FundHistory } from "@/components/FundHistory";
 import { MoveSavingsSheet } from "@/components/MoveSavingsSheet";
 import { Button, Card, EmptyState, Icon, IconButton, Money, ProgressBar } from "@/components/ui";
-import { formatDayMonthYear, formatGBP, formatPeriodRange, type IsoDate } from "@/lib/calc";
+import { formatDayMonthYear, formatPeriodRange, type IsoDate } from "@/lib/calc";
 import type { FundView, SavingView, WaitingPrompt } from "@/lib/data/funds";
 
 type SavingTabProps = { view: SavingView; today: IsoDate };
@@ -163,8 +165,8 @@ function WaitingCard({ prompt, onMove }: { prompt: WaitingPrompt; onMove: () => 
 }
 
 /** "23% of £1,000.00 · by 31 Jul 2027", "No target · by 31 Jul 2027" or "No target". */
-function targetLine(f: FundView): string {
-  const target = f.targetPence !== null && f.progressPercent !== null ? `${f.progressPercent}% of ${formatGBP(f.targetPence)}` : "No target";
+function targetLine(fmt: Format, f: FundView): string {
+  const target = f.targetPence !== null && f.progressPercent !== null ? `${f.progressPercent}% of ${fmt.money(f.targetPence)}` : "No target";
   return f.targetDate ? `${target} · by ${formatDayMonthYear(f.targetDate)}` : target;
 }
 
@@ -179,6 +181,7 @@ type FundCardProps = {
 };
 
 function FundCard({ fund, onHistory, onAdd, onWithdraw, onMove, onEdit }: FundCardProps) {
+  const { fmt } = useI18n();
   const headingId = useId();
   return (
     <article aria-labelledby={headingId} className="h-full">
@@ -205,7 +208,7 @@ function FundCard({ fund, onHistory, onAdd, onWithdraw, onMove, onEdit }: FundCa
         {fund.progressPercent !== null ? (
           <ProgressBar percent={fund.progressPercent} state="normal" label={`${fund.name} progress`} />
         ) : null}
-        <span className="text-caption text-muted">{targetLine(fund)}</span>
+        <span className="text-caption text-muted">{targetLine(fmt, fund)}</span>
       </div>
 
       <div className="mt-auto grid grid-cols-[1fr_1fr_auto] items-center gap-2">
