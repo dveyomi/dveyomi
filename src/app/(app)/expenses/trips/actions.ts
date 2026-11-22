@@ -46,7 +46,7 @@ export async function createTripAction(raw: unknown): Promise<TripActionResult> 
   } catch (e) {
     if (e instanceof TripOverlapError) return { error: localizeError(e, await getServerI18n()), field: "startDate" };
     console.error("trips: create failed", e);
-    return { error: "We couldn't create this trip. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.actions.failed((await getServerI18n()).m.actions.what.createTrip) };
   }
   revalidatePath("/", "layout");
   redirect(`/expenses/trips/${id}`);
@@ -55,7 +55,7 @@ export async function createTripAction(raw: unknown): Promise<TripActionResult> 
 /** Saves the edit sheet. The page refreshes in place. */
 export async function updateTripAction(id: unknown, raw: unknown): Promise<TripActionResult> {
   await signedIn();
-  if (!isId(id)) return { error: "This trip wasn't recognised." };
+  if (!isId(id)) return { error: (await getServerI18n()).m.actions.tripNotRecognised };
   const checked = validateTrip(raw);
   if (!checked.ok) return { error: checked.error, ...(checked.field ? { field: checked.field } : {}) };
   try {
@@ -65,7 +65,7 @@ export async function updateTripAction(id: unknown, raw: unknown): Promise<TripA
     const message = await known(e);
     if (message) return { error: message };
     console.error("trips: update failed", e);
-    return { error: "We couldn't save this trip. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.actions.failed((await getServerI18n()).m.actions.what.saveTrip) };
   }
   revalidatePath("/", "layout");
 }
@@ -73,14 +73,14 @@ export async function updateTripAction(id: unknown, raw: unknown): Promise<TripA
 /** Deletes a trip (its expenses stay), then goes back to the trips list. */
 export async function deleteTripAction(id: unknown): Promise<TripChangeResult> {
   await signedIn();
-  if (!isId(id)) return { error: "This trip wasn't recognised." };
+  if (!isId(id)) return { error: (await getServerI18n()).m.actions.tripNotRecognised };
   try {
     await deleteTrip(await createClient(), id);
   } catch (e) {
     const message = await known(e);
     if (message) return { error: message };
     console.error("trips: delete failed", e);
-    return { error: "We couldn't delete this trip. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.actions.failed((await getServerI18n()).m.actions.what.deleteTrip) };
   }
   revalidatePath("/", "layout");
   redirect("/expenses/trips");
@@ -93,7 +93,7 @@ async function change(what: string, run: () => Promise<void>): Promise<TripChang
     const message = await known(e);
     if (message) return { error: message };
     console.error(`trips: ${what} failed`, e);
-    return { error: "We couldn't change this expense's trip. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.actions.failed((await getServerI18n()).m.actions.what.changeTrip) };
   }
   revalidatePath("/", "layout");
   return {};
@@ -102,13 +102,13 @@ async function change(what: string, run: () => Promise<void>): Promise<TripChang
 /** "Take out of this trip": the expense is in no trip, whatever its date. */
 export async function removeFromTripAction(txnId: unknown): Promise<TripChangeResult> {
   await signedIn();
-  if (!isId(txnId)) return { error: "This expense wasn't recognised." };
+  if (!isId(txnId)) return { error: (await getServerI18n()).m.actions.expenseNotRecognised };
   return change("remove", async () => setTripOverride(await createClient(), txnId, null));
 }
 
 /** "Reset to automatic" / "Add back": the expense's date decides its trip again. */
 export async function resetToAutomaticAction(txnId: unknown): Promise<TripChangeResult> {
   await signedIn();
-  if (!isId(txnId)) return { error: "This expense wasn't recognised." };
+  if (!isId(txnId)) return { error: (await getServerI18n()).m.actions.expenseNotRecognised };
   return change("reset", async () => resetTripOverride(await createClient(), txnId));
 }

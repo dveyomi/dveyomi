@@ -20,13 +20,13 @@ export async function adoptDeviceTimezone(zone: string): Promise<void> {
 export async function endCurrentTrip(id: string): Promise<{ error?: string }> {
   const userId = await getUserId();
   if (!userId) return { error: "Sign in again to end this trip." };
-  if (!isId(id)) return { error: "This trip wasn't recognised." };
+  if (!isId(id)) return { error: (await getServerI18n()).m.actions.tripNotRecognised };
   try {
     await endTrip(await createClient(), id, await getToday());
   } catch (e) {
     if (e instanceof TripNotFoundError || e instanceof TripNotCurrentError) return { error: localizeError(e, await getServerI18n()) };
     console.error("trips: end failed", e);
-    return { error: "We couldn't end this trip. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.actions.failed((await getServerI18n()).m.actions.what.endTrip) };
   }
   revalidatePath("/", "layout");
   return {};

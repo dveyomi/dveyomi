@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/i18n/client";
+import type { Messages } from "@/i18n/messages";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import {
@@ -13,7 +14,7 @@ import {
   Select,
   TextField,
 } from "@/components/ui";
-import { formatRelativeDay, tripOn, type Frequency, type IsoDate } from "@/lib/calc";
+import { tripOn, type Frequency, type IsoDate } from "@/lib/calc";
 import type { Kind } from "@/lib/validation/budgetEdit";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
 import {
@@ -56,17 +57,11 @@ type ExpenseFormProps = {
 
 /** The Category select's value for "New category". Category ids are UUIDs, so it can't clash. */
 const NEW_CATEGORY = "new";
-const KINDS = [
-  { value: "need" as const, label: "Need" },
-  { value: "want" as const, label: "Want" },
-];
-const FUND_HINT = "Pay with money you saved in a fund. It won't count toward your budget.";
-const TRIP_HINT = "Automatic puts it in the trip its date falls in. A trip is a label: your budget stays the same.";
 
 /** "Automatic (Taiwan)" when the date falls in a trip, else "Automatic (no trip)". */
-function autoTripLabel(trips: NonNullable<ExpenseFormProps["trips"]>, date: string): string {
+function autoTripLabel(m: Messages, trips: NonNullable<ExpenseFormProps["trips"]>, date: string): string {
   const trip = isIsoDate(date) ? tripOn(trips.map((t) => ({ ...t, start: t.startDate, end: t.endDate })), date) : null;
-  return `Automatic (${trip ? trip.name : "no trip"})`;
+  return m.expenseForm.autoTrip(trip ? trip.name : null);
 }
 
 /**
@@ -91,10 +86,11 @@ export function ExpenseForm({
   unchecked = false,
   markChecked,
 }: ExpenseFormProps) {
-  const { fmt } = useI18n();
   const router = useRouter();
   const editing = remove !== undefined;
   const i18n = useI18n();
+  const { m, fmt } = i18n;
+  const f = m.expenseForm;
   const [values, setValues] = useState(initial);
   const [newCategory, setNewCategory] = useState<{ name: string; kind: Kind } | null>(null);
   const [error, setError] = useState<{ message: string; field?: ExpenseField } | null>(null);
@@ -183,7 +179,7 @@ export function ExpenseForm({
   }
 
   const byKind = (kind: Kind) => categories.filter((c) => c.kind === kind).map((c) => ({ value: c.id, label: c.name }));
-  const title = editing ? "Edit expense" : "Add expense";
+  const title = editing ? f.editTitle : f.addTitle;
   const dateRange = expenseDateRange(today);
 
   return (
@@ -195,12 +191,12 @@ export function ExpenseForm({
       className="mx-auto flex w-full max-w-phone flex-col gap-6 px-4 py-4 md:my-10 md:max-w-xl md:rounded-md md:bg-card md:p-8 md:shadow-float"
     >
       <div className="flex items-center justify-between gap-3">
-        <IconButton icon="close" label="Close" onClick={() => router.push(returnTo)} />
+        <IconButton icon="close" label={f.close} onClick={() => router.push(returnTo)} />
         <h1 id="expense-form-title" className="text-body font-semibold text-text md:text-title">
           {title}
         </h1>
         <div className="md:invisible">
-          <IconButton icon="check" label="Save expense" type="submit" variant="primary" disabled={busy} />
+          <IconButton icon="check" label={f.save} type="submit" variant="primary" disabled={busy} />
         </div>
       </div>
 
@@ -213,16 +209,16 @@ export function ExpenseForm({
       {unchecked && markChecked ? (
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
           <div className="flex-1">
-            <Notice tone="warning">Added automatically by a recurring payment. Check it matches what you paid.</Notice>
+            <Notice tone="warning">{f.autoAdded}</Notice>
           </div>
           <Button variant="secondary" onClick={confirmChecked} disabled={busy}>
-            {checking ? "Marking…" : "Mark as checked"}
+            {checking ? f.marking : f.markChecked}
           </Button>
         </div>
       ) : null}
 
       <AmountInput
-        label="Amount"
+        label={f.amount}
         size="lg"
         value={values.amountText}
         onChange={(amountText) => update({ amountText }, "amount")}
@@ -232,34 +228,34 @@ export function ExpenseForm({
 
       <div className="flex flex-col gap-4">
         <TextField
-          label="Name"
+          label={f.name}
           value={values.name}
           onChange={(e) => update({ name: e.target.value }, "name")}
           error={fieldError("name")}
           maxLength={MAX_EXPENSE_NAME_LENGTH}
           autoComplete="off"
-          placeholder="e.g. Tesco…"
+          placeholder={f.namePlaceholder}
         />
 
         <div className="grid gap-4 md:grid-cols-2 md:items-start">
           <Select
-            label="Category"
+            label={f.category}
             value={newCategory ? NEW_CATEGORY : (values.categoryId ?? "")}
             onChange={(e) => chooseCategory(e.target.value)}
-            placeholder="Choose a category"
+            placeholder={f.chooseCategory}
             groups={[
-              { label: "Needs", options: byKind("need") },
-              { label: "Wants", options: byKind("want") },
+              { label: f.needs, options: byKind("need") },
+              { label: f.wants, options: byKind("want") },
             ]}
-            options={[{ value: NEW_CATEGORY, label: "New category…" }]}
+            options={[{ value: NEW_CATEGORY, label: f.newCategory }]}
             error={fieldError("category")}
           />
           <TextField
-            label="Date"
+            label={f.date}
             type="date"
             value={values.date}
             onChange={(e) => update({ date: e.target.value }, "date")}
-            hint={isIsoDate(values.date) ? formatRelativeDay(values.date, today) : undefined}
+            hint={isIsoDate(values.date) ? fmt.relativeDay(values.date, today) : undefined}
             error={fieldError("date")}
             min={dateRange.min}
             max={dateRange.max}
@@ -271,7 +267,7 @@ export function ExpenseForm({
           <fieldset className="flex flex-col gap-4 rounded-md border border-border p-4">
             <legend className="px-1 text-caption font-medium text-muted">New category</legend>
             <TextField
-              label="Category name"
+              label={f.categoryName}
               value={newCategory.name}
               onChange={(e) => {
                 setNewCategory({ ...newCategory, name: e.target.value });
@@ -280,11 +276,11 @@ export function ExpenseForm({
               error={fieldError("newCategory")}
               maxLength={MAX_NAME_LENGTH}
               autoComplete="off"
-              hint="It starts with no budget. You can give it one in Edit budget."
+              hint={f.newCategoryHint}
             />
             <RadioSegments
-              label="Need or want"
-              options={KINDS}
+              label={f.needOrWant}
+              options={[{ value: "need" as const, label: f.kinds.need }, { value: "want" as const, label: f.kinds.want }]}
               value={newCategory.kind}
               onChange={(kind) => setNewCategory({ ...newCategory, kind })}
             />
@@ -293,26 +289,26 @@ export function ExpenseForm({
 
         {funds.length > 0 ? (
           <Select
-            label="Paid from fund"
+            label={f.paidFromFund}
             value={values.fundId ?? ""}
             onChange={(e) => update({ fundId: e.target.value || null }, "fund")}
-            options={[{ value: "", label: "None" }, ...funds.map((f) => ({ value: f.id, label: f.name }))]}
-            hint={FUND_HINT}
+            options={[{ value: "", label: f.none }, ...funds.map((f) => ({ value: f.id, label: f.name }))]}
+            hint={f.fundHint}
             error={fieldError("fund")}
           />
         ) : null}
 
         {trips.length > 0 ? (
           <Select
-            label="Trip"
+            label={f.trip}
             value={values.trip ?? "auto"}
             onChange={(e) => update({ trip: e.target.value }, "trip")}
             options={[
-              { value: "auto", label: autoTripLabel(trips, values.date) },
+              { value: "auto", label: autoTripLabel(m, trips, values.date) },
               ...trips.map((t) => ({ value: t.id, label: t.name })),
-              { value: "none", label: "Not in a trip" },
+              { value: "none", label: f.notInTrip },
             ]}
-            hint={TRIP_HINT}
+            hint={f.tripHint}
             error={fieldError("trip")}
           />
         ) : null}
@@ -320,16 +316,16 @@ export function ExpenseForm({
         {editing ? null : <RepeatFields value={repeat} onChange={setRepeat} />}
 
         <TextField
-          label="Account (optional)"
+          label={f.account}
           value={values.accountLabel}
           onChange={(e) => update({ accountLabel: e.target.value }, "accountLabel")}
           error={fieldError("accountLabel")}
           maxLength={MAX_ACCOUNT_LABEL_LENGTH}
           autoComplete="off"
-          placeholder="e.g. Monzo or Amex…"
+          placeholder={f.accountPlaceholder}
         />
         <TextField
-          label="Notes (optional)"
+          label={f.notes}
           value={values.notes}
           onChange={(e) => update({ notes: e.target.value }, "notes")}
           error={fieldError("notes")}
@@ -342,16 +338,16 @@ export function ExpenseForm({
         {editing ? (
           <div className="md:mr-auto">
             <Button variant="danger" fullWidth onClick={() => setConfirmingDelete(true)} disabled={busy}>
-              {deleting ? "Deleting…" : "Delete Expense"}
+              {deleting ? f.deleting : f.deleteExpense}
             </Button>
           </div>
         ) : null}
         <div className="hidden gap-3 md:ml-auto md:flex">
           <Button variant="secondary" onClick={() => router.push(returnTo)}>
-            Cancel
+            {f.cancel}
           </Button>
           <Button variant="primary" type="submit" disabled={busy}>
-            {saving ? "Saving…" : "Save expense"}
+            {saving ? m.common.saving : f.save}
           </Button>
         </div>
       </div>
@@ -366,10 +362,10 @@ export function ExpenseForm({
       {editing ? (
         <ConfirmDialog
           open={confirmingDelete}
-          title="Delete this expense?"
-          body="It will be removed from your spending and budget. This can't be undone."
-          confirmLabel="Delete"
-          cancelLabel="Keep it"
+          title={f.deleteTitle}
+          body={f.deleteBody}
+          confirmLabel={f.delete}
+          cancelLabel={f.keepIt}
           tone="danger"
           onConfirm={confirmDelete}
           onCancel={() => setConfirmingDelete(false)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/i18n/client";
+import type { Format } from "@/i18n/format";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
@@ -26,10 +27,6 @@ import {
 } from "@/components/ui";
 import {
   addDays,
-  formatDayMonth,
-  formatDayMonthYear,
-  formatRelativeDay,
-  formatWeekdayDate,
   freedByPause,
   type IsoDate,
   type Period,
@@ -37,7 +34,6 @@ import {
 } from "@/lib/calc";
 import type { RecurringItem } from "@/lib/data/recurring";
 import { isIsoDate } from "@/lib/validation/expense";
-import { FREQUENCY_LABELS } from "./RepeatFields";
 
 type RecurringListProps = {
   rules: RecurringItem[];
@@ -49,18 +45,21 @@ type RecurringListProps = {
 type Mode = "menu" | "pause" | "amount";
 
 /** "23 Nov", or "1 Jan 2027" in another year. */
-const shortDate = (d: IsoDate, today: IsoDate) =>
-  d.slice(0, 4) === today.slice(0, 4) ? formatDayMonth(d) : formatDayMonthYear(d);
+const shortDate = (fmt: Format, d: IsoDate, today: IsoDate) =>
+  d.slice(0, 4) === today.slice(0, 4) ? fmt.dayMonth(d) : fmt.dayMonthYear(d);
 
 /** The status as a badge; `compact` (list rows) says just "Paused", the row's second line saying when it resumes. */
 function StatusBadgeFor({ status, today, compact = false }: { status: RecurringStatus; today: IsoDate; compact?: boolean }) {
+  const { m, fmt } = useI18n();
+  const r = m.recurring;
   if (status.kind === "paused") {
-    return <Badge tone="warning">{compact ? "Paused" : `Paused until ${shortDate(status.until, today)}`}</Badge>;
+    return <Badge tone="warning">{compact ? r.paused : r.pausedUntil(shortDate(fmt, status.until, today))}</Badge>;
   }
   if (status.kind === "ends") {
-    return <Badge tone="neutral">{status.on < today ? "Ended" : "Ends"} {shortDate(status.on, today)}</Badge>;
+    const on = shortDate(fmt, status.on, today);
+    return <Badge tone="neutral">{status.on < today ? r.ended(on) : r.ends(on)}</Badge>;
   }
-  return <Badge tone="positive">Active</Badge>;
+  return <Badge tone="positive">{r.active}</Badge>;
 }
 
 /**
@@ -71,7 +70,8 @@ function StatusBadgeFor({ status, today, compact = false }: { status: RecurringS
  * from a date, and Cancel (after confirming; past payments stay).
  */
 export function RecurringList({ rules, period, today }: RecurringListProps) {
-  const { fmt } = useI18n();
+  const { m, fmt } = useI18n();
+  const rc = m.recurring;
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("menu");
@@ -111,7 +111,7 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
         if (result.error && result.field) return setFieldError({ field: result.field, message: result.error });
         if (result.error) return setError(result.error);
       } catch {
-        return setError("We couldn't save that. Check your connection and try again.");
+        return setError(rc.failed);
       }
       setStatus(done);
       setOpenId(null);
@@ -124,11 +124,11 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
       <Card>
         <EmptyState
           icon="repeat"
-          title="No recurring payments yet"
-          body="Switch on Repeat when you add an expense, e.g. a subscription or rent, and it’s added for you each time it's due."
+          title={rc.emptyTitle}
+          body={rc.emptyBody}
           action={
             <ButtonLink href="/expenses/new?returnTo=%2Fexpenses%2Frecurring" variant="primary" icon="plus">
-              Add expense
+              {rc.addExpense}
             </ButtonLink>
           }
         />
@@ -149,7 +149,7 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
         {status}
       </p>
       <Card as="section" className="flex flex-col gap-2 px-2 md:px-4">
-        <ul aria-label="Recurring payments" className="flex flex-col divide-y divide-border">
+        <ul aria-label={rc.list} className="flex flex-col divide-y divide-border">
           {rules.map((r) => (
             <li key={r.id}>
               <ListRow
@@ -159,14 +159,14 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
                 subtitle={
                   <>
                     <span className="block truncate">
-                      {r.categoryName} · {FREQUENCY_LABELS[r.frequency]}
+                      {r.categoryName} · {m.repeat.frequency[r.frequency]}
                     </span>
                     <span className="block truncate">
                       {r.status.kind === "paused"
-                        ? `Resumes ${shortDate(r.status.until, today)}`
+                        ? rc.resumes(shortDate(fmt, r.status.until, today))
                         : r.nextDue
-                          ? `Next ${shortDate(r.nextDue, today)}`
-                          : "No more payments"}
+                          ? rc.next(shortDate(fmt, r.nextDue, today))
+                          : rc.noMore}
                     </span>
                   </>
                 }
@@ -196,10 +196,10 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
                 <div className="flex flex-col gap-1">
                   <Money pence={open.currentPence} size="display" />
                   <span className="text-body text-muted">
-                    {open.categoryName} · {FREQUENCY_LABELS[open.frequency]}
+                    {open.categoryName} · {m.repeat.frequency[open.frequency]}
                   </span>
                   <span className="text-body text-text">
-                    {open.nextDue ? `Next payment ${formatWeekdayDate(open.nextDue)}` : "No more payments"}
+                    {open.nextDue ? rc.nextPayment(fmt.weekdayDate(open.nextDue)) : rc.noMore}
                   </span>
                   <span className="mt-1">
                     <StatusBadgeFor status={open.status} today={today} />
@@ -207,13 +207,13 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
                 </div>
                 <div className="flex flex-col gap-3">
                   {open.status.kind === "paused" ? (
-                    <Button variant="primary" fullWidth disabled={busy} onClick={() => act(`${open.name} resumed`, () => resumeAction(open.id))}>
-                      Resume
+                    <Button variant="primary" fullWidth disabled={busy} onClick={() => act(rc.resumed(open.name), () => resumeAction(open.id))}>
+                      {rc.resume}
                     </Button>
                   ) : null}
                   {!ended && open.status.kind !== "paused" ? (
                     <Button variant="secondary" fullWidth disabled={busy} onClick={() => setMode("pause")}>
-                      Pause
+                      {rc.pause}
                     </Button>
                   ) : null}
                   {!ended && open.nextDue ? (
@@ -221,22 +221,22 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
                       variant="secondary"
                       fullWidth
                       disabled={busy}
-                      onClick={() => act(`Skipped ${open.name} on ${shortDate(open.nextDue!, today)}`, () => skipNextAction(open.id))}
+                      onClick={() => act(rc.skipped(open.name, shortDate(fmt, open.nextDue!, today)), () => skipNextAction(open.id))}
                     >
-                      Skip next payment ({shortDate(open.nextDue, today)})
+                      {rc.skipNext(shortDate(fmt, open.nextDue, today))}
                     </Button>
                   ) : null}
                   {!ended ? (
                     <Button variant="secondary" fullWidth disabled={busy} onClick={() => setMode("amount")}>
-                      Change amount
+                      {rc.changeAmount}
                     </Button>
                   ) : null}
                   {!ended ? (
                     <Button variant="danger" fullWidth disabled={busy} onClick={() => setConfirmingCancel(true)}>
-                      Cancel recurring payment
+                      {rc.cancelRecurring}
                     </Button>
                   ) : (
-                    <p className="text-body text-muted">Cancelled. Payments already added stay in your expenses.</p>
+                    <p className="text-body text-muted">{rc.cancelled}</p>
                   )}
                 </div>
               </>
@@ -245,7 +245,7 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
             {mode === "pause" ? (
               <>
                 <TextField
-                  label="Pause until"
+                  label={rc.pauseUntil}
                   type="date"
                   value={pauseUntil}
                   min={tomorrow}
@@ -253,26 +253,26 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
                   autoFocus
                   hint={
                     isIsoDate(pauseUntil) && pauseUntil > today
-                      ? `Payments start again ${formatRelativeDay(pauseUntil, today)}.`
-                      : "Payments start again on this day."
+                      ? rc.startAgain(fmt.relativeDay(pauseUntil, today))
+                      : rc.startAgainDay
                   }
                   required
                 />
                 {freed !== null ? (
-                  <p className="text-title font-semibold text-text">Frees {fmt.money(freed)} this period</p>
+                  <p className="text-title font-semibold text-text">{rc.frees(fmt.money(freed))}</p>
                 ) : (
-                  <p className="text-body text-muted">Choose a date after today.</p>
+                  <p className="text-body text-muted">{rc.chooseAfterToday}</p>
                 )}
                 <div className="flex flex-col-reverse gap-3 md:flex-row md:justify-end">
                   <Button variant="secondary" onClick={() => setMode("menu")}>
-                    Back
+                    {rc.back}
                   </Button>
                   <Button
                     variant="primary"
                     disabled={busy || freed === null}
-                    onClick={() => act(`${open.name} paused`, () => pauseAction(open.id, pauseUntil))}
+                    onClick={() => act(rc.pausedDone(open.name), () => pauseAction(open.id, pauseUntil))}
                   >
-                    {busy ? "Pausing…" : "Pause payments"}
+                    {busy ? rc.pausing : rc.pausePayments}
                   </Button>
                 </div>
               </>
@@ -281,7 +281,7 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
             {mode === "amount" ? (
               <>
                 <AmountInput
-                  label="New amount"
+                  label={rc.newAmount}
                   value={amountText}
                   onChange={(text) => {
                     setAmountText(text);
@@ -291,7 +291,7 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
                   autoFocus
                 />
                 <TextField
-                  label="From"
+                  label={rc.from}
                   type="date"
                   value={amountFrom}
                   min={today}
@@ -300,21 +300,21 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
                     setAmountFrom(e.target.value);
                     if (fieldError?.field === "from") setFieldError(null);
                   }}
-                  hint="Payments on and after this date use the new amount. Ones you've checked keep theirs."
+                  hint={rc.fromHint}
                   required
                 />
                 <div className="flex flex-col-reverse gap-3 md:flex-row md:justify-end">
                   <Button variant="secondary" onClick={() => setMode("menu")}>
-                    Back
+                    {rc.back}
                   </Button>
                   <Button
                     variant="primary"
                     disabled={busy || amountPence === null || amountPence < 1 || !isIsoDate(amountFrom)}
                     onClick={() =>
-                      act(`${open.name} amount changed`, () => changeAmountAction(open.id, amountFrom, amountPence))
+                      act(rc.amountChanged(open.name), () => changeAmountAction(open.id, amountFrom, amountPence))
                     }
                   >
-                    {busy ? "Saving…" : "Save amount"}
+                    {busy ? m.common.saving : rc.saveAmount}
                   </Button>
                 </div>
               </>
@@ -325,14 +325,14 @@ export function RecurringList({ rules, period, today }: RecurringListProps) {
 
       <ConfirmDialog
         open={confirmingCancel && open !== null}
-        title={`Cancel ${open?.name ?? ""}?`}
-        body="No more payments will be added after today. Payments already added stay in your expenses."
-        confirmLabel="Cancel payment"
-        cancelLabel="Keep it"
+        title={rc.cancelTitle(open?.name ?? "")}
+        body={rc.cancelBody}
+        confirmLabel={rc.cancelPayment}
+        cancelLabel={rc.keepIt}
         tone="danger"
         onConfirm={() => {
           setConfirmingCancel(false);
-          if (open) act(`${open.name} cancelled`, () => cancelAction(open.id));
+          if (open) act(rc.cancelledDone(open.name), () => cancelAction(open.id));
         }}
         onCancel={() => setConfirmingCancel(false)}
       />

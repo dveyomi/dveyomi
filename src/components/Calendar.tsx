@@ -2,18 +2,10 @@
 
 import { useI18n } from "@/i18n/client";
 import type { Format } from "@/i18n/format";
+import type { Messages } from "@/i18n/messages";
 import { focusRing } from "@/components/ui/focus";
-import { calendarWeeks, formatWeekdayDate, type IsoDate, type Period } from "@/lib/calc";
+import { calendarWeeks, type IsoDate, type Period } from "@/lib/calc";
 
-const WEEKDAYS = [
-  ["M", "Monday"],
-  ["T", "Tuesday"],
-  ["W", "Wednesday"],
-  ["T", "Thursday"],
-  ["F", "Friday"],
-  ["S", "Saturday"],
-  ["S", "Sunday"],
-] as const;
 
 type CalendarProps = {
   /** The month or budget period shown. */
@@ -26,9 +18,9 @@ type CalendarProps = {
   onSelect: (day: IsoDate) => void;
 };
 
-function dayLabel(fmt: Format, day: IsoDate, total: number | undefined, count: number): string {
-  if (!total && !count) return `${formatWeekdayDate(day)}: no expenses`;
-  return `${formatWeekdayDate(day)}: ${fmt.money(total ?? 0)} spent, ${count} ${count === 1 ? "expense" : "expenses"}`;
+function dayLabel(m: Messages, fmt: Format, day: IsoDate, total: number | undefined, count: number): string {
+  if (!total && !count) return m.calendar.noExpenses(fmt.weekdayDate(day));
+  return m.calendar.spent(fmt.weekdayDate(day), fmt.money(total ?? 0), count);
 }
 
 /**
@@ -37,15 +29,15 @@ function dayLabel(fmt: Format, day: IsoDate, total: number | undefined, count: n
  * ring on today. Tapping a day opens its sheet.
  */
 export function Calendar({ period, today, dayTotals, dayCounts, onSelect }: CalendarProps) {
-  const { fmt } = useI18n();
+  const { fmt, m } = useI18n();
   const weeks = calendarWeeks(period);
   return (
     <div className="flex flex-col gap-1 md:gap-2">
       <div aria-hidden="true" className="grid grid-cols-7 gap-0.5 md:gap-2">
-        {WEEKDAYS.map(([short, long]) => (
-          <span key={long} className="text-center text-caption font-semibold text-muted md:text-left md:px-2">
+        {m.calendar.weekdaysShort.map((short, i) => (
+          <span key={m.calendar.weekdaysFull[i]} className="text-center text-caption font-semibold text-muted md:text-left md:px-2">
             <span className="md:hidden">{short}</span>
-            <span className="hidden md:inline">{long.slice(0, 3)}</span>
+            <span className="hidden md:inline">{m.calendar.weekdaysLong[i]}</span>
           </span>
         ))}
       </div>
@@ -61,7 +53,7 @@ export function Calendar({ period, today, dayTotals, dayCounts, onSelect }: Cale
               <button
                 key={day}
                 type="button"
-                aria-label={dayLabel(fmt, day, total, count)}
+                aria-label={dayLabel(m, fmt, day, total, count)}
                 aria-current={isToday ? "date" : undefined}
                 onClick={() => onSelect(day)}
                 className={`flex min-h-14 min-w-0 flex-col items-center justify-start gap-0.5 rounded-md px-0 py-1.5 transition-colors md:min-h-20 md:items-start md:px-2.5 md:py-2 ${focusRing} ${
@@ -78,7 +70,7 @@ export function Calendar({ period, today, dayTotals, dayCounts, onSelect }: Cale
                     <span data-amount="phone" className="md:hidden">
                       {fmt.moneyShort(total)}
                     </span>
-                    <span className="hidden md:inline">{total < 100_000 ? fmt.money(total) : fmt.moneyShort(total)}</span>
+                    <span className="hidden md:inline">{total < (fmt.currency === "GBP" ? 100_000 : 10_000_000) ? fmt.money(total) : fmt.moneyShort(total)}</span>
                   </span>
                 ) : null}
               </button>

@@ -52,7 +52,7 @@ const knownError = async (e: unknown): Promise<string | null> =>
 export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promise<ExpenseActionResult> {
   if (!(await getUserId())) redirect("/login");
   const target = targetOf(rawTarget);
-  if (target.id !== undefined && !isId(target.id)) return { error: "This expense wasn't recognised." };
+  if (target.id !== undefined && !isId(target.id)) return { error: (await getServerI18n()).m.actions.expenseNotRecognised };
   const id = target.id as string | undefined;
 
   const checked = validateExpense(raw, await getToday(), await getServerI18n());
@@ -67,7 +67,7 @@ export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promis
     const known = await knownError(e);
     if (known) return { error: known };
     console.error("saveExpense failed", e);
-    return { error: "We couldn't save this expense. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.actions.failed((await getServerI18n()).m.actions.what.saveExpense) };
   }
   revalidatePath("/", "layout");
   redirect(safeNext(target.returnTo, DEFAULT_RETURN));
@@ -77,7 +77,7 @@ export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promis
 export async function deleteExpenseAction(rawTarget: Target): Promise<ExpenseActionResult> {
   if (!(await getUserId())) redirect("/login");
   const target = targetOf(rawTarget);
-  if (!isId(target.id)) return { error: "This expense wasn't recognised." };
+  if (!isId(target.id)) return { error: (await getServerI18n()).m.actions.expenseNotRecognised };
 
   try {
     await deleteTransaction(await createClient(), target.id);
@@ -85,7 +85,7 @@ export async function deleteExpenseAction(rawTarget: Target): Promise<ExpenseAct
     const known = await knownError(e);
     if (known) return { error: known };
     console.error("deleteTransaction failed", e);
-    return { error: "We couldn't delete this expense. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.actions.failed((await getServerI18n()).m.actions.what.deleteExpense) };
   }
   revalidatePath("/", "layout");
   redirect(safeNext(target.returnTo, DEFAULT_RETURN));
@@ -98,7 +98,7 @@ export async function deleteExpenseAction(rawTarget: Target): Promise<ExpenseAct
  */
 export async function removeExpenseAction(id: unknown): Promise<{ error?: string }> {
   if (!(await getUserId())) redirect("/login");
-  if (!isId(id)) return { error: "This expense wasn't recognised." };
+  if (!isId(id)) return { error: (await getServerI18n()).m.actions.expenseNotRecognised };
 
   try {
     await deleteTransaction(await createClient(), id);
@@ -106,7 +106,7 @@ export async function removeExpenseAction(id: unknown): Promise<{ error?: string
     const known = await knownError(e);
     if (known) return { error: known };
     console.error("deleteTransaction failed", e);
-    return { error: "We couldn't delete this expense. Check your connection and try again." };
+    return { error: (await getServerI18n()).m.actions.failed((await getServerI18n()).m.actions.what.deleteExpense) };
   }
   revalidatePath("/", "layout");
   return {};
