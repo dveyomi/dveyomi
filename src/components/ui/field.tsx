@@ -38,6 +38,6 @@ export function describedBy(id: string, hint?: string, error?: string | null) {
 }
 
 export const controlBox =
-  "w-full rounded-sm border bg-card-raised px-4 text-body text-text placeholder:text-muted transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-fg outline-none disabled:opacity-40";
+  "w-full rounded-sm border bg-card-raised px-4 text-body text-text placeholder:text-muted transition-colors focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent-fg outline-none disabled:opacity-40";
 
 export const borderFor = (error?: string | null) => (error ? "border-danger-fg" : "border-border-strong");

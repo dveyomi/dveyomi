@@ -272,3 +272,15 @@ describe("no styling outside the design system", () => {
     expect(px.test("max-h-[85dvh]")).toBe(false);
   });
 });
+
+describe("focus rings", () => {
+  // Tailwind v4's `outline-none` sets --tw-outline-style to none, and
+  // `focus-visible:outline-2` only sets the width, so the ring never shows
+  // unless the focused state sets the style too.
+  it("every outline-none with a focus outline also sets the outline style on focus", () => {
+    const lines = offences(/outline-none/).filter(
+      (line) => /(focus-visible|focus-within|has-focus-visible):outline-2/.test(line) && !/:outline-solid/.test(line),
+    );
+    expect(lines).toEqual([]);
+  });
+});
