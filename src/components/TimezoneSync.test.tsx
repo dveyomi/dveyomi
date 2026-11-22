@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TimezoneSync } from "./TimezoneSync";
 
@@ -52,8 +52,11 @@ describe("TimezoneSync", () => {
   it("does nothing when the cookie already matches the device", async () => {
     setDeviceZone("Asia/Taipei");
     document.cookie = "tz=Asia%2FTaipei; path=/";
-    render(<TimezoneSync {...HOME} homeDetected />);
-    await new Promise((r) => setTimeout(r, 10));
+    // act() runs the effect and the sync it starts to the end (nothing to await when already detected).
+    await act(async () => {
+      render(<TimezoneSync {...HOME} homeDetected />);
+    });
+    expect(document.cookie).toContain("tz=Asia%2FTaipei");
     expect(refresh).not.toHaveBeenCalled();
     expect(adoptDeviceTimezone).not.toHaveBeenCalled();
   });
@@ -93,9 +96,16 @@ describe("TimezoneSync", () => {
         pathname = path;
         setDeviceZone("Asia/Taipei");
         document.cookie = "tz=Asia%2FTaipei; path=/";
-        render(<TimezoneSync homeDetected {...trip} />);
-        await new Promise((r) => setTimeout(r, 20));
+        await act(async () => {
+          render(<TimezoneSync homeDetected {...trip} />);
+        });
         expect(screen.queryByRole("region")).not.toBeInTheDocument();
+        // The same render off a focused screen does ask: the sync above had finished.
+        pathname = "/budget";
+        await act(async () => {
+          render(<TimezoneSync homeDetected {...trip} />);
+        });
+        expect(screen.getByRole("region", { name: "Are you travelling?" })).toBeInTheDocument();
       },
     );
 

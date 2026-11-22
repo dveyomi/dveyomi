@@ -76,6 +76,13 @@ describe("over state is announced", () => {
 });
 
 describe("tap targets", () => {
+  it("an unselected Chip has a strong border (3:1 non-text contrast, WCAG 1.4.11)", () => {
+    render(<Chip label="Wants" />);
+    const chip = screen.getByRole("button", { name: "Wants" });
+    expect(chip).toHaveClass("border-border-strong");
+    expect(chip).not.toHaveClass("border-border");
+  });
+
   it("Chip is at least 44px tall", () => {
     render(<Chip label="Groceries" />);
     expect(screen.getByRole("button", { name: "Groceries" }).className).toMatch(TAP_44);

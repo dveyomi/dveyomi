@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { formatGBP } from "@/lib/calc";
+import { formatGBP, sharePercent, sumPence } from "@/lib/calc";
 
 /** Categorical series slots in fixed order (tokens --chart-1…5), plus the neutral "other". */
 export type Series = 1 | 2 | 3 | 4 | 5 | "other";
@@ -49,7 +49,7 @@ type DonutProps = {
  * with a visible legend (SeriesSwatch rows) so colour is never the only cue.
  */
 export function Donut({ label, slices, children }: DonutProps) {
-  const total = slices.reduce((sum, s) => sum + s.pence, 0);
+  const total = sumPence(slices.map((s) => s.pence));
   const gap = slices.length > 1 ? GAP : 0;
   let start = 0;
 
@@ -59,7 +59,7 @@ export function Donut({ label, slices, children }: DonutProps) {
         <circle cx={50} cy={50} r={40} fill="none" strokeWidth={12} className="stroke-card-raised" />
         {total > 0
           ? slices.map((s) => {
-              const share = (s.pence / total) * 100;
+              const share = sharePercent(s.pence, total);
               const drawn = Math.max(share - gap, 0.3);
               const offset = -start;
               start += share;

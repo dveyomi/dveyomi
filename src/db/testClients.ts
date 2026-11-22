@@ -1,10 +1,23 @@
 import { execFileSync, execSync } from "node:child_process";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isLocalStackUrl } from "./localStack";
 
 // Connection details for the local Supabase stack. Taken from SUPABASE_URL /
 // SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY when set, otherwise read from
 // `npx supabase status -o env` (the stack must be running: `npx supabase start`).
+// Only ever a local stack: these tests create and delete users with the service role.
 function localStack(): { url: string; anonKey: string; serviceRoleKey: string } {
+  const stack = readStack();
+  if (!isLocalStackUrl(stack.url)) {
+    throw new Error(
+      `Refusing to run the DB tests against ${stack.url || "an empty SUPABASE_URL"}: ` +
+        "only a local stack (http://127.0.0.1:<port> or http://localhost:<port>) is allowed.",
+    );
+  }
+  return stack;
+}
+
+function readStack(): { url: string; anonKey: string; serviceRoleKey: string } {
   const { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY } = process.env;
   if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_SERVICE_ROLE_KEY) {
     return { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY };

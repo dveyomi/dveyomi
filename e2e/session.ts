@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isLocalStackUrl } from "../src/db/localStack";
 
 export type Stack = { url: string; anonKey: string; serviceRoleKey: string };
 
@@ -21,7 +22,7 @@ export function localStack(): Stack | null {
   );
   if (!vars.API_URL || !vars.ANON_KEY || !vars.SERVICE_ROLE_KEY) return null;
   // Only ever a local stack: these tests create and delete users with the service role.
-  if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(vars.API_URL)) return null;
+  if (!isLocalStackUrl(vars.API_URL)) return null;
   return { url: vars.API_URL, anonKey: vars.ANON_KEY, serviceRoleKey: vars.SERVICE_ROLE_KEY };
 }
 
