@@ -1,3 +1,4 @@
+import type { Locale } from "@/lib/locale";
 /** A calendar date as YYYY-MM-DD. Never a timestamp. */
 export type IsoDate = string;
 
@@ -30,22 +31,35 @@ export function todayIn(timeZone: string, now: Date): IsoDate {
   return new Intl.DateTimeFormat("en-CA", { timeZone }).format(now);
 }
 
-const weekdayDate = new Intl.DateTimeFormat("en-GB", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
-});
+const formatters = new Map<string, Intl.DateTimeFormat>();
 
-/** A calendar date for people, in en-GB: "2026-11-25" -> "Wednesday 25 November". */
-export function formatWeekdayDate(d: IsoDate): string {
-  return weekdayDate.format(toUtcMs(d)).replace(",", "");
+/** One formatter per locale and style, made on first use (the en-GB ones are what the app always had). */
+function formatter(locale: Locale, style: "weekdayDate" | "dayMonth" | "dayMonthYear" | "shortDate"): Intl.DateTimeFormat {
+  const key = `${locale}|${style}`;
+  let f = formatters.get(key);
+  if (!f) {
+    const options: Record<typeof style, Intl.DateTimeFormatOptions> = {
+      weekdayDate: { weekday: "long", day: "numeric", month: "long" },
+      dayMonth: { day: "numeric", month: "short" },
+      dayMonthYear: { day: "numeric", month: "short", year: "numeric" },
+      shortDate: { weekday: "short", day: "numeric", month: "short" },
+    };
+    f = new Intl.DateTimeFormat(locale, { ...options[style], timeZone: "UTC" });
+    formatters.set(key, f);
+  }
+  return f;
+}
+
+/** A calendar date for people: "2026-11-25" -> "Wednesday 25 November" (zh-TW: "11月25日星期三"). */
+export function formatWeekdayDate(d: IsoDate, locale: Locale = "en-GB"): string {
+  return formatter(locale, "weekdayDate").format(toUtcMs(d)).replace(",", "");
 }
 
 /**
- * How a chosen date reads next to today: "Today", "Tomorrow", otherwise the
- * weekday and date ("Wednesday 25 November"), with the year when it differs
- * from today's ("Friday 21 November 2025").
+ * How a chosen date reads next to today, in English: "Today", "Tomorrow",
+ * otherwise the weekday and date ("Wednesday 25 November"), with the year when
+ * it differs from today's ("Friday 21 November 2025"). Other languages use
+ * their dictionary's relativeDay.
  */
 export function formatRelativeDay(d: IsoDate, today: IsoDate): string {
   const diff = daysBetween(today, d);
@@ -55,29 +69,19 @@ export function formatRelativeDay(d: IsoDate, today: IsoDate): string {
   return d.slice(0, 4) === today.slice(0, 4) ? label : `${label} ${d.slice(0, 4)}`;
 }
 
-const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-const shortDate = new Intl.DateTimeFormat("en-GB", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-});
-
-/** "2026-11-01" -> "1 Nov". */
-export function formatDayMonth(d: IsoDate): string {
-  return dayMonth.format(toUtcMs(d));
+/** "2026-11-01" -> "1 Nov" (zh-TW: "11月1日"). */
+export function formatDayMonth(d: IsoDate, locale: Locale = "en-GB"): string {
+  return formatter(locale, "dayMonth").format(toUtcMs(d));
 }
 
-const dayMonthYear = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-
-/** "2027-07-31" -> "31 Jul 2027". */
-export function formatDayMonthYear(d: IsoDate): string {
-  return dayMonthYear.format(toUtcMs(d));
+/** "2027-07-31" -> "31 Jul 2027" (zh-TW: "2027年7月31日"). */
+export function formatDayMonthYear(d: IsoDate, locale: Locale = "en-GB"): string {
+  return formatter(locale, "dayMonthYear").format(toUtcMs(d));
 }
 
-/** "2026-11-21" -> "Sat 21 Nov". */
-export function formatShortDate(d: IsoDate): string {
-  return shortDate.format(toUtcMs(d)).replace(",", "");
+/** "2026-11-21" -> "Sat 21 Nov" (zh-TW: "11月21日週六"). */
+export function formatShortDate(d: IsoDate, locale: Locale = "en-GB"): string {
+  return formatter(locale, "shortDate").format(toUtcMs(d)).replace(",", "");
 }
 
 /** 1 -> "1 day left", otherwise "N days left". */
@@ -86,6 +90,6 @@ export function formatDaysLeft(n: number): string {
 }
 
 /** ("2026-11-01", "2026-11-30") -> "1 Nov – 30 Nov". */
-export function formatPeriodRange(start: IsoDate, end: IsoDate): string {
-  return `${formatDayMonth(start)} – ${formatDayMonth(end)}`;
+export function formatPeriodRange(start: IsoDate, end: IsoDate, locale: Locale = "en-GB"): string {
+  return `${formatDayMonth(start, locale)} – ${formatDayMonth(end, locale)}`;
 }

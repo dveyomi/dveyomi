@@ -1,3 +1,4 @@
+import type { Locale } from "@/lib/locale";
 import type { Txn } from "./budget";
 import { compareToPrevious, type Comparison } from "./comparison";
 import { addDays, daysBetween, type IsoDate } from "./dates";
@@ -25,20 +26,27 @@ export function shiftYearMonth(m: YearMonth, delta: number): YearMonth {
   return `${Math.floor(idx / 12)}-${String((idx % 12) + 1).padStart(2, "0")}`;
 }
 
-const monthName = new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" });
-
-/** "2026-11" -> "November". */
-export function formatMonth(m: YearMonth): string {
-  const [y, mo] = m.split("-").map(Number);
-  return monthName.format(Date.UTC(y, mo - 1, 1));
+const monthFormats = new Map<string, Intl.DateTimeFormat>();
+function monthFormat(locale: Locale, withYear: boolean): Intl.DateTimeFormat {
+  const key = `${locale}|${withYear}`;
+  let f = monthFormats.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(locale, { month: "long", ...(withYear ? { year: "numeric" } : {}), timeZone: "UTC" });
+    monthFormats.set(key, f);
+  }
+  return f;
 }
 
-const monthYear = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
-
-/** "2026-11" -> "November 2026". */
-export function formatMonthYear(m: YearMonth): string {
+/** "2026-11" -> "November" (zh-TW: "11月"). */
+export function formatMonth(m: YearMonth, locale: Locale = "en-GB"): string {
   const [y, mo] = m.split("-").map(Number);
-  return monthYear.format(Date.UTC(y, mo - 1, 1));
+  return monthFormat(locale, false).format(Date.UTC(y, mo - 1, 1));
+}
+
+/** "2026-11" -> "November 2026" (zh-TW: "2026年11月"). */
+export function formatMonthYear(m: YearMonth, locale: Locale = "en-GB"): string {
+  const [y, mo] = m.split("-").map(Number);
+  return monthFormat(locale, true).format(Date.UTC(y, mo - 1, 1));
 }
 
 export type ExpenseWindow = {

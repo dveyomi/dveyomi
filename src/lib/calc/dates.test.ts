@@ -71,3 +71,13 @@ describe("formatDayMonthYear", () => {
     expect(formatDayMonthYear("2027-07-31")).toBe("31 Jul 2027");
   });
 });
+
+describe("dates in Traditional Chinese", () => {
+  it("formats with Intl zh-TW", () => {
+    expect(formatWeekdayDate("2026-11-22", "zh-TW")).toBe("11月22日星期日");
+    expect(formatDayMonth("2026-11-22", "zh-TW")).toBe("11月22日");
+    expect(formatDayMonthYear("2026-11-22", "zh-TW")).toBe("2026年11月22日");
+    expect(formatShortDate("2026-11-22", "zh-TW")).toBe("11月22日週日");
+    expect(formatPeriodRange("2026-10-25", "2026-11-24", "zh-TW")).toBe("10月25日 – 11月24日");
+  });
+});
