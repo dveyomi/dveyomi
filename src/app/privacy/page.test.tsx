@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import PrivacyPage from "./page";
 
 describe("Privacy page", () => {
-  it("covers what is stored, where, who can see it, sharing, tracking, your rights and contact", () => {
-    render(<PrivacyPage />);
+  it("covers what is stored, where, who can see it, sharing, tracking, your rights and contact", async () => {
+    render(await PrivacyPage());
     for (const name of [
       "What we store",
       "Where it's kept",
@@ -20,16 +20,16 @@ describe("Privacy page", () => {
     expect(screen.getByText(/Contact the person who invited you/)).toBeInTheDocument();
   });
 
-  it("says exactly what is kept: Google sign-in details, imported expenses but not the file, provider backups", () => {
-    render(<PrivacyPage />);
+  it("says exactly what is kept: Google sign-in details, imported expenses but not the file, provider backups", async () => {
+    render(await PrivacyPage());
     expect(screen.getByText(/your email address, name and profile picture/)).toBeInTheDocument();
     expect(screen.getByText(/we keep the file's name, not the file/)).toBeInTheDocument();
     expect(screen.getByText(/Backups are kept by our database provider/)).toBeInTheDocument();
     expect(screen.getByText(/everything you've entered/)).toBeInTheDocument();
   });
 
-  it("names no personal email address", () => {
-    const { container } = render(<PrivacyPage />);
+  it("names no personal email address", async () => {
+    const { container } = render(await PrivacyPage());
     expect(container.textContent).not.toMatch(/@/);
   });
 });

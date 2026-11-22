@@ -1,13 +1,16 @@
+"use client";
+
+import { useI18n } from "@/i18n/client";
 import type { BudgetSummary } from "@/lib/calc";
 import { Badge, type BadgeTone } from "./Badge";
 
-const statuses: Record<BudgetSummary["status"], { label: string; tone: BadgeTone }> = {
-  on_track: { label: "On Track", tone: "positive" },
-  spending_fast: { label: "Spending Fast", tone: "warning" },
-  out_of_budget: { label: "Out of Budget", tone: "danger" },
+const tones: Record<BudgetSummary["status"], BadgeTone> = {
+  on_track: "positive",
+  spending_fast: "warning",
+  out_of_budget: "danger",
 };
 
 export function StatusBadge({ status }: { status: BudgetSummary["status"] }) {
-  const { label, tone } = statuses[status];
-  return <Badge tone={tone}>{label}</Badge>;
+  const { m } = useI18n();
+  return <Badge tone={tones[status]}>{m.ui.status[status]}</Badge>;
 }

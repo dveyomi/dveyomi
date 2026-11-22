@@ -52,7 +52,7 @@ type DonutProps = {
  * with a visible legend (SeriesSwatch rows) so colour is never the only cue.
  */
 export function Donut({ label, slices, children }: DonutProps) {
-  const { fmt } = useI18n();
+  const { fmt, m } = useI18n();
   const total = sumPence(slices.map((s) => s.pence));
   const gap = slices.length > 1 ? GAP : 0;
   let start = 0;
@@ -92,9 +92,9 @@ export function Donut({ label, slices, children }: DonutProps) {
         <caption>{label}</caption>
         <thead>
           <tr>
-            <th scope="col">Category</th>
-            <th scope="col">Amount</th>
-            <th scope="col">Share</th>
+            <th scope="col">{m.ui.donutCategory}</th>
+            <th scope="col">{m.ui.donutAmount}</th>
+            <th scope="col">{m.ui.donutShare}</th>
           </tr>
         </thead>
         <tbody>

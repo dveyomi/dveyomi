@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import { Suspense } from "react";
 import { localeScript } from "@/i18n/cookies";
 import { I18nRoot } from "@/i18n/I18nRoot";
+import { getServerI18n } from "@/i18n/server";
 import { themeScript } from "@/lib/theme";
 import "./globals.css";
 
@@ -11,10 +12,10 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Personal Finance OS",
-  description: "Know what is safe to spend, every day.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getServerI18n();
+  return { title: "Personal Finance OS", description: m.shell.tagline };
+}
 
 /**
  * Draw under the phone's home indicator; the tab bar pads itself with the safe-area inset.

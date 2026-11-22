@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/ui";
 import { focusRing } from "@/components/ui/focus";
+import { useI18n } from "@/i18n/client";
 
 const ADD_HREF = "/expenses/new";
 
-const tabs: { href: string; label: string; icon: IconName }[] = [
-  { href: "/expenses", label: "Expenses", icon: "pie" },
-  { href: "/budget", label: "Budget", icon: "gauge" },
-  { href: "/settings", label: "Settings", icon: "settings" },
+const tabs: { href: string; key: "expenses" | "budget" | "settings"; icon: IconName }[] = [
+  { href: "/expenses", key: "expenses", icon: "pie" },
+  { href: "/budget", key: "budget", icon: "gauge" },
+  { href: "/settings", key: "settings", icon: "settings" },
 ];
 
 /**
@@ -46,12 +47,13 @@ export function Nav() {
  * a route with an unknown dynamic param prerenders) no link is marked current.
  */
 export function NavBar({ pathname }: { pathname: string | null }) {
+  const { m } = useI18n();
   const adding = pathname === ADD_HREF;
   const onForm = pathname !== null && isFocusedRoute(pathname);
 
   return (
     <nav
-      aria-label="Main"
+      aria-label={m.shell.mainNav}
       className={`fixed inset-x-4 bottom-safe z-30 ${onForm ? "hidden md:flex" : "flex"} items-stretch gap-3 md:inset-x-auto md:top-0 md:bottom-0 md:left-0 md:w-60 md:flex-col md:justify-start md:gap-6 md:border-r md:border-border md:bg-card md:px-4 md:py-6`}
     >
       <p translate="no" className="hidden px-3 text-body font-semibold text-text md:block">
@@ -70,7 +72,7 @@ export function NavBar({ pathname }: { pathname: string | null }) {
                 }`}
               >
                 <Icon name={tab.icon} size="lg" />
-                <span>{tab.label}</span>
+                <span>{m.shell.tabs[tab.key]}</span>
               </Link>
             </li>
           );
@@ -85,7 +87,7 @@ export function NavBar({ pathname }: { pathname: string | null }) {
       >
         {/* size-16.5 = the pill's height: min-h-14 tab + p-1 either side + border. */}
         <Icon name="plus" size="lg" />
-        <span className="sr-only md:not-sr-only">Add expense</span>
+        <span className="sr-only md:not-sr-only">{m.shell.addExpense}</span>
       </Link>
     </nav>
   );

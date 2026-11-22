@@ -1,3 +1,6 @@
+"use client";
+
+import { useI18n } from "@/i18n/client";
 import type { ReactNode } from "react";
 import { drawnPercent } from "./percent";
 
@@ -16,6 +19,7 @@ type GaugeProps = {
 };
 
 export function Gauge({ percent, state, label, valueText, children }: GaugeProps) {
+  const { m } = useI18n();
   const drawn = drawnPercent(percent, state);
   return (
     <div
@@ -24,7 +28,7 @@ export function Gauge({ percent, state, label, valueText, children }: GaugeProps
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={drawn}
-      aria-valuetext={valueText ?? (state === "over" ? "Over budget" : undefined)}
+      aria-valuetext={valueText ?? (state === "over" ? m.ui.overBudget : undefined)}
       className="relative mx-auto aspect-[100/82] w-full max-w-72"
     >
       <svg viewBox="0 0 100 82" className="size-full" aria-hidden="true">

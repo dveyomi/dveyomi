@@ -1,3 +1,6 @@
+"use client";
+
+import { useI18n } from "@/i18n/client";
 import { drawnPercent } from "./percent";
 
 type ProgressBarProps = {
@@ -11,6 +14,7 @@ type ProgressBarProps = {
 };
 
 export function ProgressBar({ percent, state, label, className = "" }: ProgressBarProps) {
+  const { m } = useI18n();
   const drawn = drawnPercent(percent, state);
   return (
     <div
@@ -19,7 +23,7 @@ export function ProgressBar({ percent, state, label, className = "" }: ProgressB
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={drawn}
-      aria-valuetext={state === "over" ? "Over budget" : undefined}
+      aria-valuetext={state === "over" ? m.ui.overBudget : undefined}
       className={`h-2 w-full overflow-hidden rounded-pill bg-card-raised ${className}`}
     >
       <div

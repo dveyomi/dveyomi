@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useId, useState, type DragEvent } from "react";
 import { buttonClasses } from "./Button";
 import { describedBy } from "./field";
@@ -21,6 +22,7 @@ type FileDropProps = {
  * as usual). A file dropped on the area is handed over the same way.
  */
 export function FileDrop({ label, accept, onFile, hint, error, disabled }: FileDropProps) {
+  const { m } = useI18n();
   const id = useId();
   const [over, setOver] = useState(false);
 
@@ -51,12 +53,12 @@ export function FileDrop({ label, accept, onFile, hint, error, disabled }: FileD
         </span>
         <p className="text-body text-text">
           <span className="font-semibold">{label}</span>
-          <span className="block text-caption text-muted">Drop it here, or</span>
+          <span className="block text-caption text-muted">{m.ui.dropHere}</span>
         </p>
         <label
           className={`${buttonClasses("secondary")} cursor-pointer has-focus-visible:outline-2 has-focus-visible:outline-solid has-focus-visible:outline-offset-2 has-focus-visible:outline-accent-fg ${disabled ? "pointer-events-none opacity-40" : ""}`}
         >
-          Choose file
+          {m.ui.chooseFile}
           <input
             id={id}
             type="file"
