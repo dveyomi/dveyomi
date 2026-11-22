@@ -1,5 +1,10 @@
+"use client";
+
+import { useI18n } from "@/i18n/client";
+import type { Format } from "@/i18n/format";
+import type { Messages } from "@/i18n/messages";
 import { BottomSheet, Icon, Money } from "@/components/ui";
-import { formatShortDate, type IsoDate } from "@/lib/calc";
+import { type IsoDate } from "@/lib/calc";
 import type { FundHistoryItem, FundView } from "@/lib/data/funds";
 
 type FundHistoryProps = {
@@ -9,14 +14,14 @@ type FundHistoryProps = {
 };
 
 /** "Thu 12 Nov", with the year when it isn't this year's. */
-function entryDate(d: IsoDate, today: IsoDate): string {
-  const short = formatShortDate(d);
+function entryDate(fmt: Format, d: IsoDate, today: IsoDate): string {
+  const short = fmt.shortDate(d);
   return d.slice(0, 4) === today.slice(0, 4) ? short : `${short} ${d.slice(0, 4)}`;
 }
 
-function subtitle(e: FundHistoryItem, today: IsoDate): string {
-  const date = entryDate(e.date, today);
-  if (e.label === "expense") return `${date} · Paid from this fund`;
+function subtitle(m: Messages, fmt: Format, e: FundHistoryItem, today: IsoDate): string {
+  const date = entryDate(fmt, e.date, today);
+  if (e.label === "expense") return m.saving.paidFromFund(date);
   return e.note ? `${date} · ${e.note}` : date;
 }
 
@@ -48,27 +53,28 @@ function Row({ title, sub, direction, pence }: { title: string; sub?: string; di
  * a dialog on desktop.
  */
 export function FundHistory({ fund, today, onClose }: FundHistoryProps) {
+  const { m, fmt } = useI18n();
   if (!fund) return null;
   const empty = fund.history.length === 0 && fund.openingPence === 0;
   return (
     <BottomSheet open onClose={onClose} title={fund.name}>
       <div className="flex flex-col gap-4">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-body text-muted">Balance</span>
+          <span className="text-body text-muted">{m.saving.balance}</span>
           <span className="text-title font-semibold text-text">
             <Money pence={fund.balancePence} />
           </span>
         </div>
-        <h3 className="text-caption font-semibold tracking-wide text-muted uppercase">Money in and out</h3>
+        <h3 className="text-caption font-semibold tracking-wide text-muted uppercase">{m.saving.moneyInOut}</h3>
         {empty ? (
-          <p className="py-4 text-center text-body text-muted">No money in or out yet</p>
+          <p className="py-4 text-center text-body text-muted">{m.saving.noMoney}</p>
         ) : (
-          <ul aria-label={`${fund.name} history`} className="flex flex-col divide-y divide-border">
+          <ul aria-label={m.saving.historyOf(fund.name)} className="flex flex-col divide-y divide-border">
             {fund.history.map((e) => (
-              <Row key={`${e.label}-${e.refId}`} title={e.title} sub={subtitle(e, today)} direction={e.direction} pence={e.amountPence} />
+              <Row key={`${e.label}-${e.refId}`} title={e.label === "expense" ? e.title : e.label === "contribution" ? m.saving.added : m.saving.withdrawn} sub={subtitle(m, fmt, e, today)} direction={e.direction} pence={e.amountPence} />
             ))}
             {fund.openingPence > 0 ? (
-              <Row title="Already saved at the start" direction="in" pence={fund.openingPence} />
+              <Row title={m.saving.alreadyAtStart} direction="in" pence={fund.openingPence} />
             ) : null}
           </ul>
         )}

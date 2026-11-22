@@ -84,7 +84,6 @@ export function RegionSection({ timezone, zones, language, currency }: RegionSec
             : ""
         }
         confirmLabel={m.settings.currencyConfirm}
-        cancelLabel={m.common.cancel}
         onConfirm={() => {
           if (pendingCurrency) money.change(pendingCurrency);
           setPendingCurrency(null);

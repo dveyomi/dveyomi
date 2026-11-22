@@ -1,10 +1,11 @@
 "use client";
 
 import { useI18n } from "@/i18n/client";
+import type { Messages } from "@/i18n/messages";
 import { amountRequiredError } from "@/lib/validation/common";
 import { useState, type FormEvent } from "react";
 import { addFundMovementAction, moveBetweenFundsAction, saveFundAction, withdrawFromFundAction } from "@/app/(app)/budget/fundActions";
-import { AmountInput, BottomSheet, Button, Money, Notice, RadioCards, Select, TextField } from "@/components/ui";
+import { AmountInput, BottomSheet, Button, Notice, RadioCards, Select, TextField } from "@/components/ui";
 import { type IsoDate } from "@/lib/calc";
 import type { FundView } from "@/lib/data/funds";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
@@ -16,8 +17,6 @@ import {
   type MovementField,
   type WithdrawDestination,
 } from "@/lib/validation/funds";
-
-const FAILED = "We couldn't save that. Check your connection and try again.";
 
 type Problem<F> = { message: string; field?: F } | null;
 
@@ -39,14 +38,12 @@ type MovementSheetProps = {
   onDone: (message: string) => void;
 };
 
-const destinations = [
-  {
-    value: "spending" as const,
-    title: "Add to this month's spending money",
-    description: "It goes into Left to spend for this budget.",
-  },
-  { value: "out" as const, title: "Just take it out", description: "Only the fund changes. Your budget doesn't change." },
-];
+function destinations(m: Messages) {
+  return [
+    { value: "spending" as const, title: m.saving.toSpendingTitle, description: m.saving.toSpendingBody },
+    { value: "out" as const, title: m.saving.takeOutTitle, description: m.saving.takeOutBody },
+  ];
+}
 
 /**
  * Add money to a fund, or take some out: a dated record with an optional
@@ -56,7 +53,8 @@ const destinations = [
  */
 export function FundMovementSheet({ fund, kind, today, onClose, onDone }: MovementSheetProps) {
   const i18n = useI18n();
-  const { fmt } = i18n;
+  const { fmt, m } = i18n;
+  const sv = m.saving;
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
   const [note, setNote] = useState("");
@@ -64,7 +62,7 @@ export function FundMovementSheet({ fund, kind, today, onClose, onDone }: Moveme
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem<MovementField>>(null);
   const adding = kind === "contribution";
-  const label = adding ? "Add money" : "Withdraw";
+  const label = adding ? sv.addMoney : sv.withdraw;
   const error = (f: MovementField) => (problem?.field === f ? problem.message : null);
 
   async function submit(e: FormEvent) {
@@ -86,24 +84,24 @@ export function FundMovementSheet({ fund, kind, today, onClose, onDone }: Moveme
       }
       onDone(
         adding
-          ? `Added to ${fund.name}`
+          ? sv.addedTo(fund.name)
           : destination === "spending"
-            ? `${fmt.money(amountPence)} from ${fund.name} added to this month's spending money`
-            : `Withdrawn from ${fund.name}`,
+            ? sv.addedToSpending(fmt.money(amountPence), fund.name)
+            : sv.withdrawnFrom(fund.name),
       );
     } catch {
-      setProblem({ message: FAILED });
+      setProblem({ message: sv.failed });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <BottomSheet open onClose={onClose} title={adding ? `Add money to ${fund.name}` : `Withdraw from ${fund.name}`}>
+    <BottomSheet open onClose={onClose} title={adding ? sv.addMoneyTo(fund.name) : sv.withdrawFrom(fund.name)}>
       <form onSubmit={(e) => void submit(e)} noValidate className="flex flex-col gap-4">
         <FormError problem={problem} />
         <AmountInput
-          label="Amount"
+          label={sv.amount}
           value={amount}
           onChange={(t) => {
             setAmount(t);
@@ -114,10 +112,10 @@ export function FundMovementSheet({ fund, kind, today, onClose, onDone }: Moveme
           required
         />
         {adding ? null : (
-          <RadioCards label="Where the money goes" options={destinations} value={destination} onChange={setDestination} />
+          <RadioCards label={sv.whereMoneyGoes} options={destinations(m)} value={destination} onChange={setDestination} />
         )}
         <TextField
-          label="Date"
+          label={sv.date}
           type="date"
           value={date}
           min={expenseDateRange(today).min}
@@ -127,19 +125,19 @@ export function FundMovementSheet({ fund, kind, today, onClose, onDone }: Moveme
           required
         />
         <TextField
-          label="Note (optional)"
+          label={sv.noteOptional}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           error={error("note")}
           maxLength={MAX_FUND_NOTE_LENGTH}
           autoComplete="off"
-          placeholder={adding ? "e.g. Birthday money…" : "e.g. Deposit for flights…"}
+          placeholder={adding ? sv.notePlaceholderAdd : sv.notePlaceholderWithdraw}
         />
         {adding ? (
-          <p className="text-caption text-muted">This records money you put in the fund yourself. Your budget doesn&apos;t change.</p>
+          <p className="text-caption text-muted">{sv.addNote}</p>
         ) : null}
         <Button type="submit" variant="primary" fullWidth disabled={busy}>
-          {busy ? "Saving…" : label}
+          {busy ? m.common.saving : label}
         </Button>
       </form>
     </BottomSheet>
@@ -158,7 +156,8 @@ type MoveSheetProps = {
 /** Move money from one fund to another: a withdrawal here and a contribution there, same date. Fund-only: the budget is untouched. */
 export function FundMoveSheet({ fund, others, today, onClose, onDone }: MoveSheetProps) {
   const i18n = useI18n();
-  const { fmt } = i18n;
+  const { fmt, m } = i18n;
+  const sv = m.saving;
   const [to, setTo] = useState(others[0]?.id ?? "");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
@@ -183,23 +182,23 @@ export function FundMoveSheet({ fund, others, today, onClose, onDone }: MoveShee
         setProblem({ message: result.error, field: result.field });
         return;
       }
-      onDone(`${fmt.money(amountPence)} moved from ${fund.name} to ${target?.name ?? "your other fund"}`);
+      onDone(sv.movedBetween(fmt.money(amountPence), fund.name, target?.name ?? sv.otherFund));
     } catch {
-      setProblem({ message: FAILED });
+      setProblem({ message: sv.failed });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <BottomSheet open onClose={onClose} title={`Move money from ${fund.name}`}>
+    <BottomSheet open onClose={onClose} title={sv.moveFrom(fund.name)}>
       <form onSubmit={(e) => void submit(e)} noValidate className="flex flex-col gap-4">
         <FormError problem={problem} />
         <p className="text-body text-muted">
-          {fund.name} holds <Money pence={fund.balancePence} tone="neutral" />
+          {sv.holds(fund.name, fmt.money(fund.balancePence))}
         </p>
         <Select
-          label="To"
+          label={sv.to}
           value={to}
           onChange={(e) => setTo(e.target.value)}
           options={others.map((f) => ({ value: f.id, label: f.name }))}
@@ -207,7 +206,7 @@ export function FundMoveSheet({ fund, others, today, onClose, onDone }: MoveShee
           required
         />
         <AmountInput
-          label="Amount"
+          label={sv.amount}
           value={amount}
           onChange={(t) => {
             setAmount(t);
@@ -218,7 +217,7 @@ export function FundMoveSheet({ fund, others, today, onClose, onDone }: MoveShee
           required
         />
         <TextField
-          label="Date"
+          label={sv.date}
           type="date"
           value={date}
           min={expenseDateRange(today).min}
@@ -228,17 +227,17 @@ export function FundMoveSheet({ fund, others, today, onClose, onDone }: MoveShee
           required
         />
         <TextField
-          label="Note (optional)"
+          label={sv.noteOptional}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           error={error("note")}
           maxLength={MAX_FUND_NOTE_LENGTH}
           autoComplete="off"
-          placeholder="e.g. Topping up the holiday…"
+          placeholder={sv.movePlaceholder}
         />
-        <p className="text-caption text-muted">Both funds&apos; histories show the move. Your budget doesn&apos;t change.</p>
+        <p className="text-caption text-muted">{sv.moveNote}</p>
         <Button type="submit" variant="primary" fullWidth disabled={busy || !target}>
-          {busy ? "Moving…" : "Move money"}
+          {busy ? sv.moving : sv.moveMoney}
         </Button>
       </form>
     </BottomSheet>
@@ -255,7 +254,8 @@ type EditSheetProps = {
 /** A fund's name, optional target and optional target date (new or existing). */
 export function FundEditSheet({ fund, onClose, onDone }: EditSheetProps) {
   const i18n = useI18n();
-  const { fmt } = i18n;
+  const { fmt, m } = i18n;
+  const sv = m.saving;
   const [name, setName] = useState(fund?.name ?? "");
   const [target, setTarget] = useState(fund?.targetPence ? fmt.inputText(fund.targetPence) : "");
   const [targetDate, setTargetDate] = useState(fund?.targetDate ?? "");
@@ -278,20 +278,20 @@ export function FundEditSheet({ fund, onClose, onDone }: EditSheetProps) {
         setProblem({ message: result.error, field: result.field });
         return;
       }
-      onDone(fund ? `${name.trim()} saved` : `${name.trim()} created`);
+      onDone(fund ? sv.fundSaved(name.trim()) : sv.fundCreated(name.trim()));
     } catch {
-      setProblem({ message: FAILED });
+      setProblem({ message: sv.failed });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <BottomSheet open onClose={onClose} title={fund ? "Edit fund" : "New fund"}>
+    <BottomSheet open onClose={onClose} title={fund ? sv.editFund : sv.newFund}>
       <form onSubmit={(e) => void submit(e)} noValidate className="flex flex-col gap-4">
         <FormError problem={problem} />
         <TextField
-          label="Name"
+          label={sv.name}
           value={name}
           onChange={(e) => {
             setName(e.target.value);
@@ -300,19 +300,19 @@ export function FundEditSheet({ fund, onClose, onDone }: EditSheetProps) {
           error={error("name")}
           maxLength={MAX_NAME_LENGTH}
           autoComplete="off"
-          placeholder="e.g. Holiday…"
+          placeholder={sv.fundPlaceholder}
           required
         />
-        <AmountInput label="Target (optional)" value={target} onChange={setTarget} allowZero error={error("target")} />
+        <AmountInput label={sv.targetOptional} value={target} onChange={setTarget} allowZero error={error("target")} />
         <TextField
-          label="Target date (optional)"
+          label={sv.targetDateOptional}
           type="date"
           value={targetDate}
           onChange={(e) => setTargetDate(e.target.value)}
           error={error("targetDate")}
         />
         <Button type="submit" variant="primary" fullWidth disabled={busy}>
-          {busy ? "Saving…" : "Save"}
+          {busy ? m.common.saving : m.common.save}
         </Button>
       </form>
     </BottomSheet>

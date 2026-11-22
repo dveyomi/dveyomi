@@ -11,9 +11,6 @@ import { UnassignedNudge } from "@/components/UnassignedNudge";
 import { ButtonLink, Card, EmptyState, Gauge, Money, Notice, StatusBadge } from "@/components/ui";
 import {
   displaySafeToSpend,
-  formatDaysLeft,
-  formatPeriodRange,
-  formatShortDate,
   leftToSpendPercent,
   overBudgetPence,
   type BudgetSummary,
@@ -40,24 +37,25 @@ type BudgetOverviewProps = {
 };
 
 const groups = [
-  { title: "Needs", kind: "need" },
-  { title: "Wants", kind: "want" },
-  { title: "No budget yet", kind: null },
+  { key: "need", kind: "need" },
+  { key: "want", kind: "want" },
+  { key: "none", kind: null },
 ] as const;
 
 /** The Budget tab (§5.4). Every figure is read from `summary`; nothing is worked out here. */
 export function BudgetOverview({ period, summary, categories, tab, saving, today, notice, review }: BudgetOverviewProps) {
-  const { fmt } = useI18n();
+  const { fmt, m } = useI18n();
+  const b = m.budget;
   if (!summary) {
     return (
       <Card>
         <EmptyState
           icon="chart"
-          title="Set up your budget"
-          body="Tell us your income and what it's for, and your budget will show here."
+          title={b.setUpTitle}
+          body={b.setUpBody}
           action={
             <ButtonLink href="/onboarding" variant="primary">
-              Set up your budget
+              {b.setUpTitle}
             </ButtonLink>
           }
         />
@@ -69,14 +67,14 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
   const safe = displaySafeToSpend(summary);
   return (
     <div className="grid items-start gap-6 lg:grid-cols-5">
-      <section aria-label="This period" className="flex flex-col gap-4 lg:sticky lg:top-8 lg:col-span-2">
+      <section aria-label={b.thisPeriod} className="flex flex-col gap-4 lg:sticky lg:top-8 lg:col-span-2">
         <SavedNotice notice={notice} />
         {review?.pending ? (
           <Notice tone="neutral">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p>Your {review.pending.monthLabel} budget has ended.</p>
+              <p>{b.ended(review.pending.monthLabel)}</p>
               <ButtonLink href="/review" variant="primary">
-                Review it
+                {b.reviewIt}
               </ButtonLink>
             </div>
           </Notice>
@@ -86,11 +84,11 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
           <div className="flex items-center gap-3">
             <StatusBadge status={summary.status} />
             <span className="text-body text-muted">
-              {formatPeriodRange(period.start, period.end)}
+              {fmt.periodRange(period.start, period.end)}
             </span>
           </div>
           <ButtonLink href="/budget/edit" variant="secondary" icon="edit">
-            Set new budget
+            {b.setNewBudget}
           </ButtonLink>
         </div>
 
@@ -98,32 +96,32 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
           <Gauge
             percent={leftToSpendPercent(summary)}
             state={over > 0 ? "over" : "normal"}
-            label="Left to spend"
+            label={b.leftToSpend}
             valueText={
               over > 0
-                ? `Over budget by ${fmt.money(over)}`
-                : `${fmt.money(summary.leftToSpendPence)} left`
+                ? b.overBy(fmt.money(over))
+                : b.left(fmt.money(summary.leftToSpendPence))
             }
           >
             {over > 0 ? (
               <p className="flex flex-col items-center text-danger-fg">
-                <span className="text-caption">Over budget by </span>
+                <span className="text-caption">{b.overByLabel}</span>
                 <Money pence={over} size="fit" tone="neutral" />
               </p>
             ) : (
               <>
-                <span className="text-caption text-muted">Left to spend</span>
+                <span className="text-caption text-muted">{b.leftToSpend}</span>
                 <Money pence={summary.leftToSpendPence} size="fit" />
               </>
             )}
             <span className="text-caption text-muted">
-              {formatDaysLeft(summary.daysLeft)}
+              {fmt.daysLeft(summary.daysLeft)}
             </span>
           </Gauge>
 
           <dl className="grid grid-cols-2 gap-3">
             <Card raised className="flex flex-col gap-1">
-              <dt className="text-caption text-muted">Safe to spend per day</dt>
+              <dt className="text-caption text-muted">{b.safePerDay}</dt>
               <dd className="flex items-center justify-between gap-2 text-title font-semibold text-text">
                 <Money pence={safe.perDayPence} />
                 <SafeToSpendInfo
@@ -136,15 +134,15 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
               </dd>
             </Card>
             <Card raised className="flex flex-col gap-1">
-              <dt className="text-caption text-muted">Next budget</dt>
-              <dd className="text-body font-semibold text-text">{formatShortDate(period.nextStart)}</dd>
+              <dt className="text-caption text-muted">{b.nextBudget}</dt>
+              <dd className="text-body font-semibold text-text">{fmt.shortDate(period.nextStart)}</dd>
             </Card>
           </dl>
           {review && (review.carried.length > 0 || review.adjustments.length > 0) ? (
             <div className="flex flex-col gap-1">
               {review.carried.map((c, i) => (
                 <p key={i} className="text-caption text-muted">
-                  Includes <Money pence={c.amountPence} tone="neutral" /> carried from {c.fromLabel}
+                  {b.carried(fmt.money(c.amountPence), c.fromLabel)}
                 </p>
               ))}
               {review.adjustments.map((a) => (
@@ -163,8 +161,7 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
         {summary.overAllocatedPence > 0 ? (
           <Notice tone="danger">
             <p>
-              Your allocations are <Money pence={summary.overAllocatedPence} tone="neutral" /> more than your
-              spending money.
+              {b.overAllocated(fmt.money(summary.overAllocatedPence))}
             </p>
           </Notice>
         ) : null}
@@ -182,13 +179,14 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
 }
 
 function SpendingPanel({ summary, categories }: { summary: BudgetSummary; categories: CategoryRow[] }) {
+  const { m } = useI18n();
   if (summary.categories.length === 0) {
     return (
       <Card>
         <EmptyState
           icon="pie"
-          title="Nothing allocated yet"
-          body="Give each part of your spending money a job in Set new budget."
+          title={m.budget.nothingAllocatedTitle}
+          body={m.budget.nothingAllocatedBody}
         />
       </Card>
     );
@@ -202,13 +200,13 @@ function SpendingPanel({ summary, categories }: { summary: BudgetSummary; catego
 
   return (
     <div className="flex flex-col gap-6">
-      {groups.map(({ title, kind }) => {
+      {groups.map(({ key, kind }) => {
         const figures = sorted.filter((f) => f.kind === kind);
         if (figures.length === 0) return null;
         return (
-          <section key={title} aria-labelledby={`group-${kind ?? "none"}`} className="flex flex-col gap-3">
+          <section key={key} aria-labelledby={`group-${kind ?? "none"}`} className="flex flex-col gap-3">
             <h2 id={`group-${kind ?? "none"}`} className="text-caption font-semibold tracking-wide text-muted uppercase">
-              {title}
+              {m.budget.groups[key]}
             </h2>
             <ul className="grid gap-3 xl:grid-cols-2">
               {figures.map((f) => {

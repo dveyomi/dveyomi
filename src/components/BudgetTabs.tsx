@@ -1,19 +1,21 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { useState, type ReactNode } from "react";
 import { SegmentedTabs } from "@/components/ui";
 
 export type BudgetTab = "spending" | "saving";
 
-const options = [
-  { value: "spending" as const, label: "Spending" },
-  { value: "saving" as const, label: "Saving" },
-];
 
 type BudgetTabsProps = { initial: BudgetTab; spending: ReactNode; saving: ReactNode };
 
 /** Spending | Saving. The tab lives in `?tab=saving` so it can be linked to. */
 export function BudgetTabs({ initial, spending, saving }: BudgetTabsProps) {
+  const { m } = useI18n();
+  const options = [
+    { value: "spending" as const, label: m.budget.tabs.spending },
+    { value: "saving" as const, label: m.budget.tabs.saving },
+  ];
   const [tab, setTab] = useState(initial);
 
   function change(next: BudgetTab) {
@@ -27,8 +29,8 @@ export function BudgetTabs({ initial, spending, saving }: BudgetTabsProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <SegmentedTabs label="Budget view" options={options} value={tab} onChange={change} />
-      <div role="tabpanel" aria-label={tab === "saving" ? "Saving" : "Spending"}>
+      <SegmentedTabs label={m.budget.view} options={options} value={tab} onChange={change} />
+      <div role="tabpanel" aria-label={m.budget.tabs[tab]}>
         {tab === "saving" ? saving : spending}
       </div>
     </div>

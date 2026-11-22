@@ -2,13 +2,14 @@
 
 import { useI18n } from "@/i18n/client";
 import type { Format } from "@/i18n/format";
+import type { Messages } from "@/i18n/messages";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { FundEditSheet, FundMoveSheet, FundMovementSheet } from "@/components/FundForms";
 import { FundHistory } from "@/components/FundHistory";
 import { MoveSavingsSheet } from "@/components/MoveSavingsSheet";
 import { Button, Card, EmptyState, Icon, IconButton, Money, ProgressBar } from "@/components/ui";
-import { formatDayMonthYear, formatPeriodRange, type IsoDate } from "@/lib/calc";
+import { type IsoDate } from "@/lib/calc";
 import type { FundView, SavingView, WaitingPrompt } from "@/lib/data/funds";
 
 type SavingTabProps = { view: SavingView; today: IsoDate };
@@ -29,6 +30,8 @@ type Open =
  * data layer (calc); the split difference while editing comes from calc too.
  */
 export function SavingTab({ view, today }: SavingTabProps) {
+  const { m } = useI18n();
+  const sv = m.saving;
   const router = useRouter();
   const [open, setOpen] = useState<Open>(null);
   const [status, setStatus] = useState("");
@@ -58,7 +61,7 @@ export function SavingTab({ view, today }: SavingTabProps) {
       </div>
       <div className="flex flex-col gap-6">
         {view.waiting.length > 0 ? (
-          <section aria-label="Savings waiting to be moved" className="flex flex-col gap-3">
+          <section aria-label={sv.waitingSection} className="flex flex-col gap-3">
             {view.waiting.map((p) => (
               <WaitingCard key={p.periodId} prompt={p} onMove={() => setOpen({ sheet: "move", prompt: p })} />
             ))}
@@ -68,12 +71,12 @@ export function SavingTab({ view, today }: SavingTabProps) {
         <section aria-labelledby="funds-heading" className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <h2 id="funds-heading" className="text-caption font-semibold tracking-wide text-muted uppercase">
-              Funds
+              {sv.funds}
             </h2>
             {view.funds.length > 0 ? (
               <Button variant="secondary" onClick={() => setOpen({ sheet: "edit", fundId: null })}>
                 <Icon name="plus" size="sm" />
-                New fund
+                {sv.newFund}
               </Button>
             ) : null}
           </div>
@@ -81,11 +84,11 @@ export function SavingTab({ view, today }: SavingTabProps) {
             <Card>
               <EmptyState
                 icon="savings"
-                title="No funds yet"
-                body="A fund is a pot for something you're saving towards, like a holiday or a rainy day."
+                title={sv.noFundsTitle}
+                body={sv.noFundsBody}
                 action={
                   <Button variant="primary" onClick={() => setOpen({ sheet: "edit", fundId: null })}>
-                    New fund
+                    {sv.newFund}
                   </Button>
                 }
               />
@@ -113,7 +116,7 @@ export function SavingTab({ view, today }: SavingTabProps) {
             prompt={open.prompt}
             funds={view.funds}
             onClose={() => setOpen(null)}
-            onDone={() => done("Savings moved into your funds")}
+            onDone={() => done(sv.moved)}
           />
         ) : null}
         {open?.sheet === "history" ? <FundHistory fund={current} today={today} onClose={() => setOpen(null)} /> : null}
@@ -136,6 +139,7 @@ export function SavingTab({ view, today }: SavingTabProps) {
 }
 
 function WaitingCard({ prompt, onMove }: { prompt: WaitingPrompt; onMove: () => void }) {
+  const { m, fmt } = useI18n();
   return (
     <Card className="flex flex-col gap-4 md:flex-row md:items-center">
       <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -147,17 +151,16 @@ function WaitingCard({ prompt, onMove }: { prompt: WaitingPrompt; onMove: () => 
         </span>
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-title font-semibold text-text">
-            <Money pence={prompt.savingsPence} /> waiting to be moved
+            {m.saving.waiting(fmt.money(prompt.savingsPence))}
           </p>
           <p className="text-caption text-muted">
-            Savings for {formatPeriodRange(prompt.start, prompt.end)}. Set aside when your pay landed, so it&apos;s never
-            in Left to spend.
+            {m.saving.waitingBody(fmt.periodRange(prompt.start, prompt.end))}
           </p>
         </div>
       </div>
       <div className="md:shrink-0">
         <Button variant="primary" fullWidth onClick={onMove}>
-          Move your savings
+          {m.saving.moveYourSavings}
         </Button>
       </div>
     </Card>
@@ -165,9 +168,9 @@ function WaitingCard({ prompt, onMove }: { prompt: WaitingPrompt; onMove: () => 
 }
 
 /** "23% of £1,000.00 · by 31 Jul 2027", "No target · by 31 Jul 2027" or "No target". */
-function targetLine(fmt: Format, f: FundView): string {
-  const target = f.targetPence !== null && f.progressPercent !== null ? `${f.progressPercent}% of ${fmt.money(f.targetPence)}` : "No target";
-  return f.targetDate ? `${target} · by ${formatDayMonthYear(f.targetDate)}` : target;
+function targetLine(m: Messages, fmt: Format, f: FundView): string {
+  const target = f.targetPence !== null && f.progressPercent !== null ? m.saving.target(f.progressPercent, fmt.money(f.targetPence)) : m.saving.noTarget;
+  return f.targetDate ? m.saving.by(target, fmt.dayMonthYear(f.targetDate)) : target;
 }
 
 type FundCardProps = {
@@ -181,7 +184,8 @@ type FundCardProps = {
 };
 
 function FundCard({ fund, onHistory, onAdd, onWithdraw, onMove, onEdit }: FundCardProps) {
-  const { fmt } = useI18n();
+  const { fmt, m } = useI18n();
+  const sv = m.saving;
   const headingId = useId();
   return (
     <article aria-labelledby={headingId} className="h-full">
@@ -195,8 +199,8 @@ function FundCard({ fund, onHistory, onAdd, onWithdraw, onMove, onEdit }: FundCa
             {fund.name}
           </h3>
         </div>
-        <Button variant="ghost" aria-label={`${fund.name} history`} onClick={onHistory}>
-          History
+        <Button variant="ghost" aria-label={sv.historyOf(fund.name)} onClick={onHistory}>
+          {sv.history}
           <Icon name="chevron-right" size="sm" />
         </Button>
       </div>
@@ -206,22 +210,22 @@ function FundCard({ fund, onHistory, onAdd, onWithdraw, onMove, onEdit }: FundCa
           <Money pence={fund.balancePence} />
         </span>
         {fund.progressPercent !== null ? (
-          <ProgressBar percent={fund.progressPercent} state="normal" label={`${fund.name} progress`} />
+          <ProgressBar percent={fund.progressPercent} state="normal" label={sv.progress(fund.name)} />
         ) : null}
-        <span className="text-caption text-muted">{targetLine(fmt, fund)}</span>
+        <span className="text-caption text-muted">{targetLine(m, fmt, fund)}</span>
       </div>
 
       <div className="mt-auto grid grid-cols-[1fr_1fr_auto] items-center gap-2">
         <Button variant="secondary" onClick={onAdd}>
-          Add money
+          {sv.addMoney}
         </Button>
         <Button variant="secondary" onClick={onWithdraw} disabled={fund.balancePence <= 0}>
-          Withdraw
+          {sv.withdraw}
         </Button>
-        <IconButton icon="edit" label={`Edit ${fund.name}`} onClick={onEdit} />
+        <IconButton icon="edit" label={sv.edit(fund.name)} onClick={onEdit} />
         {onMove ? (
           <Button variant="secondary" onClick={onMove} disabled={fund.balancePence <= 0} className="col-span-2">
-            Move
+            {sv.move}
           </Button>
         ) : null}
       </div>

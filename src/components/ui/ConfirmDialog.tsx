@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/i18n/client";
 import { BottomSheet } from "./BottomSheet";
 import { Button } from "./Button";
 
@@ -20,17 +21,18 @@ export function ConfirmDialog({
   title,
   body,
   confirmLabel,
-  cancelLabel = "Cancel",
+  cancelLabel,
   tone = "primary",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { m } = useI18n();
   return (
     <BottomSheet open={open} onClose={onCancel} title={title} role="alertdialog">
       <p className="text-body text-muted">{body}</p>
       <div className="mt-6 flex flex-col-reverse gap-3 md:flex-row md:justify-end">
         <Button variant="secondary" onClick={onCancel}>
-          {cancelLabel}
+          {cancelLabel ?? m.common.cancel}
         </Button>
         <Button variant={tone} onClick={onConfirm}>
           {confirmLabel}
