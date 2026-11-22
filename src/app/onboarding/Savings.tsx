@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/i18n/client";
-import { AmountInput, Button, Card, IconButton, Money, TextField, Toggle } from "@/components/ui";
+import { AmountInput, Button, Card, IconButton, TextField, Toggle } from "@/components/ui";
 import { splitRemainder } from "@/lib/calc";
 import { MAX_FUNDS, MAX_NAME_LENGTH } from "@/lib/validation/common";
 import { livePence, type FundDraft } from "./draft";
