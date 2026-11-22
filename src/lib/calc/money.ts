@@ -57,3 +57,14 @@ export function formatGBPShort(pence: number): string {
   const whole = Math.floor(tenths / 10);
   return tenths % 10 === 0 ? `${sign}£${whole}k` : `${sign}£${whole}.${tenths % 10}k`;
 }
+
+/** The total of whole-pence amounts (0 for none). */
+export function sumPence(amounts: readonly number[]): number {
+  return amounts.reduce((sum, a) => sum + a, 0);
+}
+
+/** Like formatGBP with an explicit sign: "+£100.00" for money in, "−£40.00" (a minus sign) for money out, "£0.00" for none. */
+export function formatSignedGBP(pence: number): string {
+  if (pence === 0) return formatGBP(0);
+  return `${pence > 0 ? "+" : "−"}${formatGBP(Math.abs(pence))}`;
+}

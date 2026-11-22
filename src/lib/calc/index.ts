@@ -1,4 +1,4 @@
-export { parsePence, parseOptionalPence, penceToInputText, formatGBP, formatGBPShort, divRound } from "./money";
+export { parsePence, parseOptionalPence, penceToInputText, formatGBP, formatGBPShort, formatSignedGBP, divRound, sumPence } from "./money";
 export {
   addDays,
   daysBetween,
@@ -16,7 +16,7 @@ export type { IsoDate } from "./dates";
 export { periodContaining, periodStartingInMonth, periodStartingOn, daysLeft, previousPeriod, startDayLabel } from "./periods";
 export type { Period } from "./periods";
 export { summarise } from "./budget";
-export { percentLeft, leftToSpendPercent, overBudgetPence } from "./figures";
+export { percentLeft, leftToSpendPercent, overBudgetPence, displaySafeToSpend, sharePercent } from "./figures";
 export type {
   Txn,
   Allocation,

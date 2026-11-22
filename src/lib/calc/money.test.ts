@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { divRound, formatGBP, parsePence, parseOptionalPence, penceToInputText } from "./money";
+import { divRound, formatGBP, formatSignedGBP, parsePence, parseOptionalPence, penceToInputText, sumPence } from "./money";
 
 describe("parsePence", () => {
   it("parses valid amounts", () => {
@@ -53,5 +53,27 @@ describe("penceToInputText", () => {
 
   it("round-trips through parsePence", () => {
     for (const p of [1, 99, 100, 1250, 987654321]) expect(parsePence(penceToInputText(p))).toBe(p);
+  });
+});
+
+describe("sumPence", () => {
+  it("adds whole pence", () => {
+    expect(sumPence([1250, -400, 0])).toBe(850);
+  });
+
+  it("is 0 for nothing", () => {
+    expect(sumPence([])).toBe(0);
+  });
+});
+
+describe("formatSignedGBP", () => {
+  it("puts a plus before money in and a minus sign (−) before money out", () => {
+    expect(formatSignedGBP(10000)).toBe("+£100.00");
+    expect(formatSignedGBP(-4000)).toBe("−£40.00");
+    expect(formatSignedGBP(123456)).toBe("+£1,234.56");
+  });
+
+  it("has no sign for £0.00", () => {
+    expect(formatSignedGBP(0)).toBe("£0.00");
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetSummary, CategoryFigure } from "./budget";
-import { leftToSpendPercent, overBudgetPence, percentLeft } from "./figures";
+import { displaySafeToSpend, leftToSpendPercent, overBudgetPence, percentLeft, sharePercent } from "./figures";
 
 function fig(over: Partial<CategoryFigure> = {}): CategoryFigure {
   return {
@@ -81,5 +81,35 @@ describe("overBudgetPence", () => {
   it("is 0 while there is money left", () => {
     expect(overBudgetPence(summary())).toBe(0);
     expect(overBudgetPence(summary({ leftToSpendPence: 0 }))).toBe(0);
+  });
+});
+
+describe("displaySafeToSpend", () => {
+  it("shows the figure as it is while it's £0 or more", () => {
+    expect(displaySafeToSpend(summary({ safeToSpendPerDayPence: 86036 }))).toEqual({ perDayPence: 86036, belowZero: false });
+    expect(displaySafeToSpend(summary({ safeToSpendPerDayPence: 0 }))).toEqual({ perDayPence: 0, belowZero: false });
+  });
+
+  it("shows £0.00 a day when it is below zero, and says so", () => {
+    expect(displaySafeToSpend(summary({ safeToSpendPerDayPence: -1250 }))).toEqual({ perDayPence: 0, belowZero: true });
+  });
+
+  it("never changes the summary's own figure", () => {
+    const s = summary({ safeToSpendPerDayPence: -1250 });
+    displaySafeToSpend(s);
+    expect(s.safeToSpendPerDayPence).toBe(-1250);
+  });
+});
+
+describe("sharePercent", () => {
+  it("is part's exact share of whole, 0 to 100", () => {
+    expect(sharePercent(1, 4)).toBe(25);
+    expect(sharePercent(1, 3)).toBeCloseTo(33.333, 3);
+    expect(sharePercent(5, 5)).toBe(100);
+  });
+
+  it("is 0 when the whole is £0 or less", () => {
+    expect(sharePercent(0, 0)).toBe(0);
+    expect(sharePercent(5, -1)).toBe(0);
   });
 });
