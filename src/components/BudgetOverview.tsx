@@ -103,12 +103,12 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
             {over > 0 ? (
               <p className="flex flex-col items-center text-danger-fg">
                 <span className="text-caption">Over budget by </span>
-                <Money pence={over} size="display" tone="neutral" />
+                <Money pence={over} size="fit" tone="neutral" />
               </p>
             ) : (
               <>
                 <span className="text-caption text-muted">Left to spend</span>
-                <Money pence={summary.leftToSpendPence} size="display" />
+                <Money pence={summary.leftToSpendPence} size="fit" />
               </>
             )}
             <span className="text-caption text-muted">

@@ -295,7 +295,7 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
             <Card>
               <Gauge percent={62} state="normal" label="Budget used">
                 <Label>Left to spend</Label>
-                <Money pence={430178} size="title" />
+                <Money pence={2317345} size="fit" />
                 <StatusBadge status="on_track" />
               </Gauge>
             </Card>

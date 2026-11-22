@@ -46,7 +46,7 @@ Contrast is tested in both themes: text and muted are at least 4.5:1 on bg, card
 1. **To change a colour or a size, edit `src/design/tokens.css`.** It is the only place colours, type sizes, spacing, radii and elevation are defined.
 2. **To change how a component looks, edit its file in `src/components/ui/`.** Components accept only semantic props such as `variant`, `tone` and `state`. They never take colour or size strings. `className` is accepted only where layout needs it (spacing and grid placement), and never for colour.
 3. **Never style a screen directly.** Screens compose components from `@/components/ui` and lay them out with Tailwind's layout and spacing utilities. Screens contain no hex colours, pixel values, inline colour styles or one-off component styles.
-4. Money is always shown with `<Money pence={…} />`. It formats through `formatGBP` and uses tabular numerals. Amounts are entered with `<AmountInput />`, which parses through `parsePence`.
+4. Money is always shown with `<Money pence={…} />`. It formats through `formatGBP` and uses tabular numerals. Inside a `Gauge`, use `size="fit"`: display size, shrunk for long amounts so they stay inside the arc. Amounts are entered with `<AmountInput />`, which parses through `parsePence`.
 
 `src/design/tokens.test.ts` enforces rules 1 and 3 for every file under `src/app/` and `src/components/`. It fails on:
 

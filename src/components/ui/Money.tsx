@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { formatGBP } from "@/lib/calc";
 
 const sizes = {
@@ -6,6 +7,8 @@ const sizes = {
   title: "text-title font-semibold",
   body: "text-body",
   caption: "text-caption",
+  /** Display size, made smaller for longer amounts so it fits the nearest `@container` (a Gauge's centre). */
+  fit: "font-semibold tracking-tight leading-(--leading-display)",
 } as const;
 
 type MoneyProps = {
@@ -15,11 +18,20 @@ type MoneyProps = {
   size?: keyof typeof sizes;
 };
 
+/** Display size, or less: the container's width shared between the characters, at 0.55em each (a little over a tabular digit). */
+const fitTo = (text: string): CSSProperties => ({
+  fontSize: `min(var(--text-display), calc(100cqi / ${(text.length * 0.55).toFixed(2)}))`,
+});
+
 export function Money({ pence, tone = "auto", size = "inherit" }: MoneyProps) {
   const danger = tone === "auto" && pence < 0;
+  const text = formatGBP(pence);
   return (
-    <span className={`tabular-nums whitespace-nowrap ${sizes[size]} ${danger ? "text-danger-fg" : ""}`}>
-      {formatGBP(pence)}
+    <span
+      className={`tabular-nums whitespace-nowrap ${sizes[size]} ${danger ? "text-danger-fg" : ""}`}
+      style={size === "fit" ? fitTo(text) : undefined}
+    >
+      {text}
     </span>
   );
 }

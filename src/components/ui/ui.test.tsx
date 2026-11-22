@@ -55,6 +55,15 @@ describe("over state is announced", () => {
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuetext", "Over budget");
   });
 
+  it("Gauge holds its figure in a container inside the arc, for Money size fit", () => {
+    render(
+      <Gauge percent={40} state="normal" label="Left to spend">
+        <span>figure</span>
+      </Gauge>,
+    );
+    expect(screen.getByText("figure").parentElement).toHaveClass("@container");
+  });
+
   it("Gauge over has aria-valuetext", () => {
     render(<Gauge percent={40} state="over" label="Budget used" />);
     expect(screen.getByRole("meter")).toHaveAttribute("aria-valuetext", "Over budget");
@@ -113,6 +122,13 @@ describe("Money", () => {
   it("does not colour a negative amount when tone is neutral", () => {
     render(<Money pence={-10000} tone="neutral" />);
     expect(screen.getByText("-£100.00")).not.toHaveClass("text-danger-fg");
+  });
+
+  it("size fit shrinks with its text length, so a long amount still fits its container", () => {
+    render(<Money pence={2317345} size="fit" />);
+    const el = screen.getByText("£23,173.45");
+    // 10 characters at 0.55em each share the container's width, capped at display size.
+    expect(el.getAttribute("style")).toContain("min(var(--text-display), calc(100cqi / 5.50))");
   });
 });
 

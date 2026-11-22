@@ -41,8 +41,10 @@ export function Gauge({ percent, state, label, valueText, children }: GaugeProps
           />
         ) : null}
       </svg>
-      {/* pt-[18%] moves the content's centre down to the arc's centre (y=50 of 82). */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pt-[18%] text-center">
+      {/* pt-[18%] moves the content's centre down to the arc's centre (y=50 of 82). The
+          20% sides keep it inside the arc (inner edge at 18.5%); a size container, so
+          Money size="fit" shrinks long figures to fit. */}
+      <div className="@container absolute inset-y-0 inset-x-[20%] flex flex-col items-center justify-center gap-1 pt-[18%] text-center">
         {children}
       </div>
     </div>

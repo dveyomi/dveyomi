@@ -112,7 +112,7 @@ export function BottomSheet({ open, onClose, title, children, role = "dialog" }:
           </h2>
           <IconButton icon="close" label="Close" onClick={onClose} />
         </div>
-        <div data-sheet-body className="overflow-y-auto px-5 pt-2 pb-6">{children}</div>
+        <div data-sheet-body className="overflow-y-auto overscroll-contain px-5 pt-2 pb-6">{children}</div>
       </div>
     </div>
   );

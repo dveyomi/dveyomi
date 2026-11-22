@@ -352,7 +352,7 @@ describe("CategoryDetail", () => {
     render(<CategoryDetail inUse={null} period={period} category={travel} figure={null} daysLeft={4} transactions={[]} />);
     expect(screen.getByText(/no budget yet/i)).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-    expect(screen.getByText(/no expenses in this category/i)).toBeInTheDocument();
+    expect(screen.getByText(/expenses in this category this period will show here/i)).toBeInTheDocument();
   });
 
   it("shows one day left in the singular", () => {

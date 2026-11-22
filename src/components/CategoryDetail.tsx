@@ -107,7 +107,7 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
           </div>
           <Card className="px-2 py-1">
             {transactions.length === 0 ? (
-              <EmptyState icon="wallet" title="No expenses yet" body="No expenses in this category this period." />
+              <EmptyState icon="wallet" title="No expenses yet" body="Expenses in this category this period will show here. Use Log expense to add one." />
             ) : (
               <ul aria-label="Expenses this period" className="flex flex-col divide-y divide-border">
                 {transactions.map((t) => (
