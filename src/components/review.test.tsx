@@ -213,7 +213,7 @@ describe("BudgetOverview review states", () => {
   const base = { period, summary, categories: [], saving: noSaving, today: "2026-11-21", tab: "spending" as const };
 
   it("links to the review while an ended period waits for one", () => {
-    render(<BudgetOverview {...base} review={{ pending: { periodId: "p", monthLabel: "October" }, carried: [], nudgePence: null }} />);
+    render(<BudgetOverview {...base} review={{ pending: { periodId: "p", monthLabel: "October" }, carried: [], nudgePence: null, adjustments: [] }} />);
     expect(screen.getByText("Your October budget has ended.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review it" })).toHaveAttribute("href", "/review");
   });
@@ -227,7 +227,7 @@ describe("BudgetOverview review states", () => {
         </h1>
         <BudgetOverview
           {...base}
-          review={{ pending: null, carried: [{ fromLabel: "October", amountPence: 25000 }], nudgePence: 25000 }}
+          review={{ pending: null, carried: [{ fromLabel: "October", amountPence: 25000 }], nudgePence: 25000, adjustments: [] }}
         />
       </>,
     );
@@ -243,7 +243,7 @@ describe("BudgetOverview review states", () => {
   });
 
   it("shows no review notice, carry line or nudge when there is nothing to say", () => {
-    render(<BudgetOverview {...base} review={{ pending: null, carried: [], nudgePence: null }} />);
+    render(<BudgetOverview {...base} review={{ pending: null, carried: [], nudgePence: null, adjustments: [] }} />);
     expect(screen.queryByText(/has ended/)).not.toBeInTheDocument();
     expect(screen.queryByText(/carried from/)).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Give every pound a job" })).not.toBeInTheDocument();

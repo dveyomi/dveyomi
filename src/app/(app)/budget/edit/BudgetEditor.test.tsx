@@ -98,6 +98,25 @@ describe("BudgetEditor", () => {
     });
   });
 
+  it("savings already moved: explains, and switches to From next period keeping the figures typed", async () => {
+    saveBudgetAction.mockResolvedValue({
+      error: "This month's savings are already moved, so change them from next month.",
+      savingsMoved: true,
+    });
+    renderEditor({ nextBudget });
+    type("Pay yourself first", "600");
+    click("Save budget");
+    expect(await screen.findByText("This month's savings are already moved, so change them from next month.")).toBeInTheDocument();
+    click("Change them from next period");
+    expect(screen.getByRole("radio", { name: "From next period" })).toBeChecked();
+    expect(screen.getByLabelText("Pay yourself first")).toHaveValue("600");
+    expect(screen.queryByText(/already moved/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    click("Save budget");
+    await waitFor(() => expect(saveBudgetAction).toHaveBeenCalledTimes(2));
+    expect(saveBudgetAction.mock.calls[1][0]).toMatchObject({ scope: "next", savingsPence: 60000 });
+  });
+
   it("renames a category from its edit sheet; its kind can't change there", async () => {
     saveBudgetAction.mockResolvedValue(undefined);
     renderEditor();

@@ -27,6 +27,7 @@ import {
   formatShortDate,
   parseOptionalPence,
   parsePence,
+  penceToInputText,
   type Period,
 } from "@/lib/calc";
 import { MAX_NAME_LENGTH } from "@/lib/validation/common";
@@ -64,14 +65,13 @@ const SCOPES = [
   { value: "next" as const, label: "From next period" },
 ];
 
-const text = (pence: number) => (pence / 100).toFixed(2);
 const livePence = (t: string) => parseOptionalPence(t) ?? 0;
 
 function formFrom(f: BudgetFigures): Form {
   return {
-    incomeText: text(f.incomePence),
-    savingsText: text(f.savingsPence),
-    rows: f.categories.map((c) => ({ key: c.id, id: c.id, name: c.name, kind: c.kind, amountText: text(c.amountPence), removed: false })),
+    incomeText: penceToInputText(f.incomePence),
+    savingsText: penceToInputText(f.savingsPence),
+    rows: f.categories.map((c) => ({ key: c.id, id: c.id, name: c.name, kind: c.kind, amountText: penceToInputText(c.amountPence), removed: false })),
   };
 }
 
@@ -99,7 +99,8 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
   const [focusKey, setFocusKey] = useState<string | undefined>(focused?.key);
   const [pendingScope, setPendingScope] = useState<BudgetEditScope | null>(null);
   const [renaming, setRenaming] = useState<Row | null>(null);
-  const [error, setError] = useState<{ message: string; field?: "income" | "savings" } | null>(null);
+  /** `savingsMoved`: this month's savings are already in funds, so the error offers From next period. */
+  const [error, setError] = useState<{ message: string; field?: "income" | "savings"; savingsMoved?: boolean } | null>(null);
   const [saving, startSaving] = useTransition();
   const nextKey = useRef(1);
 
@@ -136,6 +137,13 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
     if (next === scope) return;
     if (nextBudget && !sameForm(form, base)) return setPendingScope(next);
     applyScope(next);
+  }
+
+  /** After "savings already moved": the same figures, saved from the next period instead. */
+  function moveToNext() {
+    setScope("next");
+    setBase(form);
+    setError(null);
   }
 
   function remove(key: string) {
@@ -175,7 +183,7 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
     if (!checked.ok) return setError({ message: checked.error, field: checked.field });
     startSaving(async () => {
       const result = await saveBudgetAction(raw);
-      if (result?.error) setError({ message: result.error });
+      if (result?.error) setError({ message: result.error, savingsMoved: result.savingsMoved });
     });
   }
 
@@ -248,7 +256,18 @@ export function BudgetEditor({ period, budget, nextBudget, nextDiffers, outside,
             </Notice>
           ) : null}
           {/* Field errors also show here, next to Save, since the field may be scrolled out of view. */}
-          {error ? (
+          {error?.savingsMoved ? (
+            <div role="alert">
+              <Notice tone="warning">
+                <div className="flex flex-col items-start gap-3">
+                  <p>{error.message}</p>
+                  <Button variant="secondary" onClick={moveToNext}>
+                    Change them from next period
+                  </Button>
+                </div>
+              </Notice>
+            </div>
+          ) : error ? (
             <p role={error.field ? undefined : "alert"} className="text-caption text-danger-fg">
               {error.message}
             </p>

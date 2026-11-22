@@ -7,10 +7,12 @@ import { SavingTab } from "@/components/SavingTab";
 import { UnassignedNudge } from "@/components/UnassignedNudge";
 import { ButtonLink, Card, EmptyState, Gauge, Money, Notice, StatusBadge } from "@/components/ui";
 import {
+  displaySafeToSpend,
   formatDaysLeft,
   formatPeriodRange,
   formatGBP,
   formatShortDate,
+  formatSignedGBP,
   leftToSpendPercent,
   overBudgetPence,
   type BudgetSummary,
@@ -62,6 +64,7 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
   }
 
   const over = overBudgetPence(summary);
+  const safe = displaySafeToSpend(summary);
   return (
     <div className="grid items-start gap-6 lg:grid-cols-5">
       <section aria-label="This period" className="flex flex-col gap-4 lg:sticky lg:top-8 lg:col-span-2">
@@ -120,12 +123,13 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
             <Card raised className="flex flex-col gap-1">
               <dt className="text-caption text-muted">Safe to spend per day</dt>
               <dd className="flex items-center justify-between gap-2 text-title font-semibold text-text">
-                <Money pence={summary.safeToSpendPerDayPence} />
+                <Money pence={safe.perDayPence} />
                 <SafeToSpendInfo
                   leftToSpendPence={summary.leftToSpendPence}
                   needsLeftPence={summary.needsLeftPence}
                   daysLeft={summary.daysLeft}
-                  safeToSpendPerDayPence={summary.safeToSpendPerDayPence}
+                  safeToSpendPerDayPence={safe.perDayPence}
+                  belowZero={safe.belowZero}
                 />
               </dd>
             </Card>
@@ -134,11 +138,22 @@ export function BudgetOverview({ period, summary, categories, tab, saving, today
               <dd className="text-body font-semibold text-text">{formatShortDate(period.nextStart)}</dd>
             </Card>
           </dl>
-          {review?.carried.map((c, i) => (
-            <p key={i} className="text-caption text-muted">
-              Includes <Money pence={c.amountPence} tone="neutral" /> carried from {c.fromLabel}
-            </p>
-          ))}
+          {review && (review.carried.length > 0 || review.adjustments.length > 0) ? (
+            <div className="flex flex-col gap-1">
+              {review.carried.map((c, i) => (
+                <p key={i} className="text-caption text-muted">
+                  Includes <Money pence={c.amountPence} tone="neutral" /> carried from {c.fromLabel}
+                </p>
+              ))}
+              {review.adjustments.map((a) => (
+                <p key={`${a.kind}-${a.label}`} className="text-caption text-muted">
+                  {a.kind === "late_change"
+                    ? `${a.label}: ${formatSignedGBP(a.amountPence)}`
+                    : `${formatSignedGBP(a.amountPence)} ${a.label}`}
+                </p>
+              ))}
+            </div>
+          ) : null}
         </Card>
 
         {summary.overAllocatedPence > 0 ? (

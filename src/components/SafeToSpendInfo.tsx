@@ -7,11 +7,14 @@ type SafeToSpendInfoProps = {
   leftToSpendPence: number;
   needsLeftPence: number;
   daysLeft: number;
+  /** As shown: never below £0.00 (displaySafeToSpend). */
   safeToSpendPerDayPence: number;
+  /** The worked-out figure is below zero, so £0.00 is shown. */
+  belowZero?: boolean;
 };
 
 /** The info button beside Safe to spend: the formula, with this period's figures. */
-export function SafeToSpendInfo({ leftToSpendPence, needsLeftPence, daysLeft, safeToSpendPerDayPence }: SafeToSpendInfoProps) {
+export function SafeToSpendInfo({ leftToSpendPence, needsLeftPence, daysLeft, safeToSpendPerDayPence, belowZero = false }: SafeToSpendInfoProps) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -23,6 +26,12 @@ export function SafeToSpendInfo({ leftToSpendPence, needsLeftPence, daysLeft, sa
             Needs stay reserved, so they never count as safe to spend. Money paid from a savings fund doesn&apos;t
             count either.
           </p>
+          {belowZero ? (
+            <p>
+              Your Needs left is more than your total left, so nothing is safe to spend: it shows £0.00 a day and
+              your budget is Out of Budget until you spend less or change your budget.
+            </p>
+          ) : null}
           <dl className="flex flex-col gap-2 rounded-md bg-card-raised p-4">
             <div className="flex justify-between gap-4">
               <dt className="text-muted">Total left</dt>

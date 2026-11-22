@@ -197,6 +197,62 @@ describe("BudgetOverview", () => {
     expect(screen.getByText("Out of Budget")).toBeInTheDocument();
   });
 
+  it("shows £0.00 a day when safe to spend is below zero, with the gauge over budget and Out of Budget", () => {
+    const s = summary({
+      spentPence: 255000,
+      leftToSpendPence: -5000,
+      needsLeftPence: 150000,
+      safeToSpendPerDayPence: -15500,
+      status: "out_of_budget",
+    });
+    render(<BudgetOverview period={period} summary={s} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
+    expect(byText("Safe to spend per day£0.00")).toBeInTheDocument();
+    expect(screen.queryByText("-£155.00")).not.toBeInTheDocument();
+    expect(byText("Over budget by £50.00")).toBeInTheDocument();
+    expect(screen.getByText("Out of Budget")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /how safe to spend/i }));
+    const sheet = screen.getByRole("dialog", { name: "Safe to spend per day" });
+    expect(sheet).toHaveTextContent(/Needs left is more than your total left, so nothing is safe to spend: it shows £0.00 a day/);
+  });
+
+  it("shows £0.00 a day even while money is left, when Needs left is more than it", () => {
+    const s = summary({ leftToSpendPence: 100000, needsLeftPence: 150000, safeToSpendPerDayPence: -5000, status: "out_of_budget" });
+    render(<BudgetOverview period={period} summary={s} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
+    expect(byText("Safe to spend per day£0.00")).toBeInTheDocument();
+    expect(screen.getByText("Out of Budget")).toBeInTheDocument();
+  });
+
+  it("doesn't explain £0.00 a day while safe to spend is positive", () => {
+    render(<BudgetOverview period={period} summary={summary()} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
+    fireEvent.click(screen.getByRole("button", { name: /how safe to spend/i }));
+    expect(screen.getByRole("dialog", { name: "Safe to spend per day" })).not.toHaveTextContent(/nothing is safe to spend/);
+  });
+
+  it("lists later changes to this period's money under the gauge", () => {
+    render(
+      <BudgetOverview
+        period={period}
+        summary={summary()}
+        categories={categories}
+        saving={noSaving}
+        today="2026-11-21"
+        tab="spending"
+        review={{
+          pending: null,
+          carried: [],
+          nudgePence: null,
+          adjustments: [
+            { kind: "late_change", label: "Adjustment for October", amountPence: -4000 },
+            { kind: "from_fund", label: "from Emergency fund", amountPence: 10000 },
+          ],
+        }}
+      />,
+    );
+    const card = screen.getByRole("region", { name: "This period" });
+    expect(within(card).getByText("Adjustment for October: −£40.00")).toBeInTheDocument();
+    expect(within(card).getByText("+£100.00 from Emergency fund")).toBeInTheDocument();
+  });
+
   it("links each allocation card to its category detail", () => {
     render(<BudgetOverview period={period} summary={summary()} categories={categories} saving={noSaving} today="2026-11-21" tab="spending" />);
     expect(cardFor("Rent")).toHaveAttribute("href", "/budget/rent");

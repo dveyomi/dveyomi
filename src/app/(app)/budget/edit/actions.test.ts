@@ -16,7 +16,7 @@ vi.mock("@/lib/data/budgetEdit", async (importOriginal) => ({
   saveBudget,
 }));
 
-import { BudgetChangedError, NameTakenError } from "@/lib/data/budgetEdit";
+import { BudgetChangedError, NameTakenError, SavingsMovedError } from "@/lib/data/budgetEdit";
 import { saveBudgetAction } from "./actions";
 
 const RENT = "11111111-1111-4111-8111-111111111111";
@@ -76,5 +76,13 @@ describe("saveBudgetAction", () => {
   it("a budget changed elsewhere asks for a reload", async () => {
     saveBudget.mockRejectedValue(new BudgetChangedError());
     expect(await saveBudgetAction(valid)).toEqual({ error: "This budget changed in another tab. Reload and try again." });
+  });
+
+  it("savings already moved this month: says so, and that From next period can change them", async () => {
+    saveBudget.mockRejectedValue(new SavingsMovedError());
+    expect(await saveBudgetAction(valid)).toEqual({
+      error: "This month's savings are already moved, so change them from next month.",
+      savingsMoved: true,
+    });
   });
 });
