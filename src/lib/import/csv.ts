@@ -37,7 +37,7 @@ export type RowNote = { row: number; reason: string };
 /** An expense already recorded, as findDuplicates compares it. */
 export type ExistingExpense = { date: IsoDate; amountPence: number; name: string };
 
-/** A file turned into rows of text fields (CSV today; Excel can add its own). */
+/** A file turned into rows of text fields (CSV, or an Excel sheet). */
 export type FileReader = (file: File) => Promise<string[][]>;
 
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -68,7 +68,7 @@ export function importLimitError({ bytes, dataRows }: { bytes?: number; dataRows
  * Comma-separated text into rows of fields. Fields may be quoted ("…"), and a
  * quoted field may hold commas, newlines and doubled quotes (""). Accepts LF,
  * CRLF and CR line endings, strips a UTF-8 byte order mark, and drops blank
- * lines. An unclosed quote runs to the end of the file.
+ * lines and rows whose fields are all empty (",,,"). An unclosed quote runs to the end of the file.
  */
 export function parseCsv(text: string): string[][] {
   const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
@@ -80,7 +80,7 @@ export function parseCsv(text: string): string[][] {
 
   const endRow = () => {
     row.push(field);
-    if (row.length > 1 || row[0] !== "") rows.push(row);
+    if (row.some((f) => f !== "")) rows.push(row);
     row = [];
     field = "";
   };

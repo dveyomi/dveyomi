@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
     return [{ source: "/", destination: "/budget", permanent: false }];
   },
   partialPrefetching: true,
+  // The import wizard sends up to 5,000 rows (about 1 MB as JSON) to a server action; the default limit is 1 MB.
+  experimental: { serverActions: { bodySizeLimit: "2mb" } },
   turbopack: {
     rules: {
       "*.css": {

@@ -160,6 +160,9 @@ describe("commitImport", () => {
       { p_rows: [{ ...good, date: addDays(RANGE.max, 1) }] },
       { p_rows: [{ ...good, date: "21/11/2026" }] },
       { p_rows: [{ ...good, category_id: "not-a-uuid" }] },
+      ...(["name", "amount_pence", "date", "category_id"] as const).map((key) => ({
+        p_rows: [Object.fromEntries(Object.entries(good).filter(([k]) => k !== key))],
+      })),
       { p_filename: "" },
       { p_filename: "x".repeat(256) },
       { p_today: addDays(NOW, -2) },

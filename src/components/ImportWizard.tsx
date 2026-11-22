@@ -74,7 +74,7 @@ function columnOptions(rows: string[][], hasHeader: boolean): SelectOption[] {
 }
 
 /**
- * Importing expenses from a bank's CSV export, in three steps: choose a file,
+ * Importing expenses from a bank's CSV or Excel export, in three steps: choose a file,
  * match its columns (guessed from the file; every guess can be changed), then
  * check every row and import. Rows that look like duplicates start unticked;
  * rows that can't be read are listed with their row numbers; money in is left
@@ -148,7 +148,7 @@ export function ImportWizard({ categories, today }: ImportWizardProps) {
       setCategoryError(null);
       setStep("map");
     } catch (e) {
-      setUploadError(e instanceof ImportFileError ? e.message : "This file couldn't be read. Check it's a CSV file and try again.");
+      setUploadError(e instanceof ImportFileError ? e.message : "This file couldn't be read. Check it's a CSV or Excel (.xlsx) file and try again.");
     } finally {
       setReading(false);
     }
@@ -309,11 +309,11 @@ export function ImportWizard({ categories, today }: ImportWizardProps) {
       {step === "upload" ? (
         <div className="flex flex-col gap-4">
           <p className="text-body text-muted">
-            Download a CSV of your transactions from your bank&rsquo;s website or app (usually under Statements). You&rsquo;ll
+            Download a CSV or Excel (.xlsx) file of your transactions from your bank&rsquo;s website or app (usually under Statements). You&rsquo;ll
             see every row before anything is saved.
           </p>
           <FileDrop
-            label="Bank statement (CSV)"
+            label="Bank statement (CSV or Excel)"
             hint="Up to 2 MB and 5,000 rows."
             accept={IMPORT_ACCEPT}
             error={uploadError}

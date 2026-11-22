@@ -38,7 +38,11 @@ export function FileDrop({ label, accept, onFile, hint, error, disabled }: FileD
           e.preventDefault();
           setOver(true);
         }}
-        onDragLeave={() => setOver(false)}
+        onDragLeave={(e) => {
+          // Moving onto the area's own children also fires dragleave; stay highlighted then.
+          if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return;
+          setOver(false);
+        }}
         onDrop={drop}
         className={`flex flex-col items-center gap-3 rounded-md border-2 border-dashed px-4 py-8 text-center transition-colors ${over ? "border-accent-fg bg-card-raised" : error ? "border-danger-fg" : "border-border-strong"}`}
       >

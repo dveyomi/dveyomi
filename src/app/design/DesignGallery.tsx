@@ -243,6 +243,9 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
             <ButtonLink href="/design" variant="ghost" icon="chevron-left">
               Back
             </ButtonLink>
+            <ButtonLink href="/design" variant="secondary" icon="plane" iconOnlyOnPhone>
+              Icon only on phones
+            </ButtonLink>
           </div>
         </Widths>
       </Section>
@@ -430,7 +433,7 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
             <span className="text-body text-text">Unticked</span>
           </Checkbox>
           <Label>FileDrop: choose or drop one file</Label>
-          <FileDrop label="Bank statement (CSV)" hint="Up to 2 MB" accept=".csv" onFile={() => {}} />
+          <FileDrop label="Bank statement" hint="Up to 2 MB" accept=".csv,.xlsx" onFile={() => {}} />
           <FileDrop label="With an error" accept=".csv" error="This file is over 2 MB." onFile={() => {}} />
           <SegmentedTabs
             label="Period"

@@ -23,7 +23,7 @@ import { validateDuplicateCheck, validateImport } from "@/lib/validation/import"
  */
 export async function findDuplicatesAction(rawRows: unknown): Promise<{ duplicates: number[] } | { error: string }> {
   if (!(await getUserId())) redirect("/login");
-  const rows = validateDuplicateCheck(rawRows);
+  const rows = validateDuplicateCheck(rawRows, await getToday());
   if (!rows) return { error: "These rows couldn't be checked. Choose the file again." };
   try {
     const existing = await existingExpensesFor(await createClient(), rows);

@@ -33,7 +33,7 @@ const BANK = [
 const csv = (text: string, name = "statement.csv") => new File([text], name, { type: "text/csv" });
 
 async function upload(file: File) {
-  const input = screen.getByLabelText("Bank statement (CSV)");
+  const input = screen.getByLabelText("Bank statement (CSV or Excel)");
   await act(async () => {
     fireEvent.change(input, { target: { files: [file] } });
   });
@@ -164,7 +164,7 @@ describe("ImportWizard", () => {
   it("refuses a file that isn't a CSV", async () => {
     render(<ImportWizard categories={categories} today="2026-11-21" />);
     await upload(new File(["x"], "statement.pdf", { type: "application/pdf" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Choose a .csv file");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Choose a .csv or .xlsx file");
   });
 
   it("reads positive numbers as spending when chosen", async () => {

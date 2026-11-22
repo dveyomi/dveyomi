@@ -49,6 +49,13 @@ describe("parseCsv", () => {
     ]);
   });
 
+  it("drops rows whose fields are all empty", () => {
+    expect(parseCsv("a,b\n,,,\n,\nc,d\n")).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+    ]);
+  });
+
   it("drops blank lines, including the trailing newline", () => {
     expect(parseCsv("a,b\n\n1,2\n\n")).toEqual([
       ["a", "b"],
@@ -57,9 +64,9 @@ describe("parseCsv", () => {
   });
 
   it("keeps empty fields", () => {
-    expect(parseCsv("a,,c\n,,")).toEqual([
+    expect(parseCsv("a,,c\n,b,\n,,")).toEqual([
       ["a", "", "c"],
-      ["", "", ""],
+      ["", "b", ""],
     ]);
   });
 

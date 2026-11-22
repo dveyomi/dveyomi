@@ -55,14 +55,29 @@ describe("validateImport", () => {
 
 describe("validateDuplicateCheck", () => {
   it("accepts up to 5,000 dated rows with amounts and names", () => {
-    expect(validateDuplicateCheck([good])).toEqual([good]);
-    expect(validateDuplicateCheck([])).toEqual([]);
+    expect(validateDuplicateCheck([good], TODAY)).toEqual([good]);
+    expect(validateDuplicateCheck([], TODAY)).toEqual([]);
   });
 
   it("refuses malformed or too many rows", () => {
-    expect(validateDuplicateCheck("x")).toBeNull();
-    expect(validateDuplicateCheck([{ ...good, date: "x" }])).toBeNull();
-    expect(validateDuplicateCheck([{ ...good, name: 3 }])).toBeNull();
-    expect(validateDuplicateCheck(Array.from({ length: 5001 }, () => good))).toBeNull();
+    expect(validateDuplicateCheck("x", TODAY)).toBeNull();
+    expect(validateDuplicateCheck([{ ...good, date: "x" }], TODAY)).toBeNull();
+    expect(validateDuplicateCheck([{ ...good, name: 3 }], TODAY)).toBeNull();
+    expect(validateDuplicateCheck(Array.from({ length: 5001 }, () => good), TODAY)).toBeNull();
+  });
+
+  it("refuses dates outside the expense date range, like the import itself", () => {
+    expect(validateDuplicateCheck([{ ...good, date: "2016-11-20" }], TODAY)).toBeNull();
+    expect(validateDuplicateCheck([{ ...good, date: "2027-11-22" }], TODAY)).toBeNull();
+    expect(validateDuplicateCheck([{ ...good, date: "2016-11-21" }], TODAY)).toEqual([{ ...good, date: "2016-11-21" }]);
+  });
+});
+
+describe("a full import fits the server action body limit", () => {
+  it("5,000 rows with long names stay under 2 MB as JSON and validate", () => {
+    const rows = Array.from({ length: 5000 }, (_, i) => ({ row: i + 2, date: "2026-11-05", amountPence: 1250, name: "N".repeat(100), categoryId: CAT }));
+    const body = JSON.stringify([input({ rows })]);
+    expect(new TextEncoder().encode(body).length).toBeLessThan(2 * 1024 * 1024);
+    expect(validateImport(input({ rows }), TODAY).ok).toBe(true);
   });
 });

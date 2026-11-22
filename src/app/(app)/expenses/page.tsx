@@ -10,14 +10,14 @@ export default function Page({ searchParams }: PageProps<"/expenses">) {
     <div className="mx-auto flex w-full max-w-phone flex-col gap-4 px-4 py-6 md:mx-0 md:max-w-none md:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-title font-semibold text-text">Expenses</h1>
-        <div className="flex flex-wrap gap-2">
-          <ButtonLink href="/expenses/trips" variant="secondary" icon="plane">
+        <div className="flex gap-2">
+          <ButtonLink href="/expenses/trips" variant="secondary" icon="plane" iconOnlyOnPhone>
             Trips
           </ButtonLink>
-          <ButtonLink href="/expenses/recurring" variant="secondary" icon="repeat">
+          <ButtonLink href="/expenses/recurring" variant="secondary" icon="repeat" iconOnlyOnPhone>
             Recurring
           </ButtonLink>
-          <ButtonLink href="/settings/import" variant="secondary" icon="upload">
+          <ButtonLink href="/settings/import" variant="secondary" icon="upload" iconOnlyOnPhone>
             Import
           </ButtonLink>
         </div>

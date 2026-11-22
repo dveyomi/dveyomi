@@ -39,14 +39,14 @@ begin
 
   if exists (
     select 1 from jsonb_array_elements(p_rows) as e (value)
-    where jsonb_typeof(e.value) <> 'object'
-       or jsonb_typeof(e.value -> 'name') <> 'string'
-       or char_length(btrim(e.value ->> 'name')) not between 1 and 100
-       or not private.is_whole_pence(e.value -> 'amount_pence', 1)
-       or jsonb_typeof(e.value -> 'date') <> 'string'
-       or (e.value ->> 'date') !~ '^\d{4}-\d{2}-\d{2}$'
-       or jsonb_typeof(e.value -> 'category_id') <> 'string'
-       or (e.value ->> 'category_id') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    where jsonb_typeof(e.value) is distinct from 'object'
+       or jsonb_typeof(e.value -> 'name') is distinct from 'string'
+       or coalesce(char_length(btrim(e.value ->> 'name')), 0) not between 1 and 100
+       or not coalesce(private.is_whole_pence(e.value -> 'amount_pence', 1), false)
+       or jsonb_typeof(e.value -> 'date') is distinct from 'string'
+       or coalesce((e.value ->> 'date') !~ '^\d{4}-\d{2}-\d{2}$', true)
+       or jsonb_typeof(e.value -> 'category_id') is distinct from 'string'
+       or coalesce((e.value ->> 'category_id') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$', true)
   ) then
     raise exception 'import_expenses: each row needs a name (1-100), an amount of 1p to £10m, a YYYY-MM-DD date and a category'
       using errcode = '22023';

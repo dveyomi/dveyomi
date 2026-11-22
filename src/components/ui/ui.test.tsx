@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen, within } from "@testing-library/react";
 import { StrictMode, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -149,6 +149,18 @@ describe("ButtonLink", () => {
       expect(link).toHaveClass(c);
     }
     expect(link.querySelector("svg")).not.toBeNull();
+  });
+
+  it("can collapse to a square icon on phones while keeping its name for screen readers", () => {
+    render(
+      <ButtonLink href="/expenses/trips" variant="secondary" icon="plane" iconOnlyOnPhone>
+        Trips
+      </ButtonLink>,
+    );
+    const link = screen.getByRole("link", { name: "Trips" });
+    expect(link).toHaveClass("max-sm:size-11", "max-sm:px-0");
+    expect(link.className).toMatch(TAP_44);
+    expect(screen.getByText("Trips")).toHaveClass("max-sm:sr-only");
   });
 });
 
@@ -638,6 +650,24 @@ describe("FileDrop", () => {
     const dropped = file();
     fireEvent.drop(screen.getByText(/drop/i).closest("div")!, { dataTransfer: { files: [dropped] } });
     expect(onFile).toHaveBeenCalledWith(dropped);
+  });
+
+  it("keeps the drag highlight while the pointer moves over the area's own children", () => {
+    render(<FileDrop label="Bank statement" accept=".csv" onFile={() => {}} />);
+    const area = screen.getByText(/drop/i).closest("div")!;
+    const child = screen.getByText("Choose file");
+    fireEvent.dragOver(area);
+    expect(area.className).toContain("bg-card-raised");
+    // jsdom's drag events don't carry relatedTarget, so set it on the event.
+    const leave = (relatedTarget: Element) => {
+      const event = createEvent.dragLeave(area);
+      Object.defineProperty(event, "relatedTarget", { value: relatedTarget });
+      fireEvent(area, event);
+    };
+    leave(child);
+    expect(area.className).toContain("border-accent-fg");
+    leave(document.body);
+    expect(area.className).not.toContain("border-accent-fg");
   });
 
   it("shows an error instead of the hint", () => {

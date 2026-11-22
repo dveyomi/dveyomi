@@ -60,13 +60,14 @@ export function validateImport(raw: unknown, today: IsoDate): { ok: true; input:
   return { ok: true, input: { filename, categoryId: raw.categoryId, rows } };
 }
 
-/** The rows sent to check for duplicates: up to 5,000 rows with a date, amount and name. Null when malformed. */
-export function validateDuplicateCheck(raw: unknown): ImportRow[] | null {
+/** The rows sent to check for duplicates: up to 5,000 rows with a date (in the expense date range for `today`), amount and name. Null when malformed. */
+export function validateDuplicateCheck(raw: unknown, today: IsoDate): ImportRow[] | null {
   if (!Array.isArray(raw) || raw.length > MAX_IMPORT_ROWS) return null;
+  const range = expenseDateRange(today);
   const rows: ImportRow[] = [];
   for (const r of raw) {
     if (!isRecord(r) || typeof r.name !== "string") return null;
-    const row = checkRow(r, null);
+    const row = checkRow(r, range);
     if (!row) return null;
     rows.push({ row: row.row, date: row.date, amountPence: row.amountPence, name: r.name });
   }
