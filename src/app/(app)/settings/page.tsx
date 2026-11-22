@@ -7,6 +7,7 @@ import { getToday } from "@/lib/today";
 import { AccountSection } from "./AccountSection";
 import { BudgetSection } from "./BudgetSection";
 import { DeleteAccount } from "./DeleteAccount";
+import { HelpSection } from "./HelpSection";
 import { RegionSection } from "./RegionSection";
 import { SettingsSection } from "./SettingsSection";
 import { SavedThemeChooser, ThemeCard } from "./ThemeSection";
@@ -61,6 +62,7 @@ export default function Page() {
           <DeleteAccount />
         </div>
       </SettingsSection>
+      <HelpSection />
       <SettingsSection title="Legal">
         <div className="-mx-2">
           <ListRow href="/privacy" icon="shield" title="Privacy" subtitle="What we store and who can see it" />

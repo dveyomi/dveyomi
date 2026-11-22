@@ -181,6 +181,43 @@ export type Database = {
         };
         Relationships: [];
       };
+      feedback: {
+        Row: {
+          context: Json | null;
+          created_at: string;
+          id: string;
+          issue_url: string | null;
+          kind: string;
+          message: string;
+          status: string;
+          triaged_at: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          context?: Json | null;
+          created_at?: string;
+          id?: string;
+          issue_url?: string | null;
+          kind: string;
+          message: string;
+          status?: string;
+          triaged_at?: string | null;
+          user_id?: string;
+        };
+        Update: {
+          context?: Json | null;
+          created_at?: string;
+          id?: string;
+          issue_url?: string | null;
+          kind?: string;
+          message?: string;
+          status?: string;
+          triaged_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       fund_movements: {
         Row: {
           amount_pence: number;
@@ -720,6 +757,26 @@ export type Database = {
           p_trip?: string;
         };
         Returns: string;
+      };
+      send_feedback: {
+        Args: { p_context?: Json; p_kind: string; p_message: string };
+        Returns: {
+          context: Json | null;
+          created_at: string;
+          id: string;
+          issue_url: string | null;
+          kind: string;
+          message: string;
+          status: string;
+          triaged_at: string | null;
+          user_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "feedback";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       undo_import: { Args: { p_batch_id: string }; Returns: number };
       withdraw_from_fund: {

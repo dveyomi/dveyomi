@@ -176,7 +176,7 @@ describe("transaction constraints", () => {
 });
 
 describe("table privileges", () => {
-  it("authenticated has exactly select/insert/update/delete (profiles: no delete; leftover_movements: update on one column; carry_adjustments: select/insert only); anon has none", () => {
+  it("authenticated has exactly select/insert/update/delete (profiles: no delete; leftover_movements: update on one column; carry_adjustments and feedback: select/insert only); anon has none", () => {
     const rows = queryAsPostgres<{ table_name: string; anon: string | null; authenticated: string | null }>(`
       select t.table_name,
         (select string_agg(privilege_type, ',' order by privilege_type) from information_schema.role_table_grants g
@@ -186,14 +186,14 @@ describe("table privileges", () => {
       from information_schema.tables t
       where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
       order by t.table_name`);
-    expect(rows).toHaveLength(15);
+    expect(rows).toHaveLength(16);
     for (const row of rows) {
       const expected =
         row.table_name === "profiles"
           ? "INSERT,SELECT,UPDATE"
           : row.table_name === "leftover_movements"
             ? "DELETE,INSERT,SELECT"
-            : row.table_name === "carry_adjustments"
+            : row.table_name === "carry_adjustments" || row.table_name === "feedback"
               ? "INSERT,SELECT"
               : "DELETE,INSERT,SELECT,UPDATE";
       expect(row).toEqual({ table_name: row.table_name, anon: null, authenticated: expected });

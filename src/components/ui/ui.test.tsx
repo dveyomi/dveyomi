@@ -18,6 +18,8 @@ import {
   Money,
   Notice,
   ProgressBar,
+  TextField,
+  iconNames,
   RadioCards,
   RadioSegments,
   Select,
@@ -720,5 +722,29 @@ describe("ListRow tone", () => {
     render(<ListRow icon="trash" title="Delete my account" tone="danger" onClick={() => {}} />);
     const title = screen.getByText("Delete my account");
     expect(title.className).toContain("text-danger-fg");
+  });
+});
+
+describe("TextField multiline", () => {
+  it("is a labelled textarea with its hint, and its error as the description", () => {
+    const { rerender } = render(<TextField multiline label="What happened?" hint="Up to 2,000 characters" rows={5} />);
+    const box = screen.getByRole("textbox", { name: "What happened?" });
+    expect(box.tagName).toBe("TEXTAREA");
+    expect(box).toHaveAttribute("rows", "5");
+    expect(box).toHaveAccessibleDescription("Up to 2,000 characters");
+    rerender(<TextField multiline label="What happened?" error="Tell us a little more" />);
+    expect(screen.getByRole("textbox", { name: "What happened?" })).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("textbox", { name: "What happened?" })).toHaveAccessibleDescription("Tell us a little more");
+  });
+
+  it("stays a single-line input by default", () => {
+    render(<TextField label="Note" />);
+    expect(screen.getByRole("textbox", { name: "Note" }).tagName).toBe("INPUT");
+  });
+});
+
+describe("feedback icons", () => {
+  it("has bug and idea", () => {
+    expect(iconNames).toEqual(expect.arrayContaining(["bug", "idea"]));
   });
 });

@@ -8,7 +8,7 @@ vi.mock("./budget", async (importOriginal) => ({ ...(await importOriginal<typeof
 vi.mock("./ensurePeriod", () => ({ ensureCurrentPeriod }));
 
 import { FundNameTakenError } from "./funds";
-import { AlreadyReviewedError, fromFundLabel, recordLeftover } from "./review";
+import { AlreadyReviewedError, fromFundLabel, LeftoverChangedError, recordLeftover } from "./review";
 import { saveBudget } from "./budgetEdit";
 import type { Db } from "./types";
 
@@ -45,6 +45,26 @@ describe("recordLeftover's unique-key refusal", () => {
 
   it("is AlreadyReviewedError otherwise (the period was reviewed meanwhile)", async () => {
     await expect(recordLeftover(taken, "2026-11-21", PERIOD, { destination: "unassigned" })).rejects.toThrow(AlreadyReviewedError);
+  });
+});
+
+describe("recordLeftover's changed-figure refusal (PT422)", () => {
+  const changed = fakeClient({}, { error: { code: "PT422" } });
+
+  it("keeps the leftover wording for a leftover", async () => {
+    const refused = recordLeftover(changed, "2026-11-21", PERIOD, { destination: "unassigned" });
+    await expect(refused).rejects.toThrow(LeftoverChangedError);
+    await expect(refused).rejects.toThrow("Your leftover changed while you were reviewing. Reload to see the latest figure.");
+  });
+
+  it("names the month for an overspend", async () => {
+    loadPeriodSummary.mockResolvedValue({
+      row: { unassigned_carry_pence: 0, start_date: "2026-10-01" },
+      summary: { leftToSpendPence: -4200 },
+    });
+    const refused = recordLeftover(changed, "2026-11-21", PERIOD, { destination: "next_period" });
+    await expect(refused).rejects.toThrow(LeftoverChangedError);
+    await expect(refused).rejects.toThrow("Your October figures changed while you were reviewing. Check the new amount and try again.");
   });
 });
 

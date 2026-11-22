@@ -22,6 +22,7 @@ const TABLE_ORDER = {
   transactions: ["id"],
   recurring_dismissals: ["name_key"],
   carry_adjustments: ["id"],
+  feedback: ["id"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type UserTable = keyof typeof TABLE_ORDER;

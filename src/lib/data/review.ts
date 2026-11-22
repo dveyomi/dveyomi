@@ -121,8 +121,13 @@ export class OverspendChoiceError extends Error {
 
 /** The leftover changed between working it out and recording it (an expense was added meanwhile). */
 export class LeftoverChangedError extends Error {
-  constructor() {
-    super("Your leftover changed while you were reviewing. Reload to see the latest figure.");
+  /** `overspendMonth`: the reviewed month's name when its result was an overspend; otherwise the leftover wording. */
+  constructor(overspendMonth?: string) {
+    super(
+      overspendMonth
+        ? `Your ${overspendMonth} figures changed while you were reviewing. Check the new amount and try again.`
+        : "Your leftover changed while you were reviewing. Reload to see the latest figure.",
+    );
     this.name = "LeftoverChangedError";
   }
 }
@@ -393,7 +398,9 @@ export async function recordLeftover(
   if (error.code === "PT409") throw new AlreadyReviewedError();
   if (error.code === "PT425") throw new PeriodNotEndedError();
   if (error.code === "P0002") throw new ReviewNotFoundError();
-  if (error.code === "PT422") throw new LeftoverChangedError();
+  if (error.code === "PT422") {
+    throw new LeftoverChangedError(resultPence < 0 ? monthOf(stored.row.start_date) : undefined);
+  }
   if (error.code === "PT404") throw new FundNotFoundError();
   if (error.code === "23505") {
     // A new fund's name taken; otherwise the one-per-period key: reviewed meanwhile (another tab).

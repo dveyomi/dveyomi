@@ -407,6 +407,7 @@ export function DesignGallery({ themeSwitch }: { themeSwitch: ReactNode }) {
           <AmountInput label="Amount (large, for Add expense)" size="lg" />
           <TextField label="Note" placeholder="What was it for?" />
           <TextField label="Note (with error)" defaultValue="" error="Add a note" />
+          <TextField multiline rows={4} label="Message (multiline)" hint="10 to 2,000 characters." />
           <Select label="Category" options={categories} placeholder="Choose a category" defaultValue="" />
           <Select
             label="Category (grouped)"

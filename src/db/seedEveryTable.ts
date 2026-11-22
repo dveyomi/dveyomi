@@ -24,7 +24,7 @@ async function insert(table: string, rows: Row | Row[]): Promise<{ id: string }[
  * with a movement, a savings prompt and a leftover decision, a trip with an
  * expense added to it by hand and one taken out of it (manual overrides), a
  * recurring rule with a price and an occurrence, an import with an imported
- * expense, a dismissed detection, and a carry adjustment from the fund. `extraTransactions` adds that many more
+ * expense, a dismissed detection, a carry adjustment from the fund, and a bug report. `extraTransactions` adds that many more
  * plain expenses.
  */
 export async function seedEveryTable(userId: string, extraTransactions = 0): Promise<void> {
@@ -60,6 +60,7 @@ export async function seedEveryTable(userId: string, extraTransactions = 0): Pro
   const [batch] = await insert("import_batches", { user_id, filename: "bank.csv" });
   await insert("recurring_dismissals", { user_id, name_key: "netflix" });
   await insert("carry_adjustments", { user_id, period_id: period.id, fund_id: fund.id, amount_pence: 2000, reason: "from_fund" });
+  await insert("feedback", { user_id, kind: "bug", message: "The calendar skips a day.", context: { from: "/expenses" } });
 
   const txn = (over: Record<string, unknown>) => ({
     user_id,

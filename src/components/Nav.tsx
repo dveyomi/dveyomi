@@ -18,7 +18,7 @@ const tabs: { href: string; label: string; icon: IconName }[] = [
  * (/expenses/new, /expenses/<uuid>), the period-end review (/review) and the
  * CSV import (/settings/import). Other /expenses/* pages keep the nav.
  */
-const FOCUSED = /^\/(?:expenses\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})|review|settings\/import)$/i;
+const FOCUSED = /^\/(?:expenses\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})|review|settings\/(?:import|feedback))$/i;
 
 /** Whether `pathname` is a focused screen (no phone nav; TimezoneSync's prompt stays away too). */
 export function isFocusedRoute(pathname: string): boolean {
@@ -34,7 +34,7 @@ function isCurrent(pathname: string, href: string): boolean {
  * Settings, then +. Under 768px it floats above the bottom edge as a pill of
  * three tabs with a round + beside it. From 768px it is a left rail with
  * "Add expense" under the tabs. On a focused screen (the expense form at
- * /expenses/new and /expenses/[id], and /review) the phone pill and + are hidden: it has its own close
+ * /expenses/new and /expenses/[id], , /review, /settings/import and /settings/feedback) the phone pill and + are hidden: it has its own close
  * and save. The desktop rail stays.
  */
 export function Nav() {
