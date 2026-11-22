@@ -1,5 +1,6 @@
 "use server";
 
+import { localizeError } from "@/i18n/errors";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServerI18n } from "@/i18n/server";
@@ -29,7 +30,7 @@ export async function sendFeedbackAction(raw: unknown): Promise<SendFeedbackResu
       context: device ? { ...device, appVersion: APP_VERSION, language: locale, currency } : null,
     });
   } catch (e) {
-    if (e instanceof FeedbackLimitError) return { error: e.message };
+    if (e instanceof FeedbackLimitError) return { error: localizeError(e, await getServerI18n()) };
     console.error("sendFeedback failed", e);
     return { error: "We couldn't send that. Check your connection and try again." };
   }

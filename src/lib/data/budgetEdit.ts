@@ -35,7 +35,8 @@ export type BudgetEditor = {
 
 /** A category name is already used by another category (names are unique, ignoring case). */
 export class NameTakenError extends Error {
-  constructor(name?: string) {
+  constructor(readonly takenName?: string) {
+    const name = takenName;
     super(name ? `You already have a category called ${name}.` : "Another category already has that name.");
     this.name = "NameTakenError";
   }

@@ -1,6 +1,7 @@
+import { getServerI18n } from "@/i18n/server";
 import { redirect } from "next/navigation";
 import { ButtonLink } from "@/components/ui";
-import { addDays, formatPeriodRange } from "@/lib/calc";
+import { addDays } from "@/lib/calc";
 import { loadBudgetEditor } from "@/lib/data/budgetEdit";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { getToday } from "@/lib/today";
@@ -10,6 +11,7 @@ type EditContentProps = { searchParams: Promise<{ category?: string | string[] }
 
 /** Loads the current budget for the editor; a user with no budget yet is sent to onboarding. */
 export async function EditContent({ searchParams }: EditContentProps) {
+  const { m, fmt } = await getServerI18n();
   if (!(await getUserId())) redirect("/login");
   const [supabase, today, { category }] = await Promise.all([createClient(), getToday(), searchParams]);
   const editor = await loadBudgetEditor(supabase, today);
@@ -22,12 +24,12 @@ export async function EditContent({ searchParams }: EditContentProps) {
       <div className="flex flex-col gap-2">
         <div>
           <ButtonLink href="/budget" variant="ghost" icon="chevron-left">
-            Budget
+            {m.budget.title}
           </ButtonLink>
         </div>
-        <h1 className="text-title font-semibold text-text md:text-display">Edit budget</h1>
+        <h1 className="text-title font-semibold text-text md:text-display">{m.budget.editTitle}</h1>
         <p className="text-body text-muted">
-          This period: {formatPeriodRange(period.start, period.end)}
+          {m.editor.thisPeriod(fmt.periodRange(period.start, period.end))}
         </p>
       </div>
       <BudgetEditor

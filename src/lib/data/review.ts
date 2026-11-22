@@ -1,7 +1,6 @@
 import {
   addDays,
   categoriesOverTwiceInThree,
-  formatMonth,
   freedInPeriod,
   leftoverBreakdown,
   overBudgetPence,
@@ -13,6 +12,7 @@ import {
   type Period,
   type PlannedAllocation,
 } from "@/lib/calc";
+import { DEFAULT_I18N, type I18n } from "@/i18n/format";
 import type { LeftoverChoice } from "@/lib/validation/review";
 import { loadPeriodSummary, summariseRow } from "./budget";
 import { editTarget } from "./budgetEdit";
@@ -82,9 +82,8 @@ export type ReviewStatus = {
 export type CarryAdjustmentLine = { kind: "late_change" | "from_fund" | "overspend"; label: string; amountPence: number };
 
 /** "from Emergency fund", or "from Rainy Day Fund" when the name already says fund. */
-export function fromFundLabel(name: string | null): string {
-  if (!name) return "from a fund";
-  return /fund$/i.test(name.trim()) ? `from ${name}` : `from ${name} fund`;
+export function fromFundLabel(name: string | null, i18n: I18n = DEFAULT_I18N): string {
+  return i18n.m.review.fromFund(name);
 }
 
 /** The period was reviewed already (a second record changes nothing). */
@@ -122,7 +121,11 @@ export class OverspendChoiceError extends Error {
 /** The leftover changed between working it out and recording it (an expense was added meanwhile). */
 export class LeftoverChangedError extends Error {
   /** `overspendMonth`: the reviewed month's name when its result was an overspend; otherwise the leftover wording. */
-  constructor(overspendMonth?: string) {
+  constructor(
+    overspendMonth?: string,
+    /** The reviewed period's start, when its result was an overspend (for the message in other languages). */
+    readonly overspendStart?: IsoDate,
+  ) {
     super(
       overspendMonth
         ? `Your ${overspendMonth} figures changed while you were reviewing. Check the new amount and try again.`
@@ -132,7 +135,7 @@ export class LeftoverChangedError extends Error {
   }
 }
 
-const monthOf = (start: IsoDate) => formatMonth(start.slice(0, 7));
+const monthOf = (start: IsoDate, i18n: I18n = DEFAULT_I18N) => i18n.fmt.month(start.slice(0, 7));
 
 /** What the period's paused and skipped recurring payments (not fund-paid) kept out of its spending. */
 async function freedByPauses(supabase: Db, period: Period): Promise<number> {
@@ -180,7 +183,7 @@ async function freedByPauses(supabase: Db, period: Period): Promise<number> {
  * (categoriesOverTwiceInThree, suggestedBudget), left out once the current
  * allocation is already that much. Renews the current period first.
  */
-export async function loadReview(supabase: Db, today: IsoDate): Promise<Review | null> {
+export async function loadReview(supabase: Db, today: IsoDate, i18n: I18n = DEFAULT_I18N): Promise<Review | null> {
   const current = await ensureCurrentPeriod(supabase, today);
   if (!current) return null;
 
@@ -224,7 +227,7 @@ export async function loadReview(supabase: Db, today: IsoDate): Promise<Review |
   return {
     periodId: target.id,
     period,
-    monthLabel: monthOf(target.start_date),
+    monthLabel: monthOf(target.start_date, i18n),
     breakdown: leftoverBreakdown(summary, target.unassigned_carry_pence, freed),
     overspendPence: overBudgetPence(summary),
     overspent: budgeted
@@ -237,8 +240,8 @@ export async function loadReview(supabase: Db, today: IsoDate): Promise<Review |
     funds: fundsRes.data!,
     laterCount: ended.filter((p) => p.reviewed_at === null && p.start_date > target.start_date).length,
     raiseApplies: {
-      currentLabel: monthOf(current.start_date),
-      nextLabel: nextRes.data ? monthOf(nextRes.data.start_date) : null,
+      currentLabel: monthOf(current.start_date, i18n),
+      nextLabel: nextRes.data ? monthOf(nextRes.data.start_date, i18n) : null,
     },
   };
 }
@@ -248,7 +251,7 @@ export async function loadReview(supabase: Db, today: IsoDate): Promise<Review |
  * the leftovers carried into the current period (the latest period starting
  * by `today`), and the unassigned nudge while it stands.
  */
-export async function loadReviewStatus(supabase: Db, today: IsoDate): Promise<ReviewStatus> {
+export async function loadReviewStatus(supabase: Db, today: IsoDate, i18n: I18n = DEFAULT_I18N): Promise<ReviewStatus> {
   const [pendingRes, currentRes] = await Promise.all([
     supabase
       .from("budget_periods")
@@ -262,7 +265,7 @@ export async function loadReviewStatus(supabase: Db, today: IsoDate): Promise<Re
   ]);
   if (pendingRes.error) throw pendingRes.error;
   if (currentRes.error) throw currentRes.error;
-  const pending = pendingRes.data ? { periodId: pendingRes.data.id, monthLabel: monthOf(pendingRes.data.start_date) } : null;
+  const pending = pendingRes.data ? { periodId: pendingRes.data.id, monthLabel: monthOf(pendingRes.data.start_date, i18n) } : null;
   if (!currentRes.data) return { pending, carried: [], nudgePence: null, adjustments: [] };
 
   const [movesRes, adjustments] = await Promise.all([
@@ -271,7 +274,7 @@ export async function loadReviewStatus(supabase: Db, today: IsoDate): Promise<Re
       .select("period_id, destination, amount_pence, nudge_dismissed_at")
       .eq("carried_to_period_id", currentRes.data.id)
       .eq("kind", "leftover"),
-    loadAdjustments(supabase, currentRes.data.id),
+    loadAdjustments(supabase, currentRes.data.id, i18n),
   ]);
   if (movesRes.error) throw movesRes.error;
   const moves = movesRes.data;
@@ -288,7 +291,7 @@ export async function loadReviewStatus(supabase: Db, today: IsoDate): Promise<Re
   const startOf = new Map(fromRes.data.map((p) => [p.id, p.start_date]));
   const carried = moves
     .toSorted((a, b) => (startOf.get(a.period_id)! < startOf.get(b.period_id)! ? -1 : 1))
-    .map((m) => ({ fromLabel: monthOf(startOf.get(m.period_id)!), amountPence: m.amount_pence }));
+    .map((m) => ({ fromLabel: monthOf(startOf.get(m.period_id)!, i18n), amountPence: m.amount_pence }));
   const nudging = moves.filter((m) => m.destination === "unassigned" && m.nudge_dismissed_at === null);
   return {
     pending,
@@ -299,7 +302,7 @@ export async function loadReviewStatus(supabase: Db, today: IsoDate): Promise<Re
 }
 
 /** The period's carry adjustments as lines: late changes per reviewed month (oldest first), then money from each fund (by name). */
-async function loadAdjustments(supabase: Db, periodId: string): Promise<CarryAdjustmentLine[]> {
+async function loadAdjustments(supabase: Db, periodId: string, i18n: I18n): Promise<CarryAdjustmentLine[]> {
   const { data, error } = await supabase
     .from("carry_adjustments")
     .select("reason, amount_pence, source_period_id, fund_id, source:budget_periods!carry_adjustments_source_period_id_user_id_fkey(start_date), funds(name)")
@@ -323,21 +326,21 @@ async function loadAdjustments(supabase: Db, periodId: string): Promise<CarryAdj
       .toSorted(([a], [b]) => (a < b ? -1 : 1))
       .map(([start, rows]) => ({
         kind: "overspend" as const,
-        label: `${monthOf(start)} overspend`,
+        label: i18n.m.review.overspendLine(monthOf(start, i18n)),
         amountPence: sumPence(rows.map((r) => r.amount_pence)),
       })),
     ...[...late]
       .toSorted(([a], [b]) => (a < b ? -1 : 1))
       .map(([start, rows]) => ({
         kind: "late_change" as const,
-        label: `Adjustment for ${monthOf(start)}`,
+        label: i18n.m.review.adjustmentFor(monthOf(start, i18n)),
         amountPence: sumPence(rows.map((r) => r.amount_pence)),
       })),
     ...[...fromFunds]
       .toSorted(([a], [b]) => a.localeCompare(b))
       .map(([name, rows]) => ({
         kind: "from_fund" as const,
-        label: fromFundLabel(name || null),
+        label: fromFundLabel(name || null, i18n),
         amountPence: sumPence(rows.map((r) => r.amount_pence)),
       })),
   ];
@@ -399,7 +402,10 @@ export async function recordLeftover(
   if (error.code === "PT425") throw new PeriodNotEndedError();
   if (error.code === "P0002") throw new ReviewNotFoundError();
   if (error.code === "PT422") {
-    throw new LeftoverChangedError(resultPence < 0 ? monthOf(stored.row.start_date) : undefined);
+    throw new LeftoverChangedError(
+      resultPence < 0 ? monthOf(stored.row.start_date) : undefined,
+      resultPence < 0 ? stored.row.start_date : undefined,
+    );
   }
   if (error.code === "PT404") throw new FundNotFoundError();
   if (error.code === "23505") {

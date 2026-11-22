@@ -1,5 +1,7 @@
 "use server";
 
+import { localizeError } from "@/i18n/errors";
+import { getServerI18n } from "@/i18n/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { MissingReferenceError, TransactionNotFoundError } from "@/lib/data/transactions";
@@ -30,8 +32,8 @@ async function signedIn() {
   if (!(await getUserId())) redirect("/login");
 }
 
-const known = (e: unknown) =>
-  e instanceof TripNotFoundError || e instanceof TransactionNotFoundError || e instanceof MissingReferenceError ? e.message : null;
+const known = async (e: unknown): Promise<string | null> =>
+  e instanceof TripNotFoundError || e instanceof TransactionNotFoundError || e instanceof MissingReferenceError ? localizeError(e, await getServerI18n()) : null;
 
 /** Creates a trip from the form, then opens it. An overlap is shown on the start date. */
 export async function createTripAction(raw: unknown): Promise<TripActionResult> {
@@ -42,7 +44,7 @@ export async function createTripAction(raw: unknown): Promise<TripActionResult> 
   try {
     id = await createTrip(await createClient(), checked.input);
   } catch (e) {
-    if (e instanceof TripOverlapError) return { error: e.message, field: "startDate" };
+    if (e instanceof TripOverlapError) return { error: localizeError(e, await getServerI18n()), field: "startDate" };
     console.error("trips: create failed", e);
     return { error: "We couldn't create this trip. Check your connection and try again." };
   }
@@ -59,8 +61,8 @@ export async function updateTripAction(id: unknown, raw: unknown): Promise<TripA
   try {
     await updateTrip(await createClient(), id, checked.input);
   } catch (e) {
-    if (e instanceof TripOverlapError) return { error: e.message, field: "startDate" };
-    const message = known(e);
+    if (e instanceof TripOverlapError) return { error: localizeError(e, await getServerI18n()), field: "startDate" };
+    const message = await known(e);
     if (message) return { error: message };
     console.error("trips: update failed", e);
     return { error: "We couldn't save this trip. Check your connection and try again." };
@@ -75,7 +77,7 @@ export async function deleteTripAction(id: unknown): Promise<TripChangeResult> {
   try {
     await deleteTrip(await createClient(), id);
   } catch (e) {
-    const message = known(e);
+    const message = await known(e);
     if (message) return { error: message };
     console.error("trips: delete failed", e);
     return { error: "We couldn't delete this trip. Check your connection and try again." };
@@ -88,7 +90,7 @@ async function change(what: string, run: () => Promise<void>): Promise<TripChang
   try {
     await run();
   } catch (e) {
-    const message = known(e);
+    const message = await known(e);
     if (message) return { error: message };
     console.error(`trips: ${what} failed`, e);
     return { error: "We couldn't change this expense's trip. Check your connection and try again." };

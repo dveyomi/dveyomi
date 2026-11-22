@@ -1,9 +1,13 @@
+import { getServerI18n } from "@/i18n/server";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui";
 import { ReviewContent } from "./ReviewContent";
 
-export const metadata: Metadata = { title: "Review your budget · Personal Finance OS" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getServerI18n();
+  return { title: m.shell.pageTitle(m.review.metaTitle) };
+}
 
 /** The period-end review: a focused screen (no phone nav), with its own way back to the budget. */
 export default function Page() {

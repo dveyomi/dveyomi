@@ -3,14 +3,9 @@
 import { useI18n } from "@/i18n/client";
 import { useState, type FormEvent } from "react";
 import { Button, Card, Money, Notice, RadioCards, Select, TextField, type RadioCardOption } from "@/components/ui";
-import { formatPeriodRange, type LeftoverSource, type Period } from "@/lib/calc";
+import type { LeftoverSource, Period } from "@/lib/calc";
 import { validateLeftoverChoice, type LeftoverChoice } from "@/lib/validation/review";
 
-const sourceLabels: Record<LeftoverSource["kind"], string> = {
-  previously_unassigned: "Previously unassigned",
-  freed_by_pause: "Freed by paused payments",
-  unspent_categories: "Unspent in categories",
-};
 
 type LeftoverBreakdownProps = {
   monthLabel: string;
@@ -22,11 +17,13 @@ type LeftoverBreakdownProps = {
 
 /** What was left over when the period ended and where it came from (calc order), or how far it went over. */
 export function LeftoverBreakdown({ monthLabel, period, breakdown, overspendPence = 0 }: LeftoverBreakdownProps) {
-  const range = <p className="text-caption text-muted">{formatPeriodRange(period.start, period.end)}</p>;
+  const { m, fmt } = useI18n();
+  const r = m.review;
+  const range = <p className="text-caption text-muted">{fmt.periodRange(period.start, period.end)}</p>;
   if (overspendPence > 0) {
     return (
       <Card as="section" className="flex flex-col gap-1">
-        <h2 className="text-body font-semibold text-muted">{monthLabel} went over budget</h2>
+        <h2 className="text-body font-semibold text-muted">{r.wentOver(monthLabel)}</h2>
         <span className="text-danger-fg">
           <Money pence={overspendPence} size="display" tone="neutral" />
         </span>
@@ -37,23 +34,23 @@ export function LeftoverBreakdown({ monthLabel, period, breakdown, overspendPenc
   if (breakdown.totalPence === 0) {
     return (
       <Card as="section" className="flex flex-col gap-2">
-        <h2 className="text-title font-semibold text-text">Nothing left over</h2>
+        <h2 className="text-title font-semibold text-text">{r.nothingLeftTitle}</h2>
         {range}
-        <p className="text-body text-muted">You used all of your {monthLabel} spending money, so there&apos;s nothing to move.</p>
+        <p className="text-body text-muted">{r.nothingLeftBody(monthLabel)}</p>
       </Card>
     );
   }
   return (
     <Card as="section" className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-body font-semibold text-muted">Left over from {monthLabel}</h2>
+        <h2 className="text-body font-semibold text-muted">{r.leftOverFrom(monthLabel)}</h2>
         <Money pence={breakdown.totalPence} size="display" tone="neutral" />
         {range}
       </div>
-      <ul aria-label="Where it came from" className="flex flex-col divide-y divide-border border-t border-border">
+      <ul aria-label={r.cameFrom} className="flex flex-col divide-y divide-border border-t border-border">
         {breakdown.sources.map((s) => (
           <li key={s.kind} className="flex items-center justify-between gap-3 py-3 text-body text-text">
-            <span>{sourceLabels[s.kind]}</span>
+            <span>{r.sources[s.kind]}</span>
             <Money pence={s.amountPence} tone="neutral" />
           </li>
         ))}
@@ -81,7 +78,9 @@ type LeftoverPromptProps = {
  * unassigned (both stay spendable, §5.5). With nothing left over, only Done.
  */
 export function LeftoverPrompt({ monthLabel, currentLabel, totalPence, funds, record }: LeftoverPromptProps) {
-  const { fmt } = useI18n();
+  const i18n = useI18n();
+  const { fmt, m } = i18n;
+  const r = m.review;
   const [destination, setDestination] = useState<Destination | null>(null);
   const [fundId, setFundId] = useState(funds[0]?.id ?? NEW_FUND);
   const [newFundName, setNewFundName] = useState("");
@@ -89,13 +88,9 @@ export function LeftoverPrompt({ monthLabel, currentLabel, totalPence, funds, re
   const [busy, setBusy] = useState(false);
 
   const options: RadioCardOption<Destination>[] = [
-    { value: "fund", title: "Move to a fund", description: "Add it to your savings. It leaves your spending money." },
-    {
-      value: "next_period",
-      title: "Add to next budget",
-      description: `Add it to your ${currentLabel} budget, shown as carried from ${monthLabel}.`,
-    },
-    { value: "unassigned", title: "Keep unassigned", description: "It stays spendable, but you'll be nudged to give it a job." },
+    { value: "fund", title: r.toFundTitle, description: r.toFundBody },
+    { value: "next_period", title: r.toNextTitle, description: r.toNextBody(currentLabel, monthLabel) },
+    { value: "unassigned", title: r.keepTitle, description: r.keepBody },
   ];
 
   async function submit(e: FormEvent) {
@@ -108,7 +103,7 @@ export function LeftoverPrompt({ monthLabel, currentLabel, totalPence, funds, re
             ? { destination, newFundName }
             : { destination, fundId }
           : { destination };
-      const checked = validateLeftoverChoice(raw);
+      const checked = validateLeftoverChoice(raw, i18n);
       if (!checked.ok) {
         setError(checked.error);
         return;
@@ -131,11 +126,11 @@ export function LeftoverPrompt({ monthLabel, currentLabel, totalPence, funds, re
         {totalPence > 0 ? (
           <>
             <h2 id="leftover-choice" className="text-title font-semibold text-text">
-              Where should {fmt.money(totalPence)} go?
+              {r.whereShouldGo(fmt.money(totalPence))}
             </h2>
-            <p className="text-caption text-muted">The whole amount goes to one place.</p>
+            <p className="text-caption text-muted">{r.oneDestination}</p>
             <RadioCards
-              label={`Where should ${fmt.money(totalPence)} go?`}
+              label={r.whereShouldGo(fmt.money(totalPence))}
               options={options}
               value={destination}
               onChange={(v) => {
@@ -146,19 +141,19 @@ export function LeftoverPrompt({ monthLabel, currentLabel, totalPence, funds, re
             {destination === "fund" ? (
               <div className="flex flex-col gap-4">
                 <Select
-                  label="Fund"
+                  label={r.fund}
                   value={fundId}
                   onChange={(e) => setFundId(e.target.value)}
-                  options={[...funds.map((f) => ({ value: f.id, label: f.name })), { value: NEW_FUND, label: "New fund…" }]}
+                  options={[...funds.map((f) => ({ value: f.id, label: f.name })), { value: NEW_FUND, label: r.newFundOption }]}
                 />
                 {fundId === NEW_FUND ? (
-                  <TextField label="New fund name" value={newFundName} maxLength={50} onChange={(e) => setNewFundName(e.target.value)} />
+                  <TextField label={r.newFundName} value={newFundName} maxLength={50} onChange={(e) => setNewFundName(e.target.value)} />
                 ) : null}
               </div>
             ) : null}
           </>
         ) : (
-          <p className="text-body text-muted">Mark {monthLabel} as reviewed.</p>
+          <p className="text-body text-muted">{r.markReviewed(monthLabel)}</p>
         )}
 
         {error ? (
@@ -168,7 +163,7 @@ export function LeftoverPrompt({ monthLabel, currentLabel, totalPence, funds, re
         ) : null}
 
         <Button type="submit" variant="primary" size="lg" fullWidth disabled={busy}>
-          {busy ? "Saving…" : totalPence > 0 ? "Confirm" : "Done"}
+          {busy ? m.common.saving : totalPence > 0 ? r.confirm : r.done}
         </Button>
       </form>
     </Card>
@@ -193,21 +188,22 @@ type OverspendPromptProps = {
  * never carry; only the period's whole figure does.
  */
 export function OverspendPrompt({ monthLabel, currentLabel, overspendPence, funds, record }: OverspendPromptProps) {
-  const { fmt } = useI18n();
+  const { fmt, m } = useI18n();
+  const r = m.review;
   const [source, setSource] = useState<OverspendSource>("next_period");
   const [fundId, setFundId] = useState(funds[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const question = "Where should it come from?";
+  const question = r.whereFrom;
 
   const options: RadioCardOption<OverspendSource>[] = [
     {
       value: "next_period",
-      title: `Take it from ${currentLabel}'s spending money`,
-      description: `Your ${currentLabel} Left to spend goes down by ${fmt.money(overspendPence)}.`,
+      title: r.takeFromNext(currentLabel),
+      description: r.takeFromNextBody(currentLabel, fmt.money(overspendPence)),
     },
     ...(funds.length > 0
-      ? [{ value: "fund" as const, title: "Cover it from a savings fund", description: "Take it out of a fund instead. Your budget doesn't change." }]
+      ? [{ value: "fund" as const, title: r.coverFromFund, description: r.coverFromFundBody }]
       : []),
   ];
 
@@ -227,9 +223,9 @@ export function OverspendPrompt({ monthLabel, currentLabel, overspendPence, fund
     <Card as="section" className="flex flex-col gap-4">
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         <h2 className="text-title font-semibold text-text">
-          {monthLabel} went {fmt.money(overspendPence)} over. {question}
+          {r.wentOverBy(monthLabel, fmt.money(overspendPence))} {question}
         </h2>
-        <p className="text-caption text-muted">The whole amount comes from one place.</p>
+        <p className="text-caption text-muted">{r.oneSource}</p>
         <RadioCards
           label={question}
           options={options}
@@ -240,7 +236,7 @@ export function OverspendPrompt({ monthLabel, currentLabel, overspendPence, fund
           }}
         />
         {source === "fund" ? (
-          <Select label="Fund" value={fundId} onChange={(e) => setFundId(e.target.value)} options={funds.map((f) => ({ value: f.id, label: f.name }))} />
+          <Select label={r.fund} value={fundId} onChange={(e) => setFundId(e.target.value)} options={funds.map((f) => ({ value: f.id, label: f.name }))} />
         ) : null}
         {error ? (
           <div role="alert">
@@ -248,7 +244,7 @@ export function OverspendPrompt({ monthLabel, currentLabel, overspendPence, fund
           </div>
         ) : null}
         <Button type="submit" variant="primary" size="lg" fullWidth disabled={busy}>
-          {busy ? "Saving…" : "Confirm"}
+          {busy ? m.common.saving : r.confirm}
         </Button>
       </form>
     </Card>

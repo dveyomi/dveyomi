@@ -1,5 +1,7 @@
 "use server";
 
+import { localizeError } from "@/i18n/errors";
+import { getServerI18n } from "@/i18n/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { commitImport, existingExpensesFor, ImportBatchNotFoundError, undoImport } from "@/lib/data/imports";
@@ -49,7 +51,7 @@ export async function importAction(raw: unknown): Promise<{ batchId: string; ins
     revalidatePath("/", "layout");
     return result;
   } catch (e) {
-    if (e instanceof MissingReferenceError) return { error: e.message };
+    if (e instanceof MissingReferenceError) return { error: localizeError(e, await getServerI18n()) };
     console.error("commitImport failed", e);
     return { error: "We couldn't import these expenses. Nothing was saved. Check your connection and try again." };
   }
@@ -64,7 +66,7 @@ export async function undoImportAction(batchId: unknown): Promise<{ removed: num
     revalidatePath("/", "layout");
     return { removed };
   } catch (e) {
-    if (e instanceof ImportBatchNotFoundError) return { error: e.message };
+    if (e instanceof ImportBatchNotFoundError) return { error: localizeError(e, await getServerI18n()) };
     console.error("undoImport failed", e);
     return { error: "We couldn't undo this import. Check your connection and try again." };
   }

@@ -1,9 +1,13 @@
+import { getServerI18n } from "@/i18n/server";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui";
 import { CategoryContent } from "./CategoryContent";
 
-export const metadata: Metadata = { title: "Category · Personal Finance OS" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getServerI18n();
+  return { title: m.shell.pageTitle(m.budget.categoryTitle) };
+}
 
 export default function Page({ params }: PageProps<"/budget/[categoryId]">) {
   return (

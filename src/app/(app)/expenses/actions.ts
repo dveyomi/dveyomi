@@ -1,5 +1,6 @@
 "use server";
 
+import { localizeError } from "@/i18n/errors";
 import { getServerI18n } from "@/i18n/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -28,13 +29,13 @@ const targetOf = (t: unknown): Target => (isRecord(t) ? t : {});
 
 const DEFAULT_RETURN = "/expenses";
 
-const knownError = (e: unknown): string | null =>
+const knownError = async (e: unknown): Promise<string | null> =>
   e instanceof MissingReferenceError ||
   e instanceof TransactionNotFoundError ||
   e instanceof NotRecurringError ||
   e instanceof RuleNotFoundError ||
   e instanceof RecurringChangedError
-    ? e.message
+    ? localizeError(e, await getServerI18n())
     : null;
 
 /**
@@ -61,9 +62,9 @@ export async function saveExpenseAction(rawTarget: Target, raw: unknown): Promis
   try {
     await saveExpense(await createClient(), id ?? null, id ? edit : { ...edit, ...(repeat ? { repeat } : {}) });
   } catch (e) {
-    if (e instanceof NameTakenError) return { error: e.message, field: "newCategory" };
-    if (e instanceof DuplicateOccurrenceError) return { error: e.message, field: "date" };
-    const known = knownError(e);
+    if (e instanceof NameTakenError) return { error: localizeError(e, await getServerI18n()), field: "newCategory" };
+    if (e instanceof DuplicateOccurrenceError) return { error: localizeError(e, await getServerI18n()), field: "date" };
+    const known = await knownError(e);
     if (known) return { error: known };
     console.error("saveExpense failed", e);
     return { error: "We couldn't save this expense. Check your connection and try again." };
@@ -81,7 +82,7 @@ export async function deleteExpenseAction(rawTarget: Target): Promise<ExpenseAct
   try {
     await deleteTransaction(await createClient(), target.id);
   } catch (e) {
-    const known = knownError(e);
+    const known = await knownError(e);
     if (known) return { error: known };
     console.error("deleteTransaction failed", e);
     return { error: "We couldn't delete this expense. Check your connection and try again." };
@@ -102,7 +103,7 @@ export async function removeExpenseAction(id: unknown): Promise<{ error?: string
   try {
     await deleteTransaction(await createClient(), id);
   } catch (e) {
-    const known = knownError(e);
+    const known = await knownError(e);
     if (known) return { error: known };
     console.error("deleteTransaction failed", e);
     return { error: "We couldn't delete this expense. Check your connection and try again." };

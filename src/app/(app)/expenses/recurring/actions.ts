@@ -1,5 +1,6 @@
 "use server";
 
+import { localizeError } from "@/i18n/errors";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { IsoDate } from "@/lib/calc";
@@ -35,8 +36,8 @@ export type RecurringActionResult = { error?: string; field?: "amount" | "from" 
 
 const CHANGE_FROM_PAST = "Choose today or a later date. Past payments keep their amounts.";
 const NOT_RECOGNISED = { error: "This recurring payment wasn't recognised." };
-const known = (e: unknown) =>
-  e instanceof RuleNotFoundError || e instanceof RecurringChangedError || e instanceof NotRecurringError ? e.message : null;
+const known = async (e: unknown): Promise<string | null> =>
+  e instanceof RuleNotFoundError || e instanceof RecurringChangedError || e instanceof NotRecurringError ? localizeError(e, await getServerI18n()) : null;
 
 /** Signs in, runs `change` with the user's client and today, and turns failures into words. */
 async function run(what: string, change: (db: Db, today: IsoDate) => Promise<unknown>): Promise<RecurringActionResult> {
@@ -44,7 +45,7 @@ async function run(what: string, change: (db: Db, today: IsoDate) => Promise<unk
     const [db, today] = await Promise.all([createClient(), getToday()]);
     await change(db, today);
   } catch (e) {
-    const message = known(e);
+    const message = await known(e);
     if (message) return { error: message };
     console.error(`recurring: ${what} failed`, e);
     return { error: `We couldn't ${what}. Check your connection and try again.` };

@@ -1,3 +1,4 @@
+import { getServerI18n } from "@/i18n/server";
 import { redirect } from "next/navigation";
 import { BudgetOverview } from "@/components/BudgetOverview";
 import { loadBudgetView } from "@/lib/data/budget";
@@ -23,7 +24,7 @@ export async function BudgetContent({ searchParams }: BudgetContentProps) {
   if (!view.summary) redirect("/onboarding");
   // After loadBudgetView: it renews the period if due, which can create this period's savings prompt
   // and is the period carried leftovers are read for.
-  const [saving, review] = await Promise.all([loadSavingView(supabase, today), loadReviewStatus(supabase, today)]);
+  const [saving, review] = await Promise.all([loadSavingView(supabase, today), loadReviewStatus(supabase, today, await getServerI18n())]);
   return (
     <BudgetOverview
       {...view}
