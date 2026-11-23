@@ -33,6 +33,9 @@ test("onboarding → budget → log £12.50 → Budget, Expenses and export agre
   await page.goto("/budget");
   await expect(page).toHaveURL(/\/onboarding$/);
 
+  // 0 Welcome: keep English and pounds.
+  await page.getByRole("button", { name: "Start setting up" }).click();
+
   // 1 The basics: £3,000 a month from the 1st.
   await page.getByRole("textbox", { name: "Monthly income" }).fill("3000");
   await page.getByRole("button", { name: "Continue" }).click();
