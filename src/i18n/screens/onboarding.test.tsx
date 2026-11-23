@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@/i18n/client";
 
 vi.mock("@/app/onboarding/actions", () => ({ completeOnboardingAction: vi.fn() }));
+vi.mock("@/app/(app)/settings/settingsActions", () => ({
+  saveLanguage: vi.fn(async () => ({ ok: true })),
+  saveCurrency: vi.fn(async () => ({ ok: true })),
+}));
 
 import { OnboardingWizard } from "@/app/onboarding/Wizard";
 
@@ -13,6 +17,10 @@ describe("onboarding in Traditional Chinese with NT$", () => {
         <OnboardingWizard today="2026-11-22" />
       </I18nProvider>,
     );
+    expect(screen.getByRole("heading", { name: "歡迎" })).toBeInTheDocument();
+    expect(screen.getByLabelText("語言 · Language")).toHaveValue("zh-TW");
+    expect(screen.getByLabelText("幣別")).toHaveValue("TWD");
+    fireEvent.click(screen.getByRole("button", { name: "開始設定" }));
     expect(screen.getByRole("heading", { name: "從基本資料開始" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("月收入"), { target: { value: "40000" } });
     fireEvent.click(screen.getByRole("button", { name: "繼續" }));

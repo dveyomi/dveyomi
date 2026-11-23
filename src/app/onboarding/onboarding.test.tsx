@@ -1,8 +1,13 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { completeOnboardingAction } = vi.hoisted(() => ({ completeOnboardingAction: vi.fn() }));
+const { completeOnboardingAction, saveLanguage, saveCurrency } = vi.hoisted(() => ({
+  completeOnboardingAction: vi.fn(),
+  saveLanguage: vi.fn(async () => ({ ok: true })),
+  saveCurrency: vi.fn(async () => ({ ok: true })),
+}));
 vi.mock("./actions", () => ({ completeOnboardingAction }));
+vi.mock("@/app/(app)/settings/settingsActions", () => ({ saveLanguage, saveCurrency }));
 
 import { OnboardingWizard } from "./Wizard";
 
@@ -14,6 +19,12 @@ function type(label: string, value: string, scope: Scope = screen) {
   fireEvent.change(scope.getByLabelText(label), { target: { value } });
 }
 const click = (name: string | RegExp) => fireEvent.click(screen.getByRole("button", { name }));
+
+/** Opens the wizard and passes the welcome screen, as most tests start at step 1. */
+function renderWizard() {
+  render(<OnboardingWizard today={TODAY} />);
+  click("Start setting up");
+}
 
 function finishIncome(income = "6000", startDay = "25") {
   fireEvent.change(screen.getByLabelText("Starting on"), { target: { value: startDay } });
@@ -27,11 +38,61 @@ function addCategory(name: string, amount: string) {
   click("Add category");
 }
 
+describe("OnboardingWizard: welcome", () => {
+  beforeEach(() => {
+    saveLanguage.mockClear();
+    saveCurrency.mockClear();
+  });
+
+  it("opens on a welcome screen asking for the language, then the currency", () => {
+    render(<OnboardingWizard today={TODAY} />);
+    expect(screen.getByRole("heading", { name: "Welcome" })).toBeInTheDocument();
+    const language = screen.getByLabelText("Language · 語言");
+    expect(within(language).getByRole("option", { name: "繁體中文（台灣）" })).toHaveValue("zh-TW");
+    const currency = screen.getByLabelText("Currency");
+    expect(language.compareDocumentPosition(currency) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText(/Step 1 of 4/)).not.toBeInTheDocument();
+  });
+
+  it("saves a language or currency as soon as it is chosen", async () => {
+    render(<OnboardingWizard today={TODAY} />);
+    await act(async () => fireEvent.change(screen.getByLabelText("Language · 語言"), { target: { value: "zh-TW" } }));
+    expect(saveLanguage).toHaveBeenCalledWith("zh-TW");
+    await act(async () => fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "TWD" } }));
+    expect(saveCurrency).toHaveBeenCalledWith("TWD");
+  });
+
+  it("Start setting up saves both current choices and opens step 1 of 4", async () => {
+    render(<OnboardingWizard today={TODAY} />);
+    await act(async () => click("Start setting up"));
+    expect(saveLanguage).toHaveBeenCalledWith("en-GB");
+    expect(saveCurrency).toHaveBeenCalledWith("GBP");
+    expect(screen.getByRole("heading", { name: "Start with the basics" })).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
+  });
+
+  it("Back on step 1 returns to the welcome screen and keeps what was typed", () => {
+    renderWizard();
+    type("Monthly income", "2500");
+    click("Back");
+    expect(screen.getByRole("heading", { name: "Welcome" })).toBeInTheDocument();
+    click("Start setting up");
+    expect(screen.getByLabelText("Monthly income")).toHaveValue("2500");
+  });
+
+  it("shows the error when a choice can't be saved", async () => {
+    saveLanguage.mockResolvedValueOnce({ error: "We couldn't save your language." } as never);
+    render(<OnboardingWizard today={TODAY} />);
+    await act(async () => fireEvent.change(screen.getByLabelText("Language · 語言"), { target: { value: "zh-TW" } }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("We couldn't save your language."));
+  });
+});
+
 describe("OnboardingWizard: the basics", () => {
   beforeEach(() => completeOnboardingAction.mockReset());
 
   it("shows the period as Monthly and a live 'budget next on' line for the chosen start day", () => {
-    render(<OnboardingWizard today={TODAY} />);
+    renderWizard();
     expect(screen.getByText("Monthly")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Starting on"), { target: { value: "25" } });
     expect(screen.getByText("so budget next on Wednesday 25 November")).toBeInTheDocument();
@@ -40,7 +101,7 @@ describe("OnboardingWizard: the basics", () => {
   });
 
   it("labels day 1 'First day of the month' and other days as ordinals", () => {
-    render(<OnboardingWizard today={TODAY} />);
+    renderWizard();
     const select = screen.getByLabelText("Starting on");
     expect(within(select).getByRole("option", { name: "First day of the month" })).toHaveValue("1");
     expect(within(select).getByRole("option", { name: "25th" })).toHaveValue("25");
@@ -49,7 +110,7 @@ describe("OnboardingWizard: the basics", () => {
   });
 
   it("an income of 0 keeps the step from advancing", () => {
-    render(<OnboardingWizard today={TODAY} />);
+    renderWizard();
     finishIncome("0");
     expect(screen.getByRole("heading", { name: "Start with the basics" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(/income/i);
@@ -58,7 +119,7 @@ describe("OnboardingWizard: the basics", () => {
 
 describe("OnboardingWizard: spending budget", () => {
   it("shows how far allocations are over in red, and Continue stays enabled", () => {
-    render(<OnboardingWizard today={TODAY} />);
+    renderWizard();
     finishIncome("1000");
     expect(screen.getByRole("heading", { name: "Your spending budget" })).toBeInTheDocument();
     addCategory("Rent", "1200");
@@ -70,13 +131,13 @@ describe("OnboardingWizard: spending budget", () => {
   });
 
   it("says the amount to spend is before savings until savings are entered", () => {
-    render(<OnboardingWizard today={TODAY} />);
+    renderWizard();
     finishIncome("1000");
     expect(screen.getByText("Before savings")).toBeInTheDocument();
   });
 
   it("keeps Needs and Wants on separate tabs", () => {
-    render(<OnboardingWizard today={TODAY} />);
+    renderWizard();
     finishIncome();
     addCategory("Rent", "1200");
     fireEvent.click(screen.getByRole("tab", { name: "Wants" }));
@@ -88,7 +149,7 @@ describe("OnboardingWizard: spending budget", () => {
   });
 
   it("refuses a category name already used on either tab, ignoring case", () => {
-    render(<OnboardingWizard today={TODAY} />);
+    renderWizard();
     finishIncome();
     addCategory("Rent", "1200");
     fireEvent.click(screen.getByRole("tab", { name: "Wants" }));
@@ -98,7 +159,7 @@ describe("OnboardingWizard: spending budget", () => {
   });
 
   it("needs at least one category to continue", () => {
-    render(<OnboardingWizard today={TODAY} />);
+    renderWizard();
     finishIncome();
     click("Continue");
     expect(screen.getByRole("heading", { name: "Your spending budget" })).toBeInTheDocument();
@@ -106,7 +167,7 @@ describe("OnboardingWizard: spending budget", () => {
   });
 
   it("Back returns to the previous step with its answers kept", () => {
-    render(<OnboardingWizard today={TODAY} />);
+    renderWizard();
     finishIncome("6000");
     click("Back");
     expect(screen.getByLabelText("Monthly income")).toHaveValue("6000");
@@ -117,7 +178,7 @@ describe("OnboardingWizard: savings and going live", () => {
   beforeEach(() => completeOnboardingAction.mockReset().mockResolvedValue(undefined));
 
   function toSavings() {
-    render(<OnboardingWizard today={TODAY} />);
+    renderWizard();
     finishIncome("6000", "25");
     addCategory("Rent", "1500");
     fireEvent.click(screen.getByRole("tab", { name: "Wants" }));

@@ -5,23 +5,31 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Button, Card, Icon, IconButton, Money, ProgressBar } from "@/components/ui";
 import { allocationTotals, type IsoDate } from "@/lib/calc";
 import { checkBasics, checkCategories, checkSavings, validateOnboarding } from "@/lib/data/onboarding";
+import type { CurrencyCode, Locale } from "@/lib/locale";
+import { saveCurrency, saveLanguage, type SaveResult } from "@/app/(app)/settings/settingsActions";
 import { completeOnboardingAction } from "./actions";
 import { livePence, toInput, type CategoryDraft, type Draft, type FundDraft } from "./draft";
 import { Income } from "./Income";
 import { Live } from "./Live";
 import { Savings } from "./Savings";
 import { Spending } from "./Spending";
+import { Welcome } from "./Welcome";
 
 /** Four steps: the basics, spending budget, savings, you're live. */
 const STEP_COUNT = 4;
 
 /**
- * The onboarding flow. Answers live here, client-side, until the last step's
- * confirm sends them to the server in one go.
+ * The onboarding flow: a welcome screen for the language and currency (each
+ * saved as soon as it is chosen, so the screens switch at once), then the
+ * steps. Answers live here, client-side, until the last step's confirm sends
+ * them to the server in one go.
  */
 export function OnboardingWizard({ today }: { today: IsoDate }) {
   const i18n = useI18n();
   const o = i18n.m.onboarding;
+  const [welcomed, setWelcomed] = useState(false);
+  const [language, setLanguage] = useState<Locale>(i18n.locale);
+  const [currency, setCurrency] = useState<CurrencyCode>(i18n.currency);
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Draft>({
     startDay: 1,
@@ -42,7 +50,7 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
   useEffect(() => {
     if (moved.current) document.getElementById("step-heading")?.focus();
     moved.current = true;
-  }, [step]);
+  }, [step, welcomed]);
 
   // Nothing is saved until the last step, so warn before leaving with answers typed.
   const started = draft.incomeText !== "" || draft.categories.length > 0;
@@ -52,6 +60,29 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [started]);
+
+  /** Saves a language or currency choice; a failure is shown but never blocks setup. */
+  async function savePref(save: () => Promise<SaveResult>) {
+    const result = await save();
+    if ("error" in result) setStepError(result.error);
+  }
+  function chooseLanguage(next: Locale) {
+    setStepError(null);
+    setLanguage(next);
+    void savePref(() => saveLanguage(next));
+  }
+  function chooseCurrency(next: CurrencyCode) {
+    setStepError(null);
+    setCurrency(next);
+    void savePref(() => saveCurrency(next));
+  }
+  // Saves both again: a device can remember another language than a new account has.
+  function start() {
+    setStepError(null);
+    setWelcomed(true);
+    void savePref(() => saveLanguage(language));
+    void savePref(() => saveCurrency(currency));
+  }
 
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const go = (to: number) => {
@@ -100,48 +131,57 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
 
   return (
     <div className="flex flex-1 flex-col md:flex-row">
-      <aside className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-80 md:shrink-0 md:flex-col md:gap-8 md:overflow-y-auto md:border-r md:border-border md:bg-card md:px-6 md:py-8 lg:w-96 lg:px-8">
-        <p className="text-body font-semibold text-text">{o.setUp}</p>
-        <ol className="flex flex-col gap-1">
-          {o.steps.map((label, i) => (
-            <li
-              key={label}
-              aria-current={i === step ? "step" : undefined}
-              className={`flex min-h-11 items-center gap-3 rounded-sm px-3 text-body ${i === step ? "bg-card-raised font-semibold text-text" : "text-muted"}`}
-            >
-              <span
-                className={`flex size-7 shrink-0 items-center justify-center rounded-pill text-caption font-semibold ${i < step ? "bg-accent text-accent-ink" : "border border-border-strong"}`}
+      {welcomed ? (
+        <aside className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-80 md:shrink-0 md:flex-col md:gap-8 md:overflow-y-auto md:border-r md:border-border md:bg-card md:px-6 md:py-8 lg:w-96 lg:px-8">
+          <p className="text-body font-semibold text-text">{o.setUp}</p>
+          <ol className="flex flex-col gap-1">
+            {o.steps.map((label, i) => (
+              <li
+                key={label}
+                aria-current={i === step ? "step" : undefined}
+                className={`flex min-h-11 items-center gap-3 rounded-sm px-3 text-body ${i === step ? "bg-card-raised font-semibold text-text" : "text-muted"}`}
               >
-                {i < step ? <Icon name="check" size="sm" /> : i + 1}
-              </span>
-              {label}
-            </li>
-          ))}
-        </ol>
-        <Card raised className="flex flex-col gap-3">
-          <p className="text-caption font-semibold text-muted">{o.soFar}</p>
-          <SoFar label={o.monthlyIncome} pence={incomePence} />
-          <SoFar label={o.savings} pence={savingsPence} />
-          <SoFar label={o.toSpend} pence={totals.poolPence} />
-          <SoFar label={o.allocated} pence={totals.allocatedPence} />
-        </Card>
-      </aside>
+                <span
+                  className={`flex size-7 shrink-0 items-center justify-center rounded-pill text-caption font-semibold ${i < step ? "bg-accent text-accent-ink" : "border border-border-strong"}`}
+                >
+                  {i < step ? <Icon name="check" size="sm" /> : i + 1}
+                </span>
+                {label}
+              </li>
+            ))}
+          </ol>
+          <Card raised className="flex flex-col gap-3">
+            <p className="text-caption font-semibold text-muted">{o.soFar}</p>
+            <SoFar label={o.monthlyIncome} pence={incomePence} />
+            <SoFar label={o.savings} pence={savingsPence} />
+            <SoFar label={o.toSpend} pence={totals.poolPence} />
+            <SoFar label={o.allocated} pence={totals.allocatedPence} />
+          </Card>
+        </aside>
+      ) : null}
 
       <div className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-phone flex-1 flex-col gap-6 px-4 pt-4 md:max-w-2xl md:flex-none md:px-8 md:pt-12 [&_:is(input,select,button)]:scroll-mb-32">
-          <div className="flex items-center gap-3">
-            {step > 0 ? (
-              <IconButton icon="chevron-left" label={i18n.m.common.back} onClick={() => go(step - 1)} disabled={saving} />
-            ) : null}
-            <div className="flex flex-1 flex-col gap-2">
-              <p className="text-caption text-muted">
-                {o.stepOf(step + 1, STEP_COUNT)}
-              </p>
-              <ProgressBar percent={((step + 1) / STEP_COUNT) * 100} state="normal" label={o.progress} />
+          {welcomed ? (
+            <div className="flex items-center gap-3">
+              <IconButton
+                icon="chevron-left"
+                label={i18n.m.common.back}
+                onClick={() => (step > 0 ? go(step - 1) : setWelcomed(false))}
+                disabled={saving}
+              />
+              <div className="flex flex-1 flex-col gap-2">
+                <p className="text-caption text-muted">
+                  {o.stepOf(step + 1, STEP_COUNT)}
+                </p>
+                <ProgressBar percent={((step + 1) / STEP_COUNT) * 100} state="normal" label={o.progress} />
+              </div>
             </div>
-          </div>
+          ) : null}
 
-          {step === 0 ? (
+          {!welcomed ? (
+            <Welcome language={language} onLanguage={chooseLanguage} currency={currency} onCurrency={chooseCurrency} />
+          ) : step === 0 ? (
             <Income
               today={today}
               startDay={draft.startDay}
@@ -199,7 +239,11 @@ export function OnboardingWizard({ today }: { today: IsoDate }) {
                 {stepError}
               </p>
             ) : null}
-            {last ? (
+            {!welcomed ? (
+              <Button variant="primary" size="lg" fullWidth onClick={start} className="md:w-auto md:min-w-48">
+                {o.startSettingUp}
+              </Button>
+            ) : last ? (
               <Button variant="primary" size="lg" fullWidth onClick={confirm} disabled={saving} className="md:w-auto">
                 {saving ? i18n.m.common.saving : o.goToBudget}
               </Button>
