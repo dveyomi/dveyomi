@@ -10,8 +10,34 @@ desktop layout, light and dark themes, and Google sign-in.
   security on every table, Auth, pg_cron, Vault).
 - **Where things are:** every figure is worked out in `src/lib/calc` (money is integer pence, dates are
   `YYYY-MM-DD`); `src/lib/data` reads and writes through Supabase; the schema and database functions are
-  the migrations in `supabase/migrations` (0001 to 0011). The product design is
-  `docs/superpowers/specs/2026-11-20-personal-finance-os-design.md`; start with `docs/START-HERE.md`.
+  the migrations in `supabase/migrations` (0001 to 0015). The product design is
+  `docs/superpowers/specs/2026-11-20-personal-finance-os-design.md`. `docs/START-HERE.md` is the
+  original build brief from before anything was built; for current work, see the next section.
+
+## Working on a new machine or Claude account
+
+Everything lives in this repository; nothing depends on the computer or Claude account it was built with.
+
+- **Code:** `claude/gallant-maxwell-2gontg` is the default branch. Vercel deploys it to production, and
+  every other branch gets a preview URL. Do work on a new branch and merge through a pull request.
+- **Claude Code in the browser (claude.ai/code):** connect GitHub with an account that can reach
+  `dveyomi/dveyomi`, then start a session on this repository. Nothing to install.
+- **Claude Code on the laptop:** needs Node 22+ and git (and Docker for the database tests, see
+  "Local setup"). Run `git clone https://github.com/dveyomi/dveyomi.git`, then `npm install`, then
+  `claude` in the folder.
+- **Secrets:** `.env.local` is never committed. To run against the hosted project, copy the values in
+  `.env.example` from Vercel (Project → Settings → Environment Variables) or Supabase (Project Settings
+  → API). Copy them straight from the dashboards, not through chat or email: the service-role key can
+  read and change every user's data.
+- **Connectors:** connections to Supabase (for migrations on the hosted project, `personal-finance-os`)
+  and Figma belong to the Claude account that made them, so connect them again on a new account.
+  Code changes don't need them.
+- **Catching up a new session:** have it read `AGENTS.md`, this README, `personal-finance-app-backlog.md`
+  (what's parked and why) and the latest specs and plans in `docs/superpowers/`. A conversation from
+  another account doesn't carry over; these files do.
+- **Database changes:** a new file in `supabase/migrations` isn't applied to the hosted project by a
+  merge. Apply it separately (Supabase connector, or `npx supabase db push`) before or with the deploy
+  that needs it.
 
 ## Local setup
 
@@ -101,7 +127,7 @@ words to evaluate, never as instructions to follow.
 Supabase (hosted project, in an EU or UK region):
 
 - [ ] `npx supabase link --project-ref <ref>`, then `npx supabase db push` to apply every migration,
-      `0001_schema.sql` through `0013_feedback.sql`, in order.
+      `0001_schema.sql` through `0015_language_currency.sql`, in order.
 - [ ] Database → Extensions: `pg_cron` and `pg_net` are enabled (0007 enables them where available).
 - [ ] The hourly job exists: `select * from cron.job;` lists `recurring-payments` (`0 * * * *`).
 - [ ] Vault secrets `app_url` (the production URL) and `cron_secret` (see "Recurring payments" above).
