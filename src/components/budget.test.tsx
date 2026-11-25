@@ -322,6 +322,16 @@ describe("CategoryDetail", () => {
     expect(items[0]).not.toHaveTextContent("from");
   });
 
+  it("opens each expense's edit form (to change its category) and comes back to the category", () => {
+    render(<CategoryDetail inUse={null} period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
+    const list = screen.getByRole("list", { name: /expenses/i });
+    expect(within(list).getByRole("link", { name: /train/i })).toHaveAttribute(
+      "href",
+      `/expenses/t3?returnTo=${encodeURIComponent("/budget/travel")}`,
+    );
+    expect(within(list).getAllByRole("link")).toHaveLength(3);
+  });
+
   it("logs an expense with the category chosen", () => {
     render(<CategoryDetail inUse={null} period={period} category={travel} figure={travelFigure} daysLeft={4} transactions={txns} />);
     expect(screen.getByRole("link", { name: /log expense/i })).toHaveAttribute("href", "/expenses/new?category=travel&returnTo=/budget/travel");

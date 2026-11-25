@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/i18n/client";
 import { categoryIcon } from "@/components/categoryIcon";
+import { editHref } from "@/components/TransactionList";
 import { CategoryMenu } from "@/components/CategoryMenu";
 import { ButtonLink, Card, EmptyState, Icon, ListRow, Money, ProgressBar } from "@/components/ui";
 import { percentLeft, type CategoryFigure, type Period } from "@/lib/calc";
@@ -118,6 +119,7 @@ export function CategoryDetail({ period, category, figure, daysLeft, transaction
                 {transactions.map((t) => (
                   <li key={t.id}>
                     <ListRow
+                      href={editHref(t.id, `/budget/${category.id}`)}
                       title={t.name}
                       subtitle={t.fundName ? c.fromFund(fmt.shortDate(t.date), t.fundName) : fmt.shortDate(t.date)}
                       trailing={<Money pence={t.amountPence} />}
